@@ -1,0 +1,970 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Red DAIMAY · Gemelos digitales</title>
+<meta name="description" content="Mapa 3D del sureste de Coahuila con los gemelos digitales de las plantas DAIMAY (P1, P4, P8 y Parras), portafolio OPEX, Tier 3 y flujos entre plantas.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%2312161c'/%3E%3Cpath d='M16 6 L27 25 H5 Z' fill='%23ED3037'/%3E%3C/svg%3E">
+<style>html,body{margin:0;height:100%;background:#0b0e12}</style>
+</head>
+<body>
+<title>Red de Plantas DAIMAY</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  /* Layout: mapa regional 3D a pantalla completa · barra de red arriba · gemelo de planta en marco debajo de la barra · panel lateral de módulos a la derecha */
+  :root{
+    --bg:#0C0F13; --panel:rgba(17,21,27,.93); --solid:#13171D; --raise:#1B2129; --raise2:#232B35; --line:#29313B;
+    --text:#E8ECEF; --dim:#9AA3AD; --faint:#636D78;
+    --red:#ED3037; --red-d:#B01B22; --red-t:rgba(237,48,55,.14);
+    --ok:#2FBF71; --warn:#F2B01E; --bad:#FF5F57; --gray:#8B929B;
+    --f-display:'Barlow Condensed','Arial Narrow',Arial,sans-serif;
+    --f-body:'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
+    --f-mono:'IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;
+    --bar-h:52px; --r:8px;
+    color-scheme:dark;
+  }
+  html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font-family:var(--f-body);font-size:13px;overflow:hidden;overscroll-behavior:none}
+  [hidden]{display:none!important}
+  button,select,input,textarea{font-family:inherit;color:inherit;font-size:inherit}
+  button{cursor:pointer}
+  :focus-visible{outline:2px solid var(--red);outline-offset:2px}
+  .mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+  /* ---------- barra de red ---------- */
+  #bar{position:fixed;z-index:30;left:0;right:0;top:0;padding:calc(8px + env(safe-area-inset-top,0px)) 12px 8px;min-height:var(--bar-h);box-sizing:border-box;display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:linear-gradient(180deg,rgba(12,15,19,.98),rgba(12,15,19,.9));border-bottom:1px solid var(--line);backdrop-filter:blur(8px)}
+  .brand{display:flex;align-items:center;gap:9px;padding-right:4px}
+  .brand .tri{width:0;height:0;border-left:9px solid transparent;border-right:9px solid transparent;border-bottom:15px solid var(--red)}
+  .brand b{font-family:var(--f-display);font-size:20px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;white-space:nowrap}
+  .brand b i{font-style:normal;color:var(--red)}
+  .jumps{display:flex;gap:2px;background:var(--raise);border:1px solid var(--line);border-radius:var(--r);padding:3px}
+  .jumps button{background:none;border:0;padding:6px 11px;border-radius:6px;font-weight:600;font-size:12.5px;color:var(--dim);display:flex;align-items:center;gap:6px;white-space:nowrap}
+  .jumps button:hover{color:var(--text)}
+  .jumps button.on{background:var(--raise2);color:var(--text);box-shadow:inset 0 -2px 0 var(--red)}
+  .jumps .dot{width:7px;height:7px;border-radius:50%;background:var(--gray)}
+  .search{position:relative;flex:1 1 220px;max-width:420px;min-width:160px}
+  .search input{width:100%;box-sizing:border-box;background:var(--raise);border:1px solid var(--line);border-radius:var(--r);padding:8px 10px 8px 30px}
+  .search svg{position:absolute;left:9px;top:50%;transform:translateY(-50%);width:14px;height:14px;stroke:var(--dim);fill:none;stroke-width:2}
+  #sres{position:absolute;left:0;right:0;top:calc(100% + 4px);background:var(--solid);border:1px solid var(--line);border-radius:var(--r);max-height:60vh;overflow:auto;box-shadow:0 14px 34px rgba(0,0,0,.5)}
+  #sres button{display:flex;width:100%;gap:8px;align-items:center;text-align:left;background:none;border:0;border-bottom:1px solid var(--line);padding:8px 10px}
+  #sres button:hover,#sres button.sel{background:var(--raise)}
+  #sres .k{font-size:10.5px;color:var(--faint);margin-left:auto;white-space:nowrap}
+  .pchip{font-family:var(--f-mono);font-size:10.5px;padding:1px 6px;border-radius:4px;background:var(--raise2);color:var(--text);white-space:nowrap}
+  .acts{display:flex;gap:6px;margin-left:auto}
+  .btn{background:var(--raise);border:1px solid var(--line);border-radius:var(--r);padding:7px 11px;font-weight:600;font-size:12.5px;white-space:nowrap}
+  .btn:hover{border-color:var(--red)}
+  .btn.on{border-color:var(--red);color:#fff;background:var(--red-t)}
+  .btn.prim{background:var(--red);border-color:var(--red);color:#fff}
+  .btn.sm{padding:4px 8px;font-size:11.5px}
+  .seal{display:flex;gap:6px;align-items:center;font-family:var(--f-mono);font-size:10.5px;color:var(--dim)}
+  .seal .k{padding:1px 6px;border-radius:4px;border:1px solid var(--line);color:var(--text)}
+  /* ---------- escenario regional ---------- */
+  #stage{position:fixed;inset:0;z-index:1}
+  #stage canvas{display:block;width:100%;height:100%;touch-action:none;outline:none}
+  #labels{position:fixed;inset:0;z-index:5;pointer-events:none;overflow:hidden}
+  .lbl{position:absolute;left:0;top:0;transform:translate(-50%,-100%);pointer-events:auto;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;will-change:transform}
+  .lbl .card{background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:6px 9px;min-width:110px;box-shadow:0 8px 22px rgba(0,0,0,.45);text-align:left}
+  .lbl .card b{font-family:var(--f-display);font-size:17px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;display:block;line-height:1.05}
+  .lbl .card small{display:block;color:var(--dim);font-size:11px}
+  .lbl .row{display:flex;gap:4px;align-items:center;margin-top:4px}
+  .lbl .stem{width:1px;height:22px;background:linear-gradient(var(--line),transparent)}
+  .lbl.ghost .card{border-style:dashed;background:rgba(17,21,27,.7)}
+  .lbl.ghost .card b{color:var(--dim)}
+  .lbl:hover .card{border-color:var(--red)}
+  .lbl.city{cursor:default;pointer-events:none;transform:translate(-50%,-50%)}
+  .lbl.city span{font-family:var(--f-display);font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);white-space:nowrap}
+  .lbl.flow{transform:translate(-50%,-50%)}
+  .lbl.flow span{background:var(--solid);border:1px solid var(--line);border-radius:99px;padding:2px 8px;font-size:11px;white-space:nowrap;color:var(--text)}
+  .lbl.flow span:hover{border-color:var(--red)}
+  .lbl.cluster .card{min-width:150px}
+  .sq{display:inline-flex;gap:2px}
+  .sq i{font-style:normal;font-family:var(--f-mono);font-size:9.5px;min-width:15px;padding:0 2px;box-sizing:border-box;height:15px;border-radius:3px;display:inline-flex;align-items:center;justify-content:center;background:var(--raise2);color:var(--faint)}
+  .sq i.verde{background:var(--ok);color:#06210f}.sq i.ambar{background:var(--warn);color:#2a1d00}.sq i.rojo{background:var(--bad);color:#2b0605}
+  .badge{font-family:var(--f-mono);font-size:10px;padding:1px 6px;border-radius:99px;background:var(--red-t);color:#ffb3b5;border:1px solid rgba(237,48,55,.35);white-space:nowrap}
+  #mapui{position:fixed;z-index:6;left:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px));display:flex;gap:10px;align-items:flex-end;pointer-events:none}
+  .scalebar{background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:6px 9px;font-family:var(--f-mono);font-size:10.5px;color:var(--dim)}
+  .scalebar i{display:block;height:5px;border:1px solid var(--dim);border-top:0;margin-top:3px}
+  .north{width:34px;height:34px;border-radius:50%;background:var(--panel);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-family:var(--f-display);font-weight:700;color:var(--dim);position:relative}
+  .north::before{content:'';position:absolute;top:3px;border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:8px solid var(--red)}
+  .mapbox{display:flex;flex-direction:column;gap:4px;pointer-events:auto}
+  .mapbox .seg{background:var(--panel);backdrop-filter:blur(8px)}
+  .attr{font-family:var(--f-mono);font-size:9.5px;color:var(--dim);background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:3px 7px}
+  .apx{font-family:var(--f-mono);font-size:9.5px;padding:1px 5px;border-radius:4px;border:1px dashed var(--warn);color:var(--warn)}
+  .loc{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:11.5px;color:var(--dim);border:1px dashed rgba(242,176,30,.45);border-radius:6px;padding:6px 8px}
+  .loc.ok{border:1px solid rgba(47,191,113,.45)}
+  .loc .mono{font-size:10.5px}
+  .locedit{display:flex;flex-direction:column;gap:6px;border:1px solid var(--red);border-radius:6px;padding:8px}
+  .locedit input{background:var(--raise);border:1px solid var(--line);border-radius:6px;padding:7px 8px;color:var(--text)}
+  #coord{background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:6px 9px;font-family:var(--f-mono);font-size:10.5px;color:var(--dim);min-width:160px}
+  /* ---------- marcos de planta ---------- */
+  #frames{position:fixed;z-index:10;left:0;right:0;bottom:0;top:var(--bar-top,var(--bar-h));display:flex;background:var(--bg)}
+  #frames iframe{flex:1 1 50%;border:0;min-width:0;height:100%;background:var(--bg)}
+  #frames.split iframe+iframe{border-left:2px solid var(--red)}
+  #frames .splitlbl{position:absolute;bottom:10px;z-index:2;font-family:var(--f-display);font-weight:700;letter-spacing:.06em;text-transform:uppercase;background:var(--red);color:#fff;padding:2px 8px;border-radius:4px;pointer-events:none}
+  #veil{position:fixed;z-index:40;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:radial-gradient(ellipse at center,rgba(19,23,29,.97),rgba(9,11,14,.99));opacity:0;pointer-events:none;transition:opacity .35s}
+  #veil.on{opacity:1;pointer-events:auto}
+  #veil b{font-family:var(--f-display);font-size:34px;letter-spacing:.06em;text-transform:uppercase}
+  #veil span{font-family:var(--f-mono);font-size:11.5px;color:var(--dim);text-align:center;max-width:80vw}
+  #veil .bar{width:min(300px,70vw);height:3px;background:var(--line);border-radius:3px;overflow:hidden}
+  #veil .bar i{display:block;height:100%;width:30%;background:var(--red);animation:slide 1.1s ease-in-out infinite}
+  @keyframes slide{0%{transform:translateX(-100%)}100%{transform:translateX(340%)}}
+  /* ---------- panel de módulos ---------- */
+  #drawer{position:fixed;z-index:25;right:10px;top:calc(var(--bar-top,var(--bar-h)) + 10px);bottom:calc(10px + env(safe-area-inset-bottom,0px));width:400px;max-width:calc(100% - 20px);display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--line);border-radius:var(--r);backdrop-filter:blur(10px);box-shadow:0 14px 40px rgba(0,0,0,.45)}
+  .tabs{display:flex;border-bottom:1px solid var(--line)}
+  .tabs button{flex:1;background:none;border:0;padding:10px 2px;font-size:12px;font-weight:600;color:var(--dim)}
+  .tabs button.on{color:var(--text);box-shadow:inset 0 -2px 0 var(--red)}
+  .tabs .x{flex:0 0 38px;font-size:16px}
+  .dbody{flex:1;overflow-y:auto;padding:12px 12px 16px;display:flex;flex-direction:column;gap:12px;min-height:0}
+  .dbody>*{flex-shrink:0}
+  h3{margin:0;font-family:var(--f-display);font-size:16px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;text-wrap:balance}
+  h4{margin:0;font-size:12.5px;font-weight:600}
+  .note{margin:0;color:var(--dim);font-size:11.5px;line-height:1.5}
+  .note b{color:var(--text);font-weight:600}
+  .pcard{border:1px solid var(--line);border-radius:var(--r);padding:10px;display:flex;flex-direction:column;gap:8px;background:rgba(255,255,255,.015)}
+  .pcard.ghost{border-style:dashed}
+  .pcard .hd{display:flex;gap:8px;align-items:baseline}
+  .pcard .hd b{font-family:var(--f-display);font-size:19px;letter-spacing:.03em;text-transform:uppercase}
+  .pcard .hd small{color:var(--dim)}
+  .kv{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+  .kv div{background:var(--raise);border-radius:6px;padding:5px 7px;min-width:0}
+  .kv small{display:block;font-size:9.5px;color:var(--faint);text-transform:uppercase;letter-spacing:.06em}
+  .kv span{font-family:var(--f-mono);font-size:13px}
+  .row{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+  .src{font-family:var(--f-mono);font-size:10.5px;color:var(--dim);line-height:1.5}
+  .chip{display:inline-block;font-family:var(--f-mono);font-size:10px;padding:1px 6px;border-radius:99px;white-space:nowrap}
+  .chip.dwg{background:rgba(63,178,127,.16);color:#7fe0b0}.chip.pdf{background:rgba(76,141,255,.16);color:#a9c4ff}.chip.est{background:rgba(242,176,30,.14);color:var(--warn)}
+  table.t{width:100%;border-collapse:collapse;font-size:11.5px;font-variant-numeric:tabular-nums}
+  table.t th,table.t td{padding:5px 4px;border-bottom:1px solid var(--line);text-align:right;vertical-align:top}
+  table.t th:first-child,table.t td:first-child{text-align:left}
+  table.t th{color:var(--faint);font-weight:500;font-size:10.5px}
+  .twrap{overflow-x:auto}
+  .bars{display:flex;flex-direction:column;gap:5px}
+  .bars .b{display:grid;grid-template-columns:52px 1fr 64px;gap:6px;align-items:center;font-size:11px}
+  .bars .b i{display:block;height:9px;border-radius:2px;background:var(--red)}
+  .bars .b i.g{background:var(--gray)}
+  .bars .b span{font-family:var(--f-mono);text-align:right;color:var(--dim)}
+  .f{display:grid;grid-template-columns:96px 1fr;gap:6px;align-items:center;font-size:12px;color:var(--dim)}
+  .f input,.f select,.f textarea{background:var(--raise);border:1px solid var(--line);border-radius:6px;padding:6px 7px;min-width:0;width:100%;box-sizing:border-box;color:var(--text)}
+  .f textarea{resize:vertical;min-height:52px}
+  .seg{display:flex;gap:2px;background:var(--raise);border:1px solid var(--line);border-radius:6px;padding:2px;flex-wrap:wrap}
+  .seg button{background:none;border:0;padding:4px 8px;border-radius:4px;font-size:11.5px;color:var(--dim)}
+  .seg button.on{background:var(--raise2);color:var(--text)}
+  .seg button.verde.on{background:var(--ok);color:#06210f}.seg button.ambar.on{background:var(--warn);color:#2a1d00}.seg button.rojo.on{background:var(--bad);color:#2b0605}
+  .proj{border:1px solid var(--line);border-radius:var(--r);padding:9px;display:flex;flex-direction:column;gap:5px;cursor:pointer;border-left:4px solid var(--gray)}
+  .proj:hover{background:var(--raise)}
+  .proj.verde{border-left-color:var(--ok)}.proj.ambar{border-left-color:var(--warn)}.proj.rojo{border-left-color:var(--bad)}
+  .proj b{font-size:12.5px}
+  .proj .meta{display:flex;gap:6px;flex-wrap:wrap;font-size:11px;color:var(--dim)}
+  .phase{display:flex;gap:2px}
+  .phase i{font-style:normal;font-family:var(--f-mono);font-size:9.5px;padding:1px 4px;border-radius:3px;background:var(--raise2);color:var(--faint)}
+  .phase i.done{background:#3a4350;color:var(--text)}.phase i.cur{background:var(--red);color:#fff}
+  .tier{border:1px solid var(--line);border-radius:var(--r);padding:9px;display:flex;flex-direction:column;gap:6px}
+  .tier .hd{display:flex;gap:8px;align-items:center}
+  .tier .hd b{font-family:var(--f-display);font-size:16px;letter-spacing:.03em;text-transform:uppercase;flex:1}
+  .hist{display:flex;gap:2px}
+  .hist i{width:9px;height:9px;border-radius:2px;background:var(--raise2)}
+  .hist i.verde{background:var(--ok)}.hist i.ambar{background:var(--warn)}.hist i.rojo{background:var(--bad)}
+  .catrow{display:grid;grid-template-columns:22px 1fr;gap:8px;align-items:start}
+  .catrow>b{font-family:var(--f-mono);font-size:12px;width:22px;height:22px;border-radius:4px;background:var(--raise2);display:flex;align-items:center;justify-content:center}
+  .catrow .in{display:flex;flex-direction:column;gap:5px;min-width:0}
+  .catrow .in .row input{flex:1 1 90px}
+  .banner{border:1px solid rgba(242,176,30,.35);background:rgba(242,176,30,.08);color:#ffd88a;border-radius:var(--r);padding:8px 10px;font-size:11.5px}
+  details summary{cursor:pointer;color:var(--dim);font-size:12px}
+  #cap{position:fixed;z-index:35;left:50%;transform:translateX(-50%);bottom:calc(22px + env(safe-area-inset-bottom,0px));max-width:min(680px,calc(100% - 32px));background:var(--solid);border:1px solid var(--red);border-radius:var(--r);padding:10px 16px;font-weight:600;font-size:14px;text-align:center;box-shadow:0 12px 30px rgba(0,0,0,.5)}
+  #cap small{display:block;font-family:var(--f-mono);font-size:10.5px;color:var(--dim);font-weight:400;margin-bottom:3px}
+  #toast{position:fixed;z-index:45;left:50%;transform:translateX(-50%);top:calc(var(--bar-top,var(--bar-h)) + 12px);background:var(--solid);border:1px solid var(--line);border-radius:var(--r);padding:8px 14px;font-size:12.5px;box-shadow:0 10px 26px rgba(0,0,0,.45)}
+  #pickbar{position:fixed;z-index:36;left:50%;transform:translateX(-50%);top:calc(var(--bar-top,var(--bar-h)) + 12px);background:var(--solid);border:1px solid var(--red);border-radius:var(--r);padding:8px 12px;display:flex;gap:10px;align-items:center;font-size:12.5px}
+  @media (max-width:1500px){ .brand b span{display:none} }
+  @media (max-width:900px){
+    .acts .lab{display:none}
+    #drawer{left:10px;right:10px;width:auto;top:auto;height:58%}
+  }
+  @media (max-width:700px){ #coord,.attr{display:none} }
+  @media (max-width:560px){ #bar{gap:6px;padding-left:10px;padding-right:10px} .seal{display:none} .brand{order:0} .acts{order:1} .jumps{order:2} .search{order:3;flex-basis:100%;max-width:none} .brand b{font-size:18px} }
+  @media (prefers-reduced-motion:reduce){ #veil,#veil .bar i{transition:none;animation:none} }
+</style>
+<div id="stage"></div>
+<div id="labels"></div>
+<div id="mapui">
+  <div class="north" title="Norte">N</div>
+  <div class="scalebar" id="scale">20 km<i id="scaleI" style="width:80px"></i></div>
+  <div id="coord">Mueve el cursor sobre el mapa</div>
+  <div class="mapbox"><div class="seg" id="mapSty" role="group" aria-label="Estilo de mapa"><button data-v="light">Mapa</button><button data-v="dark">Relieve oscuro</button></div><div class="attr">Natural Earth · INEGI · relieve interpolado ×2.4</div></div>
+</div>
+<div id="frames" hidden></div>
+<header id="bar">
+  <div class="brand"><div class="tri" aria-hidden="true"></div><b>Red <i>DAIMAY</i><span> · gemelos digitales</span></b></div>
+  <nav class="jumps" id="jumps" aria-label="Ir a planta"></nav>
+  <div class="search">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-4-4"></path></svg>
+    <input id="q" type="search" placeholder="Buscar en las plantas: IMM 2400, Línea 9, hornos, andén…" autocomplete="off" aria-label="Buscar en todas las plantas">
+    <div id="sres" hidden></div>
+  </div>
+  <div class="seal" id="seal" hidden></div>
+  <div class="acts">
+    <button class="btn" id="tourBtn" title="Recorrido guiado por la red">▶ <span class="lab">Recorrido</span></button>
+    <button class="btn" id="panelBtn" title="Panel de módulos">☰ <span class="lab">Panel</span></button>
+  </div>
+</header>
+<aside id="drawer" aria-label="Módulos de la red">
+  <div class="tabs" id="tabs">
+    <button data-t="plantas" class="on">Plantas</button>
+    <button data-t="comparar">Comparar</button>
+    <button data-t="opex">Portafolio</button>
+    <button data-t="tier">Tier 3</button>
+    <button data-t="flujos">Flujos</button>
+    <button class="x" id="drawerX" aria-label="Cerrar panel">×</button>
+  </div>
+  <div class="dbody" id="dbody"></div>
+</aside>
+<div id="veil" aria-live="polite"><b id="veilT">Planta</b><div class="bar"><i></i></div><span id="veilS"></span></div>
+<div id="cap" hidden><small id="capN"></small><span id="capT"></span></div>
+<div id="toast" hidden></div>
+<div id="pickbar" hidden><span>Haz clic en el plano donde vive el proyecto</span><button class="btn sm" id="pickCancel">Cancelar</button></div>
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }
+</script>
+<script id="netdata" type="application/json">[{"id":"p8","name":"Planta 8","short":"P8","sub":"DWG v3 · 23-sep-26","kind":"DWG","file":"01.Plant 8 23SEP26 OH.dwg · versión 3 (copia \"PROPUESTA 1\")","drawn":"23-sep-26","built":"27-sep-26","twin":"https://claude.ai/artifact/RmKecwCAqugomfUYp3er3Y","focus":"Líneas Honda (CR-V 34AA, Civic 37A), Estación 0, armado de cartón","site":"Ramos Arizpe","meta":{"source":"DWG 01.Plant 8 23SEP26 OH.dwg · versión 3 (copia bajo \"PROPUESTA 1\")","units":"m","scale":1.0,"frame":"x = yDWG - 169.538 ; z = xDWG - 6311.148 (coordenadas de la copia v3 en el DWG)","prevScale":1.0338221407182564,"note":"v11 (PDF) escalado 1/1.0338 al DWG; zonas cambiadas reconstruidas del DWG"},"met":{"area":31583,"areaProp":0,"blds":1,"ops":309,"m2op":102.2,"aisle":12192,"aislePct":38.6,"cols":161,"docks":null,"racks":"679 bahías","eq":["685 mesas, máquinas y WIP","485 contenedores/tarimas"]},"polys":[{"p":[[65.8,-149.8],[3.8,-149.7],[-43.3,-116.2],[-43.2,-15.6],[-90.9,120.4],[11.6,156.6],[52.4,41.8],[65.8,3.8]],"h":12,"prop":false}],"mini":{"f":"p8_minimap12.jpg","x0":-104.78,"z0":-212.874,"x1":119.157,"z1":200.563},"search":[{"t":"Línea Honda 34AA CR-V","k":"poi","x":-37.3,"z":78.7},{"t":"Línea Honda 37A Civic","k":"poi","x":-30.8,"z":81.8},{"t":"Estación 0","k":"poi","x":-65.3,"z":67.2},{"t":"Área de armado de cartón (cartonera)","k":"poi","x":-39.7,"z":-74.7},{"t":"ALCANTARA","k":"rótulo","x":-52.3,"z":77.0},{"t":"TUNDRA","k":"rótulo","x":-49.8,"z":72.6},{"t":"34AA CR-V · HONDA","k":"rótulo","x":-37.3,"z":78.7},{"t":"37A CIVIC · HONDA","k":"rótulo","x":-30.8,"z":81.8},{"t":"TAYRON","k":"rótulo","x":-21.2,"z":105.3},{"t":"LABORATORIO DE ENSAMBLE","k":"rótulo","x":-63.0,"z":46.4},{"t":"ÁREA DE LIMPIEZA DE EMPAQUE","k":"rótulo","x":-39.9,"z":-103.3},{"t":"ÁREA DE ARMADO DE CARTÓN","k":"rótulo","x":-39.7,"z":-74.7},{"t":"ÁREA DE FOAM","k":"rótulo","x":-40.1,"z":-50.4},{"t":"EMPAQUE ARMADO","k":"rótulo","x":-40.0,"z":-28.7},{"t":"SUBESTACIÓN 2,000 KVA","k":"rótulo","x":91.1,"z":-3.4},{"t":"TORRE","k":"rótulo","x":-88.2,"z":139.8},{"t":"ACCESO PEATONAL","k":"rótulo","x":-25.3,"z":-143.3},{"t":"CFE 225 KVA","k":"rótulo","x":-44.7,"z":-119.5},{"t":"TF 09","k":"rótulo","x":-28.7,"z":129.9},{"t":"TF 22","k":"rótulo","x":-23.0,"z":131.9},{"t":"TF 25","k":"rótulo","x":-17.2,"z":134.0},{"t":"TF 28","k":"rótulo","x":-11.5,"z":136.0},{"t":"TF 31","k":"rótulo","x":-5.7,"z":138.1},{"t":"TF 35","k":"rótulo","x":0.0,"z":140.1},{"t":"TF 36","k":"rótulo","x":5.8,"z":142.2},{"t":"TF 38","k":"rótulo","x":11.5,"z":144.2},{"t":"PEGAMENTO EN EPP","k":"rótulo","x":-71.9,"z":98.4},{"t":"PEGAMENTO EN TELA","k":"rótulo","x":-77.1,"z":106.9},{"t":"HORNO","k":"rótulo","x":-76.4,"z":116.7},{"t":"SELLADO DE VISERA","k":"rótulo","x":-56.0,"z":120.2},{"t":"RF WELDER · RAV4","k":"rótulo","x":-61.0,"z":94.8},{"t":"G20 · G05","k":"rótulo","x":-39.0,"z":100.3},{"t":"RACK MATERIA PRIMA","k":"rótulo","x":-52.5,"z":103.5},{"t":"KBB40 · SELLADO","k":"rótulo","x":-11.2,"z":116.9},{"t":"CORTE","k":"rótulo","x":0.4,"z":124.6},{"t":"WIP CORTES CORTOS","k":"rótulo","x":9.5,"z":128.6},{"t":"ESCRITORIO","k":"equipo","x":-41.4,"z":-4.7},{"t":"MATERIAL EN PROCESO","k":"equipo","x":-40.6,"z":-2.4},{"t":"CABINA","k":"equipo","x":-42.9,"z":-1.5},{"t":"GAVETA","k":"equipo","x":-38.3,"z":22.9},{"t":"EMPAQUE RH","k":"equipo","x":-5.2,"z":50.4},{"t":"EMPAQUE LH","k":"equipo","x":-3.8,"z":50.9},{"t":"FIXTURE","k":"equipo","x":-7.0,"z":51.8},{"t":"PVS PVS","k":"equipo","x":-5.6,"z":54.0},{"t":"PVS","k":"equipo","x":5.0,"z":57.7},{"t":"CORE FOLD & SNAP","k":"equipo","x":-7.4,"z":58.4},{"t":"CORE FOLD","k":"equipo","x":-6.7,"z":58.7},{"t":"SONIC","k":"equipo","x":-7.5,"z":59.3},{"t":"CORE FOLD &","k":"equipo","x":2.6,"z":61.9},{"t":"HEAT TRANSFER","k":"equipo","x":-7.4,"z":62.6},{"t":"FABRIC FOLD","k":"equipo","x":-9.3,"z":63.2},{"t":"EDGE FOLD","k":"equipo","x":-9.9,"z":64.3},{"t":"ESTACION","k":"equipo","x":-58.0,"z":64.8},{"t":"RACK DE MATERIA PRIMA","k":"equipo","x":-12.8,"z":66.5},{"t":"RACK","k":"equipo","x":-50.5,"z":66.3},{"t":"DRIVER","k":"equipo","x":-50.2,"z":69.4},{"t":"PRUEBA ELECTRICA RH","k":"equipo","x":-41.2,"z":70.1},{"t":"TRABAJO","k":"equipo","x":-59.3,"z":69.5},{"t":"EMPAQUE","k":"equipo","x":-33.0,"z":69.8},{"t":"PRUEBA ELECTRICA LH","k":"equipo","x":-37.8,"z":71.2},{"t":"WIP","k":"equipo","x":-51.3,"z":71.3},{"t":"LH","k":"equipo","x":-30.0,"z":72.0},{"t":"ENSAMBLE DE EXTRUSIÓN","k":"equipo","x":-55.6,"z":76.6},{"t":"34AA","k":"equipo","x":-36.3,"z":76.8},{"t":"PRENSA","k":"equipo","x":-55.1,"z":78.8},{"t":"37A","k":"equipo","x":-29.7,"z":79.3},{"t":"INSERTADO DE CODO","k":"equipo","x":-50.3,"z":80.4},{"t":"CORE FOLD SNAP","k":"equipo","x":-17.3,"z":82.4},{"t":"2% → Ø 2\"0.45M","k":"equipo","x":-34.8,"z":83.0},{"t":"RACK DE MATERIA PRIMA RACK DE MATERIA PR","k":"equipo","x":-21.8,"z":90.6},{"t":"MESA","k":"equipo","x":-20.6,"z":111.0},{"t":"SCRAP","k":"equipo","x":-26.0,"z":112.8},{"t":"RETRABAJO","k":"equipo","x":-27.6,"z":125.2},{"t":"INSPECCION DE CABINA DE RUIDO","k":"equipo","x":-29.3,"z":126.5},{"t":"INSPECTION","k":"equipo","x":-30.5,"z":128.2},{"t":"THERMOFOLDER","k":"equipo","x":-30.9,"z":132.8},{"t":"INSPECCION","k":"equipo","x":-1.1,"z":136.5},{"t":"DE CABINA DE RUIDO","k":"equipo","x":-0.2,"z":136.8},{"t":"TABLERO DE PRODUCCIÓN","k":"equipo","x":-48.6,"z":85.8},{"t":"WIP TRASH","k":"equipo","x":-61.7,"z":86.2},{"t":"IMPRESORA WIP RETRABAJO SCRAP","k":"equipo","x":-63.0,"z":87.6},{"t":"IMPRESORA","k":"equipo","x":-61.6,"z":87.6},{"t":"POKA YOKES","k":"equipo","x":-60.3,"z":88.6},{"t":"RAV4 LH","k":"equipo","x":-65.2,"z":90.6},{"t":"EXTENDER ASSEMBLY WIP","k":"equipo","x":-63.6,"z":90.5},{"t":"REMOVEDOR DE CODO","k":"equipo","x":-62.5,"z":92.1},{"t":"RACK VYNIL","k":"equipo","x":-63.2,"z":92.3},{"t":"WIP BASURA","k":"equipo","x":-65.1,"z":93.0},{"t":"POKAYOKES","k":"equipo","x":-43.7,"z":94.7},{"t":"ENSAMBLE DE CODO RACK VYNIL","k":"equipo","x":-57.3,"z":94.6},{"t":"RESINAS","k":"equipo","x":-44.2,"z":96.9},{"t":"RACK BASURA","k":"equipo","x":-35.9,"z":99.6},{"t":"SPC","k":"equipo","x":-6.6,"z":100.4},{"t":"POKA YOKE FIXTURE","k":"equipo","x":-11.3,"z":101.1},{"t":"UNIDAD HIDRÁULICA UNIDAD HIDRÁULICA","k":"equipo","x":-41.0,"z":102.3},{"t":"TRASH WIP","k":"equipo","x":-44.4,"z":104.4},{"t":"SILICÓN","k":"equipo","x":-35.3,"z":105.8},{"t":"ENGRASADORA DE FRAME GRASA","k":"equipo","x":-43.9,"z":106.4},{"t":"ENSAMBLE DE ESPEJO","k":"equipo","x":-44.5,"z":106.6},{"t":"MAQUINA REMOVER UÑA          CODO","k":"equipo","x":-15.0,"z":113.9},{"t":"SELLADO DE VISERA SELLADO DE VISERA","k":"equipo","x":-62.5,"z":114.2},{"t":"C4 TABLERO 480V","k":"equipo","x":-5.5,"z":116.4},{"t":"C4 EMPQUE VACIO","k":"equipo","x":-6.1,"z":117.4},{"t":"Vista general del sitio","k":"vista","preset":"overview"},{"t":"Isométrica de la nave","k":"vista","preset":"iso"},{"t":"Zona Honda (CR-V / Civic)","k":"vista","preset":"honda"},{"t":"Estación 0","k":"vista","preset":"e0"},{"t":"Área de armado de cartón","k":"vista","preset":"cart"},{"t":"Racks selectivos","k":"vista","preset":"racks"},{"t":"Caminar desde acceso peatonal","k":"vista","preset":"walk_access"},{"t":"Caminar en línea Honda","k":"vista","preset":"walk_honda"}],"zones":[{"n":"Línea Honda 34AA CR-V","x":-37.3,"z":78.7},{"n":"Línea Honda 37A Civic","x":-30.8,"z":81.8},{"n":"Estación 0","x":-65.3,"z":67.2},{"n":"Área de armado de cartón (cartonera)","x":-39.7,"z":-74.7},{"n":"Alcantara","x":-52.3,"z":77.0},{"n":"Tundra","x":-49.8,"z":72.6},{"n":"34Aa Cr-V · Honda","x":-37.3,"z":78.7},{"n":"37A Civic · Honda","x":-30.8,"z":81.8},{"n":"Tayron","x":-21.2,"z":105.3},{"n":"Laboratorio De Ensamble","x":-63.0,"z":46.4},{"n":"Área De Limpieza De Empaque","x":-39.9,"z":-103.3},{"n":"Área De Armado De Cartón","x":-39.7,"z":-74.7},{"n":"Área De Foam","x":-40.1,"z":-50.4},{"n":"Empaque Armado","x":-40.0,"z":-28.7},{"n":"Tf 09","x":-28.7,"z":129.9},{"n":"Tf 22","x":-23.0,"z":131.9},{"n":"Tf 25","x":-17.2,"z":134.0},{"n":"Tf 28","x":-11.5,"z":136.0},{"n":"Tf 31","x":-5.7,"z":138.1},{"n":"Tf 35","x":0.0,"z":140.1},{"n":"Tf 36","x":5.8,"z":142.2},{"n":"Tf 38","x":11.5,"z":144.2},{"n":"Pegamento En Epp","x":-71.9,"z":98.4},{"n":"Pegamento En Tela","x":-77.1,"z":106.9},{"n":"Horno","x":-76.4,"z":116.7},{"n":"Sellado De Visera","x":-56.0,"z":120.2},{"n":"Rf Welder · Rav4","x":-61.0,"z":94.8},{"n":"G20 · G05","x":-39.0,"z":100.3},{"n":"Rack Materia Prima","x":-52.5,"z":103.5},{"n":"Kbb40 · Sellado","x":-11.2,"z":116.9},{"n":"Corte","x":0.4,"z":124.6},{"n":"Wip Cortes Cortos","x":9.5,"z":128.6}],"presets":[{"k":"overview","t":"Vista general del sitio"},{"k":"iso","t":"Isométrica de la nave"},{"k":"honda","t":"Zona Honda (CR-V / Civic)"},{"k":"e0","t":"Estación 0"},{"k":"cart","t":"Área de armado de cartón"},{"k":"racks","t":"Racks selectivos"},{"k":"walk_access","t":"Caminar desde acceso peatonal"},{"k":"walk_honda","t":"Caminar en línea Honda"}],"bytes":412779},{"id":"p1","name":"Planta 1","short":"P1","sub":"Propuesta B","kind":"DWG","file":"Layout 9 Sep Subensambles última propuesta · Propuesta B (copia \"PROPUESTA 1\")","drawn":"9-sep-26","built":"29-sep-26","twin":"https://claude.ai/artifact/APbmfaVyEvZkPocMyZUfMc","focus":"Moldeo por inyección, almacén y ensamble","site":"Ramos Arizpe","meta":{"source":"DWG \"Layout 9 Sep Subensambles ultima propuesta\" · planta 1 · copia rotulada PROPUESTA 1 (archivo Propuesta B)","units":"m","scale":1.0,"frame":"x = 270.8 - yDWG ; z = -1378.0 - xDWG (INSUNITS = metros)","prevScale":1.0,"note":"Geometría leída del DWG R2018 (LibreDWG → DXF); alturas y modelos 3D estimados"},"met":{"area":32152,"areaProp":0,"blds":7,"ops":315,"m2op":102.1,"aisle":3403,"aislePct":10.6,"cols":79,"docks":40,"racks":"79 corridas · 1340 posiciones","eq":["181 equipos con rótulo de tonelaje","493 mesas y periféricos"]},"polys":[{"p":[[-122.6,-53.4],[122.6,-53.4],[122.6,53.4],[-122.6,53.4]],"h":11.0,"prop":false},{"p":[[-116.9,53.4],[-26.2,53.4],[-26.2,71.8],[-116.7,71.8]],"h":4.8,"prop":false},{"p":[[73.3,53.4],[154.8,53.4],[154.8,92.4],[73.3,92.4]],"h":9.0,"prop":false},{"p":[[1.5,-82.8],[105.0,-82.8],[105.0,-73.8],[1.5,-73.8]],"h":8.0,"prop":false},{"p":[[31.0,-60.8],[47.9,-60.8],[47.9,-53.7],[31.0,-53.7]],"h":4.5,"prop":false},{"p":[[103.1,-77.9],[108.0,-77.9],[108.0,-67.0],[103.1,-67.0]],"h":3.6,"prop":false},{"p":[[112.8,-68.3],[116.7,-68.3],[116.7,-63.9],[112.8,-63.9]],"h":2.6,"prop":false}],"mini":{"f":"p1_minimap_p1b.jpg","x0":-169.0,"z0":-118.0,"x1":163.0,"z1":114.0},"search":[{"t":"Preparación de embarques","k":"poi","x":-89.0,"z":-41.5},{"t":"Jaula insertos","k":"poi","x":-18.5,"z":-35.5},{"t":"Supermercado Honda 5","k":"poi","x":-48.5,"z":-3.0},{"t":"Assy Frame","k":"poi","x":-69.0,"z":43.0},{"t":"Zona 100 · inyección","k":"poi","x":40.0,"z":-44.0},{"t":"Zona 400 · inyección","k":"poi","x":86.5,"z":18.5},{"t":"Zona 500","k":"poi","x":118.5,"z":30.0},{"t":"Material resina","k":"poi","x":116.5,"z":-36.0},{"t":"Muelles norte","k":"poi","x":-70.0,"z":-49.0},{"t":"Muelles sur","k":"poi","x":49.0,"z":49.5},{"t":"AREA RME","k":"rótulo","x":-9.8,"z":-58.5},{"t":"BODEGA NUEVA","k":"rótulo","x":48.6,"z":-78.3},{"t":"CUARTO DE COMPRESORES","k":"rótulo","x":39.5,"z":-57.2},{"t":"COMMON TRUCK COURT","k":"rótulo","x":-1.2,"z":-92.0},{"t":"ZONA 100","k":"rótulo","x":46.3,"z":-9.6},{"t":"ZONA 200","k":"rótulo","x":104.9,"z":15.9},{"t":"ZONA 300","k":"rótulo","x":95.4,"z":18.3},{"t":"ZONA 400","k":"rótulo","x":83.3,"z":18.5},{"t":"ADUANA","k":"rótulo","x":65.6,"z":41.8},{"t":"MEETING","k":"rótulo","x":76.4,"z":41.8},{"t":"OFFICE","k":"rótulo","x":96.5,"z":47.4},{"t":"SERVICE PARTS","k":"rótulo","x":-116.2,"z":2.5},{"t":"EMPTY PACKAGE","k":"rótulo","x":-77.2,"z":2.3},{"t":"QUALITY","k":"rótulo","x":-66.2,"z":2.8},{"t":"TAYRON","k":"rótulo","x":-103.4,"z":-3.0},{"t":"SUBENSAMBLES XNF","k":"rótulo","x":-91.1,"z":-3.0},{"t":"DQMC","k":"rótulo","x":-33.2,"z":11.0},{"t":"ASSY GM WELD FRAME","k":"rótulo","x":-100.8,"z":35.0},{"t":"ELBOW CLIP INSTALLATION","k":"rótulo","x":-71.2,"z":28.9},{"t":"FRAME LUBRICATION","k":"rótulo","x":-84.3,"z":11.1},{"t":"LABEL STATION","k":"rótulo","x":-83.2,"z":36.6},{"t":"REWORK","k":"rótulo","x":-84.2,"z":26.0},{"t":"SUBENSAMBLES 426 VW","k":"rótulo","x":-22.0,"z":15.0},{"t":"VANITY 380 m²","k":"rótulo","x":-116.1,"z":15.0},{"t":"WARE HOUSE","k":"rótulo","x":17.8,"z":48.9},{"t":"LOCKERS","k":"rótulo","x":55.1,"z":48.6},{"t":"SHOW ROOM","k":"rótulo","x":-96.8,"z":52.0},{"t":"OFFICE AREA","k":"rótulo","x":-88.3,"z":63.0},{"t":"COMEDOR 3,374 sq ft","k":"rótulo","x":-40.0,"z":63.0},{"t":"ENSAMBLE DE WL","k":"rótulo","x":85.1,"z":61.0},{"t":"ÁREA DE MANTENIMIENTO","k":"rótulo","x":136.1,"z":87.0},{"t":"EMPLOYEE ENTRANCE","k":"rótulo","x":70.1,"z":57.0},{"t":"SERVICE DRIVE","k":"rótulo","x":-21.1,"z":66.8},{"t":"HAZARD WASTE","k":"rótulo","x":105.5,"z":-72.5},{"t":"SILOS DE RESINA","k":"rótulo","x":115.0,"z":-61.5},{"t":"CHILLER","k":"rótulo","x":98.7,"z":-62.0},{"t":"TORRES DE ENFRIAMIENTO","k":"rótulo","x":85.0,"z":-60.5},{"t":"MUELLES EMBARQUE 1–7","k":"rótulo","x":-78.0,"z":-51.0},{"t":"MUELLES RECIBO","k":"rótulo","x":-49.5,"z":-51.0},{"t":"MUELLES SUR 1–10","k":"rótulo","x":49.0,"z":51.0},{"t":"CUARENTENA FG","k":"rótulo","x":-25.3,"z":-50.0},{"t":"CARTON EMPTY PACKAGE","k":"rótulo","x":6.3,"z":-50.0},{"t":"SUPERMERCADO","k":"rótulo","x":-94.4,"z":-5.9},{"t":"SUPERMERCADO G20","k":"rótulo","x":-83.2,"z":-6.0},{"t":"SUPERMERCADO RAV4","k":"rótulo","x":-77.2,"z":-5.6},{"t":"SUPERMERCADO CAMRY 2","k":"rótulo","x":-71.7,"z":-6.0},{"t":"SUPERMERCADO CAMRY 1","k":"rótulo","x":-65.5,"z":-5.9},{"t":"SUPERMERCADO HONDA 7","k":"rótulo","x":-60.0,"z":-5.9},{"t":"SUPERMERCADO HONDA 6","k":"rótulo","x":-54.6,"z":-6.0},{"t":"SUPERMERCADO HONDA 4","k":"rótulo","x":-42.5,"z":-5.9},{"t":"SUPERMERCADO HONDA 3 \"K\"","k":"rótulo","x":-37.0,"z":-6.0},{"t":"SUPERMERCADO HONDA 2 \"G\"","k":"rótulo","x":-31.4,"z":-6.0},{"t":"FG CHINA 2","k":"rótulo","x":-25.6,"z":-6.0},{"t":"SUPERMERCADO G06","k":"rótulo","x":-105.3,"z":-5.9},{"t":"SUPERMERCADO G05","k":"rótulo","x":-99.8,"z":-5.9},{"t":"RACK SERVICE","k":"rótulo","x":-114.8,"z":-25.1},{"t":"FG CHINA 1","k":"rótulo","x":-20.1,"z":-6.0},{"t":"110 Haitian 380 TON","k":"inyectora","x":43.2,"z":-19.5},{"t":"114 Haitian 380 TON","k":"inyectora","x":116.3,"z":-12.3},{"t":"107 Haitian 380 TON","k":"inyectora","x":43.2,"z":-12.6},{"t":"212 Haitian 380 TON","k":"inyectora","x":44.9,"z":8.9},{"t":"408 B Haitian 380 TON","k":"inyectora","x":40.9,"z":19.5},{"t":"211 Haitian 320 TON","k":"inyectora","x":44.5,"z":16.1},{"t":"304 Haitian 380 TON","k":"inyectora","x":45.0,"z":12.6},{"t":"306 Haitian 380 TON","k":"inyectora","x":40.9,"z":1.6},{"t":"308 Haitian 380 TON","k":"inyectora","x":40.9,"z":5.1},{"t":"101 Van Dorn 500TON","k":"inyectora","x":78.8,"z":-13.1},{"t":"404 Haitian 450 TON","k":"inyectora","x":79.6,"z":11.6},{"t":"403 Haitian 450 TON","k":"inyectora","x":79.2,"z":18.9},{"t":"410 Haitian 550 TON","k":"inyectora","x":82.4,"z":-22.8},{"t":"113 Haitian 550 TON","k":"inyectora","x":81.0,"z":27.7},{"t":"402 YIZUMI 400 TON","k":"inyectora","x":80.5,"z":23.4},{"t":"407 YIZUMI 480 TON","k":"inyectora","x":82.5,"z":-3.9},{"t":"102 Van Dorn500TON","k":"inyectora","x":78.6,"z":-8.9},{"t":"412 Van Dorn 500 TON","k":"inyectora","x":81.8,"z":-33.6},{"t":"503 Van Dorn 500TON","k":"inyectora","x":115.3,"z":33.4},{"t":"406 Van Dorn 650TON","k":"inyectora","x":78.5,"z":2.8},{"t":"409 Engel 500TON","k":"inyectora","x":78.7,"z":-17.2},{"t":"506 YIZUMI 650 TON","k":"inyectora","x":114.8,"z":17.0},{"t":"504 Haitian 900 TON","k":"inyectora","x":114.5,"z":27.5},{"t":"202 TOYO 90TON","k":"inyectora","x":92.0,"z":42.4},{"t":"201 TOYO 90TON","k":"inyectora","x":92.0,"z":38.9},{"t":"200 TOYO 90TON","k":"inyectora","x":92.0,"z":35.5},{"t":"199 TOYO 90TON","k":"inyectora","x":93.0,"z":32.0},{"t":"205 SUMITOMO 100TON","k":"inyectora","x":92.0,"z":28.4},{"t":"203 SUMITOMO 100TON","k":"inyectora","x":92.0,"z":25.1},{"t":"301 Haitian 90TON","k":"inyectora","x":92.9,"z":22.8},{"t":"302 Demag 60TON","k":"inyectora","x":92.0,"z":19.6},{"t":"303 Haitian 90TON","k":"inyectora","x":91.8,"z":16.1},{"t":"316 Haitian 90TON","k":"inyectora","x":91.8,"z":6.2},{"t":"310 Haitian 90TON","k":"inyectora","x":91.8,"z":9.5},{"t":"309 Haitian 90TON","k":"inyectora","x":91.8,"z":12.8},{"t":"204 TOYO 90TON","k":"inyectora","x":92.0,"z":45.9},{"t":"111 Van Dorn 300TON","k":"inyectora","x":42.4,"z":27.0},{"t":"106 Van Dorn 380TON","k":"inyectora","x":44.1,"z":-8.9},{"t":"105 Van Dorn 380TON","k":"inyectora","x":41.3,"z":-5.1},{"t":"104 Van Dorn 380TON","k":"inyectora","x":43.2,"z":-1.6},{"t":"109 Van Dorn 300TON","k":"inyectora","x":105.3,"z":-26.5},{"t":"210 Toshiba 300TON","k":"inyectora","x":102.5,"z":-31.0},{"t":"108 Haitian 380TON","k":"inyectora","x":42.4,"z":-16.0},{"t":"305 Haitian 120 TON","k":"inyectora","x":92.5,"z":-26.3},{"t":"206 VanDorn 170TON","k":"inyectora","x":103.0,"z":10.4},{"t":"315 Toshiba 180TON","k":"inyectora","x":102.7,"z":4.6},{"t":"103 Van Dorn 230TON","k":"inyectora","x":102.8,"z":-3.3},{"t":"312 Toshiba 250TON","k":"inyectora","x":103.1,"z":-10.3},{"t":"209 Haitian 250TON","k":"inyectora","x":103.2,"z":-14.5},{"t":"280 TON","k":"inyectora","x":102.7,"z":-22.0},{"t":"311 Yizumi 260 TON","k":"inyectora","x":102.6,"z":-18.6},{"t":"505 YIZUMI 560 TON","k":"inyectora","x":116.1,"z":21.6},{"t":"405 Van Dorn 500TON","k":"inyectora","x":79.3,"z":7.4},{"t":"408 A Haitian 380 TON","k":"inyectora","x":40.9,"z":23.0},{"t":"207 Van Dorn 230 TON","k":"inyectora","x":103.2,"z":-7.2},{"t":"117 Toshiba 320TON","k":"inyectora","x":116.9,"z":-24.9},{"t":"116 Toshiba 310 TON","k":"inyectora","x":116.9,"z":-20.8},{"t":"115 Toshiba 390 TON","k":"inyectora","x":116.1,"z":-16.7},{"t":"411 Haitian 550TON","k":"inyectora","x":77.3,"z":-28.0},{"t":"208 Toshiba 180TON","k":"inyectora","x":103.1,"z":1.5},{"t":"90TON","k":"inyectora","x":93.1,"z":-32.6},{"t":"160TON","k":"inyectora","x":92.7,"z":-28.6},{"t":"NEW 160 TON","k":"inyectora","x":102.6,"z":14.6},{"t":"NEW 550 TON","k":"inyectora","x":81.0,"z":32.9},{"t":"507 Van Dorn 500TON","k":"inyectora","x":115.0,"z":12.5},{"t":"60TON","k":"inyectora","x":6.2,"z":-29.8},{"t":"320 TON","k":"inyectora","x":29.1,"z":4.6},{"t":"380 TON","k":"inyectora","x":29.4,"z":8.1},{"t":"560 TON","k":"inyectora","x":114.2,"z":-7.5},{"t":"Haitian 380 TON","k":"inyectora","x":43.1,"z":-34.0},{"t":"501 Haitian 380 TON","k":"inyectora","x":113.3,"z":42.5},{"t":"502 Haitian 380 TON","k":"inyectora","x":114.8,"z":38.4},{"t":"321 Haitian 160 Ton","k":"inyectora","x":93.1,"z":-22.7},{"t":"KBB40","k":"rack","x":-57.4,"z":-28.3},{"t":"VINIL","k":"rack","x":-49.5,"z":-28.3},{"t":"MISCELANEOS 1","k":"rack","x":-41.6,"z":-28.3},{"t":"STAMPING BOLSAS","k":"rack","x":-33.6,"z":-28.3},{"t":"MISCELANEOS 2","k":"rack","x":-26.9,"z":-28.3},{"t":"EXCESOS / ESPEJOS","k":"rack","x":-19.3,"z":-28.3},{"t":"Rack selectivo anexo","k":"rack","x":125.2,"z":59.8},{"t":"Silo de resina 1","k":"exterior","x":110.0,"z":-56.7},{"t":"Silo de resina 2","k":"exterior","x":115.0,"z":-56.7},{"t":"Silo de resina 3","k":"exterior","x":120.0,"z":-56.7},{"t":"Tanque (círculo Ø4 m del plano)","k":"exterior","x":27.9,"z":-59.1},{"t":"Tanque LP gas","k":"exterior","x":22.6,"z":-59.7},{"t":"Torre de enfriamiento 1","k":"exterior","x":82.8,"z":-56.2},{"t":"Torre de enfriamiento 2","k":"exterior","x":87.3,"z":-56.2},{"t":"Chiller 1","k":"exterior","x":96.2,"z":-58.3},{"t":"Chiller 2","k":"exterior","x":101.2,"z":-58.3},{"t":"Transformador T1","k":"exterior","x":65.5,"z":-56.3},{"t":"Transformador T2","k":"exterior","x":75.8,"z":-56.3},{"t":"Subestación / transformador (típ. 2)","k":"exterior","x":-120.6,"z":-56.4},{"t":"Generador diésel Caterpillar","k":"exterior","x":-104.4,"z":-57.0},{"t":"Compactador","k":"exterior","x":-115.0,"z":-77.7},{"t":"Rampa 9' × 44'","k":"exterior","x":103.5,"z":-61.0},{"t":"Jaula de cilindros LP gas","k":"exterior","x":-127.5,"z":9.3},{"t":"Andén N1","k":"andén","x":-93.1,"z":-53.4},{"t":"Andén N2","k":"andén","x":-89.5,"z":-53.4},{"t":"Andén N3","k":"andén","x":-85.3,"z":-53.4},{"t":"Andén N4","k":"andén","x":-81.2,"z":-53.4},{"t":"Andén N5","k":"andén","x":-77.3,"z":-53.4},{"t":"Andén N6","k":"andén","x":-65.5,"z":-53.4},{"t":"Andén N7","k":"andén","x":-61.7,"z":-53.4},{"t":"Andén R5","k":"andén","x":-57.4,"z":-53.4},{"t":"Andén R6","k":"andén","x":-53.6,"z":-53.4},{"t":"Andén R7","k":"andén","x":-49.5,"z":-53.4},{"t":"Andén R8","k":"andén","x":-45.7,"z":-53.4},{"t":"Andén R9","k":"andén","x":-41.7,"z":-53.4},{"t":"Andén S1","k":"andén","x":67.5,"z":53.4},{"t":"Andén S2","k":"andén","x":63.7,"z":53.4},{"t":"Andén S3","k":"andén","x":59.5,"z":53.4},{"t":"Andén S4","k":"andén","x":55.4,"z":53.4},{"t":"Andén S5","k":"andén","x":49.9,"z":53.4},{"t":"Andén S6","k":"andén","x":45.9,"z":53.4},{"t":"Andén S7","k":"andén","x":42.5,"z":53.4},{"t":"Andén S8","k":"andén","x":38.0,"z":53.4},{"t":"Andén S9","k":"andén","x":34.0,"z":53.4},{"t":"Andén S10","k":"andén","x":30.1,"z":53.4},{"t":"Vista general del sitio","k":"vista","preset":"overview"},{"t":"Isométrica de la planta","k":"vista","preset":"iso"},{"t":"Nave de inyección","k":"vista","preset":"mold"},{"t":"Zona 100 · filas de 60–380 t","k":"vista","preset":"z100"},{"t":"Zona 400 · 450–650 t","k":"vista","preset":"z400"},{"t":"Almacén y supermercados","k":"vista","preset":"wh"},{"t":"Ensamble (Assy Frame / GM weld)","k":"vista","preset":"assy"},{"t":"Andenes norte","k":"vista","preset":"docks"},{"t":"Anexo sureste · Ensamble WL","k":"vista","preset":"annex"},{"t":"Servicios: silos, chillers, torres","k":"vista","preset":"util"},{"t":"Oficinas y comedor","k":"vista","preset":"office"},{"t":"Caminar desde Employee Entrance","k":"vista","preset":"walk_access"},{"t":"Caminar en pasillo de inyección","k":"vista","preset":"walk_mold"}],"zones":[{"n":"Preparación de embarques","x":-89.0,"z":-41.5},{"n":"Jaula insertos","x":-18.5,"z":-35.5},{"n":"Supermercado Honda 5","x":-48.5,"z":-3.0},{"n":"Assy Frame","x":-69.0,"z":43.0},{"n":"Zona 100 · inyección","x":40.0,"z":-44.0},{"n":"Zona 400 · inyección","x":86.5,"z":18.5},{"n":"Zona 500","x":118.5,"z":30.0},{"n":"Material resina","x":116.5,"z":-36.0},{"n":"Muelles norte","x":-70.0,"z":-49.0},{"n":"Muelles sur","x":49.0,"z":49.5},{"n":"Zona 100","x":46.3,"z":-9.6},{"n":"Zona 200","x":104.9,"z":15.9},{"n":"Zona 300","x":95.4,"z":18.3},{"n":"Zona 400","x":83.3,"z":18.5},{"n":"Aduana","x":65.6,"z":41.8},{"n":"Meeting","x":76.4,"z":41.8},{"n":"Office","x":96.5,"z":47.4},{"n":"Service Parts","x":-116.2,"z":2.5},{"n":"Empty Package","x":-77.2,"z":2.3},{"n":"Quality","x":-66.2,"z":2.8},{"n":"Tayron","x":-103.4,"z":-3.0},{"n":"Subensambles Xnf","x":-91.1,"z":-3.0},{"n":"Dqmc","x":-33.2,"z":11.0},{"n":"Assy Gm Weld Frame","x":-100.8,"z":35.0},{"n":"Elbow Clip Installation","x":-71.2,"z":28.9},{"n":"Frame Lubrication","x":-84.3,"z":11.1},{"n":"Label Station","x":-83.2,"z":36.6},{"n":"Rework","x":-84.2,"z":26.0},{"n":"Subensambles 426 Vw","x":-22.0,"z":15.0},{"n":"VANITY 380 m²","x":-116.1,"z":15.0},{"n":"Ware House","x":17.8,"z":48.9},{"n":"Lockers","x":55.1,"z":48.6},{"n":"Show Room","x":-96.8,"z":52.0},{"n":"Office Area","x":-88.3,"z":63.0},{"n":"COMEDOR 3,374 sq ft","x":-40.0,"z":63.0},{"n":"Ensamble De Wl","x":85.1,"z":61.0},{"n":"Área De Mantenimiento","x":136.1,"z":87.0},{"n":"Muelles Embarque 1–7","x":-78.0,"z":-51.0},{"n":"Muelles Recibo","x":-49.5,"z":-51.0},{"n":"Muelles Sur 1–10","x":49.0,"z":51.0},{"n":"Cuarentena Fg","x":-25.3,"z":-50.0},{"n":"Carton Empty Package","x":6.3,"z":-50.0},{"n":"Supermercado","x":-94.4,"z":-5.9},{"n":"Supermercado G20","x":-83.2,"z":-6.0},{"n":"Supermercado Rav4","x":-77.2,"z":-5.6},{"n":"Supermercado Camry 2","x":-71.7,"z":-6.0},{"n":"Supermercado Camry 1","x":-65.5,"z":-5.9},{"n":"Supermercado Honda 7","x":-60.0,"z":-5.9},{"n":"Supermercado Honda 6","x":-54.6,"z":-6.0},{"n":"Supermercado Honda 4","x":-42.5,"z":-5.9},{"n":"Supermercado Honda 3 \"K\"","x":-37.0,"z":-6.0},{"n":"Supermercado Honda 2 \"G\"","x":-31.4,"z":-6.0},{"n":"Fg China 2","x":-25.6,"z":-6.0},{"n":"Supermercado G06","x":-105.3,"z":-5.9},{"n":"Supermercado G05","x":-99.8,"z":-5.9},{"n":"Rack Service","x":-114.8,"z":-25.1},{"n":"Fg China 1","x":-20.1,"z":-6.0}],"presets":[{"k":"overview","t":"Vista general del sitio"},{"k":"iso","t":"Isométrica de la planta"},{"k":"mold","t":"Nave de inyección"},{"k":"z100","t":"Zona 100 · filas de 60–380 t"},{"k":"z400","t":"Zona 400 · 450–650 t"},{"k":"wh","t":"Almacén y supermercados"},{"k":"assy","t":"Ensamble (Assy Frame / GM weld)"},{"k":"docks","t":"Andenes norte"},{"k":"annex","t":"Anexo sureste · Ensamble WL"},{"k":"util","t":"Servicios: silos, chillers, torres"},{"k":"office","t":"Oficinas y comedor"},{"k":"walk_access","t":"Caminar desde Employee Entrance"},{"k":"walk_mold","t":"Caminar en pasillo de inyección"}],"bytes":339259},{"id":"p4","name":"Planta 4","short":"P4","sub":"Rev 10","kind":"DWG","file":"Layout Plant 4 Rev 10.dwg · hoja \"Ult. Rev\"","drawn":"Rev 10","built":"30-sep-26","twin":"https://claude.ai/artifact/74EPty6Zk1hu7SRSGrNvLY","focus":"Inyección IMM 1000–2850 t, headliner, termoformado, prensas y hornos","site":"Ramos Arizpe (sitio P3-4)","meta":{"source":"DWG \"Layout Plant 4 Rev 10\" · hoja \"Ult. Rev\" (última revisión)","units":"m","scale":1.0,"frame":"x = X_DWG - 6049300 ; z = 1665015 - Y_DWG (unidades del dibujo = metros; cota de nave 198.3 m)","prevScale":1.0,"note":"Geometría leída del DWG R2018 (LibreDWG → DXF); alturas y modelos 3D estimados"},"met":{"area":32201,"areaProp":1948,"blds":3,"ops":398,"m2op":80.9,"aisle":1385,"aislePct":4.3,"cols":270,"docks":25,"racks":"83 corridas · 1864 posiciones","eq":["8 inyectoras IMM","25 prensas · 6 hornos"]},"polys":[{"p":[[-161.0,39.6],[-161.0,-48.4],[-90.2,-66.8],[-8.0,-66.8],[37.3,-60.0],[37.3,39.6]],"h":12.0,"prop":false},{"p":[[62.6,39.6],[62.6,-57.6],[120.9,-49.2],[124.8,-48.6],[175.1,-41.1],[175.1,39.6]],"h":12.0,"prop":false},{"p":[[37.3,-35.2],[62.6,-35.2],[62.6,39.6],[37.3,39.6]],"h":7.0,"prop":false},{"p":[[-182.8,51.4],[-182.8,34.7],[-186.9,34.7],[-186.9,23.5],[-182.7,19.3],[-161.0,19.3],[-161.0,52.6],[-180.9,52.6]],"h":9.0,"prop":true},{"p":[[-161.0,-21.2],[-161.0,-53.5],[-205.8,-42.1],[-203.7,-21.2]],"h":9.0,"prop":true}],"mini":{"f":"p4_minimap_p4.jpg","x0":-218.0,"z0":-79.0,"x1":187.0,"z1":71.0},"search":[{"t":"Recibo - embarque de material","k":"poi","x":-150.0,"z":-10.0},{"t":"Almacén de producto terminado","k":"poi","x":-95.0,"z":-2.0},{"t":"Almacén de materia prima","k":"poi","x":-120.0,"z":-40.0},{"t":"Inyección (IMM 1000–2850 t)","k":"poi","x":-8.0,"z":10.0},{"t":"Línea Headliner Everest","k":"poi","x":-45.0,"z":-12.0},{"t":"Termoformado","k":"poi","x":-50.0,"z":-50.0},{"t":"Corte / cutting cloth","k":"poi","x":-130.0,"z":32.0},{"t":"Huitong","k":"poi","x":100.0,"z":10.0},{"t":"Prensas viseras / estructurales","k":"poi","x":125.0,"z":-28.0},{"t":"Hornos 1–6","k":"poi","x":158.0,"z":-3.0},{"t":"Andenes poniente","k":"poi","x":-156.0,"z":2.0},{"t":"MATERIAL AREA 2640 M2","k":"rótulo","x":138.2,"z":49.3},{"t":"CARTON AREA 2080 M2","k":"rótulo","x":32.4,"z":46.8},{"t":"PASILLO","k":"rótulo","x":-67.2,"z":19.8},{"t":"CORTE 650 M2","k":"rótulo","x":-160.4,"z":25.5},{"t":"ALMACEN DE PRODUCTO TERMINADO","k":"rótulo","x":-132.2,"z":-20.5},{"t":"GM HEADLINER","k":"rótulo","x":-75.0,"z":-41.2},{"t":"ALMACEN MATERIA PRIMA","k":"rótulo","x":-145.7,"z":-65.0},{"t":"EXPANSION 2","k":"rótulo","x":-203.0,"z":-47.9},{"t":"CHEMICAL WAREHOUSE","k":"rótulo","x":-203.9,"z":34.1},{"t":"EXPANSION 1","k":"rótulo","x":-181.4,"z":56.2},{"t":"EXPANSION 162 M2","k":"rótulo","x":40.3,"z":8.9},{"t":"BAÑOS 99 MT2","k":"rótulo","x":38.5,"z":25.4},{"t":"CISTERNA","k":"rótulo","x":39.8,"z":-16.3},{"t":"COMPRESOR 72 MT2","k":"rótulo","x":39.9,"z":37.3},{"t":"OSMOSIS 40 MT2","k":"rótulo","x":37.5,"z":10.2},{"t":"TOLVAS 30M3","k":"rótulo","x":-205.8,"z":3.2},{"t":"LINEA DE PRODUCCION HEADLINER EVEREST","k":"rótulo","x":-38.1,"z":-7.5},{"t":"DQMC AREA 530 M2","k":"rótulo","x":0.6,"z":-82.8},{"t":"HEADLINER RIVIAN","k":"rótulo","x":-11.9,"z":9.2},{"t":"FG GM","k":"rótulo","x":-111.5,"z":14.1},{"t":"WIP AZDEL","k":"rótulo","x":-129.0,"z":18.9},{"t":"PASILLO GRUA","k":"rótulo","x":-13.1,"z":29.3},{"t":"WIP MATERIAL EVEREST","k":"rótulo","x":-16.1,"z":13.4},{"t":"AREA DE PRODUCCION INYECCION","k":"rótulo","x":-5.0,"z":8.0},{"t":"MANTENIMIENTO","k":"rótulo","x":171.7,"z":-7.3},{"t":"CUARENTENA","k":"rótulo","x":171.6,"z":16.5},{"t":"HUITONG AREA 2817 M2","k":"rótulo","x":93.3,"z":-2.8},{"t":"HORNO 2","k":"rótulo","x":149.2,"z":-10.5},{"t":"HORNO 1","k":"rótulo","x":166.4,"z":-10.5},{"t":"HORNO 3","k":"rótulo","x":166.4,"z":-3.5},{"t":"HORNO 5","k":"rótulo","x":166.5,"z":4.1},{"t":"HORNO 6","k":"rótulo","x":149.2,"z":4.1},{"t":"HORNO 4","k":"rótulo","x":149.3,"z":-3.5},{"t":"PRENSAS ESTRUCTURALES AREA 1249 M2","k":"rótulo","x":138.4,"z":-45.4},{"t":"PRENSAS VISERAS AREA 1869 M2","k":"rótulo","x":125.3,"z":-31.8},{"t":"HUITONG RAW MATERIAL","k":"rótulo","x":118.0,"z":10.7},{"t":"MATERIAL FG","k":"rótulo","x":156.3,"z":23.0},{"t":"PROYECTOS DE TESLA","k":"rótulo","x":138.7,"z":-29.2},{"t":"WIP AREA","k":"rótulo","x":18.0,"z":2.6},{"t":"AREA DE MOLDES","k":"rótulo","x":-21.4,"z":16.6},{"t":"CUARENTENA (CALIDAD)","k":"rótulo","x":23.1,"z":-58.6},{"t":"JAULA INGENIERIA","k":"rótulo","x":22.9,"z":-54.4},{"t":"MAQUINARIA OBSOLETA","k":"rótulo","x":-3.9,"z":-70.9},{"t":"ARMADO DE CARTON BACK PANEL (UPPER/LOWER)","k":"rótulo","x":24.2,"z":-47.3},{"t":"ALMACEN CARTON","k":"rótulo","x":-113.9,"z":-57.1},{"t":"OFICINAS DQMC","k":"rótulo","x":15.0,"z":-60.5},{"t":"IMM-008 · 1000 ton","k":"inyectora","x":0.1,"z":-16.1},{"t":"IMM-007 · 1000 ton","k":"inyectora","x":0.1,"z":-9.1},{"t":"IMM-006 · 1850 ton","k":"inyectora","x":2.6,"z":-1.2},{"t":"IMM-005 · 2400 ton","k":"inyectora","x":-0.3,"z":5.7},{"t":"IMM-004 · 1400 ton","k":"inyectora","x":0.8,"z":14.4},{"t":"IMM-003 · 2850 ton","k":"inyectora","x":2.3,"z":23.2},{"t":"IMM-002 · 1850 ton","k":"inyectora","x":-0.1,"z":29.6},{"t":"IMM-001 · 1000 ton","k":"inyectora","x":2.1,"z":35.2},{"t":"Prensa viseras","k":"prensa","x":96.8,"z":-34.7},{"t":"Prensa estructural","k":"prensa","x":129.7,"z":-34.7},{"t":"Rack · Almacen carton","k":"rack","x":-122.5,"z":-46.0},{"t":"Rack selectivo","k":"rack","x":68.8,"z":-48.1},{"t":"Rack · Almacen Materia Prima","k":"rack","x":-141.5,"z":-43.5},{"t":"Rack · Recibo - Embarque de material","k":"rack","x":-159.8,"z":-41.0},{"t":"Rack · HUITONG AREA 2817 m2","k":"rack","x":61.2,"z":-23.0},{"t":"Rack · Almacen de Producto Terminado","k":"rack","x":-117.0,"z":-22.7},{"t":"Rack · WIP AREA","k":"rack","x":0.1,"z":-16.1},{"t":"Rack · WIP Material Everest","k":"rack","x":-12.6,"z":-11.9},{"t":"Rack · HUITONG RAW MATERIAL","k":"rack","x":144.8,"z":-14.1},{"t":"Rack · MATERIAL FG","k":"rack","x":161.8,"z":-14.1},{"t":"Rack · FG GM","k":"rack","x":-117.0,"z":-5.0},{"t":"Rack · WIP AZDEL","k":"rack","x":-127.2,"z":14.2},{"t":"Rack · CARTON AREA 2080 m2","k":"rack","x":21.1,"z":28.8},{"t":"Rack · Carton","k":"rack","x":-181.6,"z":39.2},{"t":"Rack · MATERIAL AREA 2640 m2","k":"rack","x":134.3,"z":32.9},{"t":"Tanque Ø10 m (círculo del DWG, junto a servicios)","k":"exterior","x":43.4,"z":-48.8},{"t":"Unidad / tanque (círculo verde Ø2 m del DWG)","k":"exterior","x":75.7,"z":-21.6},{"t":"Autobús de personal (bloque AUTOBUS del DWG)","k":"exterior","x":-105.1,"z":57.4},{"t":"Andén A1","k":"andén","x":-161.0,"z":-7.9},{"t":"Andén A2","k":"andén","x":-161.0,"z":-4.1},{"t":"Andén A3","k":"andén","x":-161.0,"z":-0.3},{"t":"Andén A4","k":"andén","x":-161.0,"z":-11.7},{"t":"Andén A5","k":"andén","x":-161.0,"z":7.3},{"t":"Andén A6","k":"andén","x":-161.0,"z":11.1},{"t":"Andén A7","k":"andén","x":-161.0,"z":14.9},{"t":"Andén A8","k":"andén","x":-161.0,"z":3.5},{"t":"Vista general del sitio","k":"vista","preset":"overview"},{"t":"Isométrica de la planta","k":"vista","preset":"iso"},{"t":"Inyección · IMM 1000–2850 t","k":"vista","preset":"imm"},{"t":"Línea Headliner Everest","k":"vista","preset":"headliner"},{"t":"Termoformado","k":"vista","preset":"termo"},{"t":"Almacén de producto terminado","k":"vista","preset":"apt"},{"t":"Almacén de materia prima","k":"vista","preset":"amp"},{"t":"Prensas viseras / estructurales","k":"vista","preset":"prensas"},{"t":"Hornos 1–6","k":"vista","preset":"hornos"},{"t":"Huitong","k":"vista","preset":"huitong"},{"t":"Andenes poniente","k":"vista","preset":"docks"},{"t":"Expansiones propuestas","k":"vista","preset":"exp"},{"t":"Caminar desde el acceso sur","k":"vista","preset":"walk_access"},{"t":"Caminar por el pasillo grúa","k":"vista","preset":"walk_imm"}],"zones":[{"n":"Recibo - embarque de material","x":-150.0,"z":-10.0},{"n":"Almacén de producto terminado","x":-95.0,"z":-2.0},{"n":"Almacén de materia prima","x":-120.0,"z":-40.0},{"n":"Inyección (IMM 1000–2850 t)","x":-8.0,"z":10.0},{"n":"Línea Headliner Everest","x":-45.0,"z":-12.0},{"n":"Termoformado","x":-50.0,"z":-50.0},{"n":"Corte / cutting cloth","x":-130.0,"z":32.0},{"n":"Huitong","x":100.0,"z":10.0},{"n":"Prensas viseras / estructurales","x":125.0,"z":-28.0},{"n":"Hornos 1–6","x":158.0,"z":-3.0},{"n":"Andenes poniente","x":-156.0,"z":2.0},{"n":"Pasillo","x":-67.2,"z":19.8},{"n":"Corte 650 M2","x":-160.4,"z":25.5},{"n":"Almacen De Producto Terminado","x":-132.2,"z":-20.5},{"n":"Gm Headliner","x":-75.0,"z":-41.2},{"n":"Expansion 162 M2","x":40.3,"z":8.9},{"n":"Baños 99 Mt2","x":38.5,"z":25.4},{"n":"Cisterna","x":39.8,"z":-16.3},{"n":"Compresor 72 Mt2","x":39.9,"z":37.3},{"n":"Osmosis 40 Mt2","x":37.5,"z":10.2},{"n":"Linea De Produccion Headliner Everest","x":-38.1,"z":-7.5},{"n":"Headliner Rivian","x":-11.9,"z":9.2},{"n":"Fg Gm","x":-111.5,"z":14.1},{"n":"Wip Azdel","x":-129.0,"z":18.9},{"n":"Pasillo Grua","x":-13.1,"z":29.3},{"n":"Wip Material Everest","x":-16.1,"z":13.4},{"n":"Area De Produccion Inyeccion","x":-5.0,"z":8.0},{"n":"Mantenimiento","x":171.7,"z":-7.3},{"n":"Cuarentena","x":171.6,"z":16.5},{"n":"Huitong Area 2817 M2","x":93.3,"z":-2.8},{"n":"Horno 2","x":149.2,"z":-10.5},{"n":"Horno 1","x":166.4,"z":-10.5},{"n":"Horno 3","x":166.4,"z":-3.5},{"n":"Horno 5","x":166.5,"z":4.1},{"n":"Horno 6","x":149.2,"z":4.1},{"n":"Horno 4","x":149.3,"z":-3.5},{"n":"Prensas Estructurales Area 1249 M2","x":138.4,"z":-45.4},{"n":"Prensas Viseras Area 1869 M2","x":125.3,"z":-31.8},{"n":"Huitong Raw Material","x":118.0,"z":10.7},{"n":"Material Fg","x":156.3,"z":23.0},{"n":"Proyectos De Tesla","x":138.7,"z":-29.2},{"n":"Wip Area","x":18.0,"z":2.6},{"n":"Area De Moldes","x":-21.4,"z":16.6},{"n":"Cuarentena (Calidad)","x":23.1,"z":-58.6},{"n":"Jaula Ingenieria","x":22.9,"z":-54.4},{"n":"Armado De Carton Back Panel (Upper/Lower)","x":24.2,"z":-47.3},{"n":"Almacen Carton","x":-113.9,"z":-57.1},{"n":"Oficinas Dqmc","x":15.0,"z":-60.5}],"presets":[{"k":"overview","t":"Vista general del sitio"},{"k":"iso","t":"Isométrica de la planta"},{"k":"imm","t":"Inyección · IMM 1000–2850 t"},{"k":"headliner","t":"Línea Headliner Everest"},{"k":"termo","t":"Termoformado"},{"k":"apt","t":"Almacén de producto terminado"},{"k":"amp","t":"Almacén de materia prima"},{"k":"prensas","t":"Prensas viseras / estructurales"},{"k":"hornos","t":"Hornos 1–6"},{"k":"huitong","t":"Huitong"},{"k":"docks","t":"Andenes poniente"},{"k":"exp","t":"Expansiones propuestas"},{"k":"walk_access","t":"Caminar desde el acceso sur"},{"k":"walk_imm","t":"Caminar por el pasillo grúa"}],"bytes":311152},{"id":"parras","name":"Planta Parras","short":"Parras","sub":"Layout 9.8.26","kind":"PDF","file":"Layout Planta Parras 9.8.26-Model.pdf (vectorial, 21.41 pt/m)","drawn":"9.8.26","built":"2-oct-26","twin":"https://claude.ai/artifact/KPtFmcPr9XdJ3rrpWaEXfj","focus":"10 líneas de costura, corte, laminado, espuma y químicos","site":"Parras de la Fuente","meta":{"source":"PDF \"Layout Planta Parras 9.8.26-Model\" (vector)","units":"m","scale":21.41,"frame":"x = (Y_pdf - 1290.8)/21.41 ; z = (3456 - X_pdf - 1749.7)/21.41 (hoja girada 90°; 21.41 pt = 1 m por cotas 100.79 / 101.47 / 77.97 / 42.08 m)","note":"Geometría vectorial del PDF a escala; alturas y modelos 3D estimados. Se refinará con el DWG."},"met":{"area":8691,"areaProp":0,"blds":3,"ops":489,"m2op":17.8,"aisle":1426,"aislePct":16.4,"cols":29,"docks":7,"racks":"8 corridas · 128 posiciones","eq":["377 máquinas de coser · 10 líneas","11 líneas de corte"]},"polys":[{"p":[[-50.5,-59.9],[50.5,-59.9],[50.5,41.8],[35.0,41.8],[35.0,60.0],[8.4,60.0]],"h":10.0,"prop":false},{"p":[[35.0,41.8],[50.5,41.8],[51.8,41.8],[51.8,60.1],[35.0,60.1]],"h":8.0,"prop":false},{"p":[[52.1,-60.9],[58.5,-60.9],[58.5,-47.4],[52.1,-47.4]],"h":5.0,"prop":false}],"mini":{"f":"parras_minimap_pa.jpg","x0":-60.0,"z0":-66.0,"x1":62.0,"z1":66.0},"search":[{"t":"Andén de químicos / recibo","k":"poi","x":40.0,"z":52.0},{"t":"Zona de recibo (plataforma)","k":"poi","x":28.0,"z":52.0},{"t":"Warehouse (pasillo norte)","k":"poi","x":13.0,"z":2.0},{"t":"Sewing raw material","k":"poi","x":0.0,"z":-27.5},{"t":"Corte (pasillo norte)","k":"poi","x":6.8,"z":-17.5},{"t":"Línea 1","k":"poi","x":39.0,"z":-33.2},{"t":"Línea 5","k":"poi","x":9.6,"z":-33.2},{"t":"Línea 9","k":"poi","x":-21.1,"z":-33.2},{"t":"Línea 10","k":"poi","x":-30.6,"z":-33.2},{"t":"Laminado (flame / hot press)","k":"poi","x":43.8,"z":0.0},{"t":"Fabric WIP","k":"poi","x":40.0,"z":-13.4},{"t":"Foam machine (salida)","k":"poi","x":12.0,"z":34.4},{"t":"Foam cylinder warehouse","k":"poi","x":42.6,"z":35.4},{"t":"Puerta este","k":"poi","x":49.9,"z":-13.5},{"t":"LÍNEA 1 · 45 op","k":"rótulo","x":39.0,"z":-46.0},{"t":"LÍNEA 2 · 45 op","k":"rótulo","x":32.1,"z":-46.0},{"t":"LÍNEA 3 · 45 op","k":"rótulo","x":24.3,"z":-46.0},{"t":"LÍNEA 4 · 45 op","k":"rótulo","x":17.4,"z":-46.0},{"t":"LÍNEA 5 · 45 op","k":"rótulo","x":9.7,"z":-46.0},{"t":"LÍNEA 6 · 45 op","k":"rótulo","x":2.8,"z":-46.0},{"t":"LÍNEA 7 · 45 op","k":"rótulo","x":-4.0,"z":-46.0},{"t":"LÍNEA 8 · 35 op","k":"rótulo","x":-10.8,"z":-46.0},{"t":"LÍNEA 9 · 71 op","k":"rótulo","x":-21.1,"z":-46.0},{"t":"LÍNEA 10 · 53 op","k":"rótulo","x":-30.6,"z":-46.0},{"t":"COVER CUTTING · 11 LÍNEAS DE CORTE","k":"rótulo","x":6.8,"z":-12.0},{"t":"WAREHOUSE","k":"rótulo","x":8.0,"z":6.5},{"t":"LAMINATION WIP","k":"rótulo","x":39.5,"z":-3.2},{"t":"FLAME LAMINATING LINE","k":"rótulo","x":47.2,"z":-2.0},{"t":"TOUS HOT PRESS","k":"rótulo","x":39.2,"z":9.5},{"t":"EDGE CUTTING","k":"rótulo","x":47.2,"z":-13.5},{"t":"FOAM MACHINE","k":"rótulo","x":2.2,"z":31.2},{"t":"FASTENER MACHINES","k":"rótulo","x":7.5,"z":25.3},{"t":"DRILLING MACHINE","k":"rótulo","x":27.3,"z":25.3},{"t":"THICKNESS MACHINE","k":"rótulo","x":47.8,"z":28.3},{"t":"CHEMICAL ROOM · 277.78 m²","k":"rótulo","x":9.0,"z":49.5},{"t":"ANDÉN · N.P.T. −0.400","k":"rótulo","x":43.4,"z":50.5},{"t":"ÁREA DE COMPRESORES","k":"rótulo","x":55.3,"z":-50.0},{"t":"ZONA SIN ASIGNAR","k":"rótulo","x":47.2,"z":-46.0},{"t":"ZONA DELIMITADA (sin rótulo)","k":"rótulo","x":42.7,"z":-25.3},{"t":"Fabric WIP (rollos de tela)","k":"equipo","x":40.0,"z":-16.2},{"t":"Edge Cutting Machine / 剪边机 · 33 m²","k":"equipo","x":47.2,"z":-13.6},{"t":"Flame Laminating Line / 火焰复合线 · 63 m²","k":"equipo","x":47.2,"z":1.5},{"t":"TOUS Hot Press / 陶氏薄膜热压机 · 24 m²","k":"equipo","x":39.2,"z":7.6},{"t":"Thickness Machine (rebanadora de espesor)","k":"equipo","x":47.8,"z":28.3},{"t":"Fastener Machine 1","k":"equipo","x":3.2,"z":25.3},{"t":"Fastener Machine 2","k":"equipo","x":11.8,"z":25.3},{"t":"Foam Machine · carrusel de moldeo","k":"equipo","x":2.2,"z":31.2},{"t":"Foam Machine · estación de desmoldeo","k":"equipo","x":8.4,"z":31.2},{"t":"Foam Machine · transportador de salida","k":"equipo","x":15.6,"z":31.1},{"t":"Dique de contención de químicos","k":"equipo","x":4.2,"z":38.6},{"t":"Plataforma de descarga (platform)","k":"equipo","x":33.7,"z":56.4},{"t":"Rampa de acceso (Access ramp) a N.P.T. −0.400","k":"equipo","x":32.6,"z":44.8},{"t":"Tarima WIP de laminado","k":"equipo","x":47.2,"z":-9.0},{"t":"Rack · Warehouse","k":"rack","x":21.2,"z":14.5},{"t":"Línea 2","k":"línea","rect":[29.2,-57.6,35.0,-34.6],"x":32.1,"z":-46.1},{"t":"Línea 3","k":"línea","rect":[21.4,-57.6,27.2,-34.6],"x":24.3,"z":-46.1},{"t":"Línea 4","k":"línea","rect":[14.6,-57.6,20.3,-34.6],"x":17.4,"z":-46.1},{"t":"Línea 6","k":"línea","rect":[-0.1,-57.6,5.7,-34.6],"x":2.8,"z":-46.1},{"t":"Línea 7","k":"línea","rect":[-6.9,-57.6,-1.2,-34.6],"x":-4.0,"z":-46.1},{"t":"Línea 8","k":"línea","rect":[-13.8,-57.6,-7.9,-34.6],"x":-10.9,"z":-46.1},{"t":"Cover Cutting Line 1","k":"corte","x":-13.7,"z":-11},{"t":"Cover Cutting Line 2","k":"corte","x":-9.5,"z":-11},{"t":"Cover Cutting Line 3","k":"corte","x":-5.5,"z":-11},{"t":"Cover Cutting Line 4","k":"corte","x":-1.3,"z":-11},{"t":"Cover Cutting Line 5","k":"corte","x":2.8,"z":-11},{"t":"Cover Cutting Line 6","k":"corte","x":6.9,"z":-11},{"t":"Cover Cutting Line 7","k":"corte","x":10.9,"z":-11},{"t":"Cover Cutting Line 8","k":"corte","x":15.0,"z":-11},{"t":"Cover Cutting Line 9","k":"corte","x":19.1,"z":-11},{"t":"Cover Cutting Line 10","k":"corte","x":23.1,"z":-11},{"t":"Cover Cutting Line 11","k":"corte","x":27.2,"z":-11},{"t":"Compresor de tornillo 1 (estimado)","k":"exterior","x":54.0,"z":-58.0},{"t":"Compresor de tornillo 2 (estimado)","k":"exterior","x":54.0,"z":-55.2},{"t":"Secador refrigerativo (estimado)","k":"exterior","x":54.0,"z":-52.6},{"t":"Tanque pulmón de aire (estimado)","k":"exterior","x":56.9,"z":-57.2},{"t":"Andén D1","k":"andén","x":35.0,"z":56.4},{"t":"Vista general","k":"vista","preset":"overview"},{"t":"Isométrica de la nave","k":"vista","preset":"iso"},{"t":"Líneas de costura 1–10","k":"vista","preset":"costura"},{"t":"Línea 1 (patrón estándar)","k":"vista","preset":"l1"},{"t":"Línea 9 (la más densa)","k":"vista","preset":"l9"},{"t":"Corte · 11 Cover Cutting Lines","k":"vista","preset":"corte"},{"t":"Warehouse","k":"vista","preset":"wh"},{"t":"Laminado (flame / hot press / edge)","k":"vista","preset":"lam"},{"t":"Foam Machine y químicos","k":"vista","preset":"foam"},{"t":"Cuarto químico y andén","k":"vista","preset":"chem"},{"t":"Área de compresores","k":"vista","preset":"comp"},{"t":"Caminar frente a la Línea 5","k":"vista","preset":"walk_l5"},{"t":"Caminar el pasillo principal","k":"vista","preset":"walk_main"}],"zones":[{"n":"Línea 1","x":39.0,"z":-46.1,"rect":[36.0,-57.6,42.0,-34.6]},{"n":"Línea 2","x":32.1,"z":-46.1,"rect":[29.2,-57.6,35.0,-34.6]},{"n":"Línea 3","x":24.3,"z":-46.1,"rect":[21.4,-57.6,27.2,-34.6]},{"n":"Línea 4","x":17.4,"z":-46.1,"rect":[14.6,-57.6,20.3,-34.6]},{"n":"Línea 5","x":9.7,"z":-46.1,"rect":[6.8,-57.6,12.5,-34.6]},{"n":"Línea 6","x":2.8,"z":-46.1,"rect":[-0.1,-57.6,5.7,-34.6]},{"n":"Línea 7","x":-4.0,"z":-46.1,"rect":[-6.9,-57.6,-1.2,-34.6]},{"n":"Línea 8","x":-10.9,"z":-46.1,"rect":[-13.8,-57.6,-7.9,-34.6]},{"n":"Línea 9","x":-21.1,"z":-46.1,"rect":[-25.7,-57.6,-16.6,-34.6]},{"n":"Línea 10","x":-30.6,"z":-46.1,"rect":[-34.1,-57.6,-27.2,-34.6]},{"n":"Andén de químicos / recibo","x":40.0,"z":52.0},{"n":"Zona de recibo (plataforma)","x":28.0,"z":52.0},{"n":"Warehouse (pasillo norte)","x":13.0,"z":2.0},{"n":"Sewing raw material","x":0.0,"z":-27.5},{"n":"Corte (pasillo norte)","x":6.8,"z":-17.5},{"n":"Línea 1","x":39.0,"z":-33.2},{"n":"Línea 5","x":9.6,"z":-33.2},{"n":"Línea 9","x":-21.1,"z":-33.2},{"n":"Línea 10","x":-30.6,"z":-33.2},{"n":"Laminado (flame / hot press)","x":43.8,"z":0.0},{"n":"Fabric WIP","x":40.0,"z":-13.4},{"n":"Foam machine (salida)","x":12.0,"z":34.4},{"n":"Foam cylinder warehouse","x":42.6,"z":35.4},{"n":"Puerta este","x":49.9,"z":-13.5},{"n":"LÍNEA 1 · 45 op","x":39.0,"z":-46.0},{"n":"LÍNEA 2 · 45 op","x":32.1,"z":-46.0},{"n":"LÍNEA 3 · 45 op","x":24.3,"z":-46.0},{"n":"LÍNEA 4 · 45 op","x":17.4,"z":-46.0},{"n":"LÍNEA 5 · 45 op","x":9.7,"z":-46.0},{"n":"LÍNEA 6 · 45 op","x":2.8,"z":-46.0},{"n":"LÍNEA 7 · 45 op","x":-4.0,"z":-46.0},{"n":"LÍNEA 8 · 35 op","x":-10.8,"z":-46.0},{"n":"LÍNEA 9 · 71 op","x":-21.1,"z":-46.0},{"n":"LÍNEA 10 · 53 op","x":-30.6,"z":-46.0},{"n":"Cover Cutting · 11 Líneas De Corte","x":6.8,"z":-12.0},{"n":"Warehouse","x":8.0,"z":6.5},{"n":"Lamination Wip","x":39.5,"z":-3.2},{"n":"Flame Laminating Line","x":47.2,"z":-2.0},{"n":"Tous Hot Press","x":39.2,"z":9.5},{"n":"Edge Cutting","x":47.2,"z":-13.5},{"n":"Foam Machine","x":2.2,"z":31.2},{"n":"Fastener Machines","x":7.5,"z":25.3},{"n":"Drilling Machine","x":27.3,"z":25.3},{"n":"Thickness Machine","x":47.8,"z":28.3},{"n":"CHEMICAL ROOM · 277.78 m²","x":9.0,"z":49.5},{"n":"Andén · N.P.T. −0.400","x":43.4,"z":50.5},{"n":"Zona Sin Asignar","x":47.2,"z":-46.0},{"n":"ZONA DELIMITADA (sin rótulo)","x":42.7,"z":-25.3}],"presets":[{"k":"overview","t":"Vista general"},{"k":"iso","t":"Isométrica de la nave"},{"k":"costura","t":"Líneas de costura 1–10"},{"k":"l1","t":"Línea 1 (patrón estándar)"},{"k":"l9","t":"Línea 9 (la más densa)"},{"k":"corte","t":"Corte · 11 Cover Cutting Lines"},{"k":"wh","t":"Warehouse"},{"k":"lam","t":"Laminado (flame / hot press / edge)"},{"k":"foam","t":"Foam Machine y químicos"},{"k":"chem","t":"Cuarto químico y andén"},{"k":"comp","t":"Área de compresores"},{"k":"walk_l5","t":"Caminar frente a la Línea 5"},{"k":"walk_main","t":"Caminar el pasillo principal"}],"bytes":344638}]</script>
+<script id="mapmeta" type="application/json">{
+"lat0": 25.49,
+"lon0": -101.56,
+"kx": 100.484156725803,
+"kz": 110.57,
+"ext": {
+"W": -103.75,
+"E": -100.05,
+"S": 24.95,
+"N": 26.15,
+"x0": -220.06030322950835,
+"z0": -72.9762,
+"x1": 151.73107665596305,
+"z1": 59.7077999999999
+},
+"dem": {
+"f": "map_dem.png",
+"nx": 929,
+"nz": 332
+},
+"styles": {
+"dark": {
+"base": {
+"f": "map_base_dark.jpg",
+"x0": -220.06,
+"z0": -72.976,
+"x1": 151.731,
+"z1": 59.708,
+"w": 4461,
+"h": 1592
+},
+"metro": {
+"f": "map_metro_dark.jpg",
+"x0": 40.194,
+"z0": -18.797,
+"x1": 82.397,
+"z1": 17.691,
+"w": 1097,
+"h": 949
+}
+},
+"light": {
+"base": {
+"f": "map_base_light.jpg",
+"x0": -220.06,
+"z0": -72.976,
+"x1": 151.731,
+"z1": 59.708,
+"w": 4461,
+"h": 1592
+},
+"metro": {
+"f": "map_metro_light.jpg",
+"x0": 40.194,
+"z0": -18.797,
+"x1": 82.397,
+"z1": 17.691,
+"w": 1097,
+"h": 949
+}
+}
+}
+}</script>
+<script id="seed" type="application/json">{"portfolio/pr_p1_dotacion":{"by":null,"link":"","name":"Dotación de arranque Moldeo P1","note":"Dashboard bilingüe listo; faltan formulario de captura y lista de SharePoint.","owner":"Genet Campos","phase":"Planeación","plant":"p1","status":"gris","type":"Sistema digital","updated":"2026-10-02T00:00:00Z","zone":""},"portfolio/pr_p1_honda_rattle":{"by":null,"link":"","name":"Honda TF · rattle noise (DOE split-plot)","note":"Óptimo: 300 °C · 0.8 s · 4.5 s (R² aj 92.7 %). Corrida de confirmación de 30 piezas pendiente de firma de Nicolás.","owner":"Genet Campos","phase":"Improve","plant":"p1","status":"gris","type":"DMAIC","updated":"2026-10-02T00:00:00Z","zone":""},"portfolio/pr_p1_resinero":{"by":null,"link":"","name":"Estudio resinero / runner Moldeo P1","note":"Estudio de 3 días sin ejecutar: hueco crítico del business case de staffing de Moldeo.","owner":"","phase":"Planeación","plant":"p1","status":"gris","type":"Estudio","updated":"2026-10-02T00:00:00Z","zone":""},"portfolio/pr_p2_5s":{"by":null,"link":"","name":"Taller 5S Planta 2 · línea DT","note":"5 sesiones; hallazgos recurrentes en manejo de adhesivo y estación de frame/vanity.","owner":"Genet Campos","phase":"Improve","plant":"p2","status":"gris","type":"5S","updated":"2026-10-02T00:00:00Z","zone":""},"portfolio/pr_p4_est190":{"by":null,"link":"","name":"Kaizen estación 190 Rivian","note":"Iniciado en septiembre 2026.","owner":"","phase":"Define","plant":"p4","status":"gris","type":"Kaizen","updated":"2026-10-02T00:00:00Z","zone":""},"portfolio/pr_p4_g65":{"by":null,"link":"","name":"Visera BMW G65 · tela desfasada / expuesta","note":"Dados de corte en P4 (medidos 28–29 sep), tela a P1. Pendiente medir la tela que recibe P1. Los cortes de alivio manuales no tienen datos de mejora.","owner":"Genet Campos","phase":"Measure","plant":"p4","status":"gris","type":"DMAIC","updated":"2026-10-02T00:00:00Z","zone":""},"portfolio/pr_p4_r2_hundimientos":{"by":null,"link":"","name":"Rivian R2 · hundimientos (sink marks)","note":"Causa raíz confirmada: geometría del spacer de foam (11.36 mm mínimo, sin margen) y DXF sin GD&T. A3 a Ingeniería de Producto pendiente de autorización de Nicolás; prueba de 30 piezas con corte horizontal acordada.","owner":"Genet Campos","phase":"Improve","plant":"p4","status":"gris","type":"DMAIC","updated":"2026-10-02T00:00:00Z","zone":""},"portfolio/pr_p4_scrap":{"by":null,"link":"","name":"Análisis de scrap P4 y plan de Mejora Continua","note":"Datos ene–sep 2026; amarra scrap, 5S y Rivian R2 para la gerencia de P4.","owner":"Genet Campos","phase":"Analyze","plant":"p4","status":"gris","type":"Estudio","updated":"2026-10-02T00:00:00Z","zone":""},"portfolio/pr_p67_5s_l11":{"by":null,"link":"","name":"Taller 5S Planta 6 · Línea 11 (viernes)","note":"Con el gerente Andrés Covarrubias: equipo de ~20 personas, una línea a punto el mismo día.","owner":"Genet Campos","phase":"Planeación","plant":"p67","status":"gris","type":"5S","updated":"2026-10-02T00:00:00Z","zone":""},"portfolio/pr_p67_competencia":{"by":null,"link":"","name":"Competencia 5S P6-7 con LPA digital","note":"","owner":"","phase":"Control","plant":"p67","status":"gris","type":"5S","updated":"2026-10-02T00:00:00Z","zone":""},"portfolio/pr_p8_flujo_honda":{"by":null,"link":"https://claude.ai/artifact/RmKecwCAqugomfUYp3er3Y","name":"Estudio de tiempos y flujo de material · líneas Honda","note":"3 runners (montacargas, patín, hombre parado): líneas Honda → Estación 0 y → cartonera.","owner":"Genet Campos","phase":"Measure","plant":"p8","status":"gris","type":"Estudio","updated":"2026-10-02T00:00:00Z","x":-37.3,"z":78.66,"zone":"Línea Honda 34AA CR-V"},"portfolio/pr_p8_lanzamiento":{"by":null,"link":"","name":"Lanzamiento CI pre-producción P8 (estación nace correcta)","note":"Ventana de 7–10 semanas; faltan checklist y config.js de LPA para P8.","owner":"Genet Campos","phase":"Planeación","plant":"p8","status":"gris","type":"Kaizen","updated":"2026-10-02T00:00:00Z","zone":""},"portfolio/pr_parras_5s":{"by":null,"link":"","name":"5S líneas de costura Parras","note":"Aprobación de Fernando Macías. Siguiente: auditoría sin aviso para el score inicial.","owner":"Isaac Olvera","phase":"Planeación","plant":"parras","status":"gris","type":"5S","updated":"2026-10-02T00:00:00Z","zone":""},"portfolio/pr_parras_contenciones":{"by":null,"link":"","name":"Portafolio de contenciones Parras por número de parte (A–E)","note":"A costura desalineada + apretada F3002065/F3001700 · B QR familia C1Y (acción única) · C hilo/remate · D laminado · E ruta NP → línea.","owner":"Genet Campos","phase":"Define","plant":"parras","status":"gris","type":"DMAIC","updated":"2026-10-02T00:00:00Z","zone":""},"portfolio/pr_parras_kaizen_l1":{"by":null,"link":"","name":"Kaizen contención Línea 1 (5S → takt → Yamazumi)","note":"Y1 tasa de contención en P7 32.94 % → −25 % en modos 5S-sensibles. L2 se mide como control hasta la semana 7. Bloqueo: routing NP → línea.","owner":"Genet Campos","phase":"Measure","plant":"parras","status":"gris","type":"Kaizen","updated":"2026-10-02T00:00:00Z","x":39,"z":-46,"zone":"Línea 1"},"portfolio/pr_parras_t1xx2":{"by":null,"link":"","name":"Línea piloto T1XX-2 · definir layout final","note":"Pendiente del recorrido de piso en Parras.","owner":"","phase":"Planeación","plant":"parras","status":"gris","type":"Estudio","updated":"2026-10-02T00:00:00Z","zone":""},"portfolio/pr_reg_daipuntos":{"by":null,"link":"","name":"DaiPuntos · reconocimiento de Kaizen","note":"Meta: 1 Kaizen implementado por mes por departamento. Matriz impacto × alcance + Salón del Ahorro.","owner":"Genet Campos","phase":"Improve","plant":"","status":"gris","type":"Sistema digital","updated":"2026-10-02T00:00:00Z","zone":""},"portfolio/pr_reg_dqmc":{"by":null,"link":"","name":"DQMC · arquitectura de datos de defectos Rivian","note":"Rechazo mensual 9.86 % → 17.23 %. El crosswalk N1 (149 tipos) requiere revisión de Calidad antes de reportar al cliente.","owner":"Genet Campos","phase":"Analyze","plant":"","status":"gris","type":"Sistema digital","updated":"2026-10-02T00:00:00Z","zone":""},"portfolio/pr_reg_ford_p702":{"by":null,"link":"","name":"Ford P702 · abertura soldadura falsa (A.L-42)","note":"Charter listo. Nuevo top: defecto de etiqueta A.L-57/56, posiblemente ligado al mismo centro de soldadura.","owner":"Genet Campos","phase":"Measure","plant":"","status":"gris","type":"DMAIC","updated":"2026-10-02T00:00:00Z","zone":""},"portfolio/pr_reg_lpa":{"by":null,"link":"","name":"LPA digital · 8 plantas","note":"Flujo final definido. Pendiente: módulo de evidencia fotográfica y lista Auditores_Pool.","owner":"Genet Campos","phase":"Control","plant":"","status":"gris","type":"Sistema digital","updated":"2026-10-02T00:00:00Z","zone":""},"flows/fl_p4_p1_g65":{"by":null,"freq":"","from":"p4","kind":"material","note":"Dados de corte en P4; pendiente medir la tela que recibe P1.","to":"p1","updated":"2026-10-02T00:00:00Z","what":"Tela cortada visera BMW G65"},"flows/fl_parras_p7":{"by":null,"freq":"","from":"parras","kind":"calidad","note":"298,977 pz NOK feb–sep 2026 (32.9 %). El número de parte explica 4.8× más variación que la línea de P7.","to":"p67","updated":"2026-10-02T00:00:00Z","what":"Fundas cosidas (contención en P7)"}}</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+window.__NET_HUB = true;
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const fmt = (n,d=0) => n==null||Number.isNaN(n) ? '—' : Number(n).toLocaleString('es-MX',{minimumFractionDigits:d,maximumFractionDigits:d});
+const sleep = ms => new Promise(r=>setTimeout(r,ms));
+const norm = s => String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase();
+const NETD = JSON.parse($('#netdata').textContent);
+
+/* =================================================================== GEOGRAFÍA (km, x = este, z = sur) */
+const LAT0 = 25.49, LON0 = -101.56, KX = 111.32*Math.cos(LAT0*Math.PI/180), KZ = 110.57;
+const geo = (lat,lon) => [ (lon-LON0)*KX, -(lat-LAT0)*KZ ];
+const ungeo = (x,z) => [ LAT0 - z/KZ, LON0 + x/KX ];
+function haversine(a,b){ const R=6371, r=Math.PI/180; const [la1,lo1]=a, [la2,lo2]=b; const dla=(la2-la1)*r, dlo=(lo2-lo1)*r; const h=Math.sin(dla/2)**2+Math.cos(la1*r)*Math.cos(la2*r)*Math.sin(dlo/2)**2; return 2*R*Math.asin(Math.sqrt(h)); }
+const MAPM = JSON.parse($('#mapmeta').textContent); const E = MAPM.ext; const EXAG = 2.4;
+let RA = geo(25.543234,-100.950782), PARRAS = geo(25.437381,-102.184169);
+const CAB = { ramos:[25.543234,-100.950782], parras:[25.437381,-102.184169] };   // cabeceras municipales (INEGI)
+const SITE_DEF = {};
+Object.entries({ p1:[-2.8,1.0], p2:[-0.8,-2.9], p4:[2.6,-1.6], p67:[3.0,1.9], p8:[0.3,3.3] }).forEach(([id,[dx,dz]])=>{ SITE_DEF[id]=[CAB.ramos[0]-dz/KZ, CAB.ramos[1]+dx/KX]; });
+SITE_DEF.parras=[CAB.parras[0], CAB.parras[1]+1.6/KX];
+let SITES = {};
+const siteOf = id => { const s=SITES[id]; return s && typeof s.lat==='number' ? {ll:[s.lat,s.lon], exact:true, s} : {ll:SITE_DEF[id], exact:false}; };
+/* relieve: DEM interpolado de altitudes INEGI (PNG 16 bits en R·G) */
+async function loadDEM(){ try{ const img=new Image(); img.src=MAPM.dem.f; await img.decode(); const c=document.createElement('canvas'); c.width=img.width; c.height=img.height; const g=c.getContext('2d',{willReadFrequently:true}); g.drawImage(img,0,0); const d=g.getImageData(0,0,c.width,c.height).data; const H=new Float32Array(c.width*c.height); for(let i=0;i<H.length;i++) H[i]=d[i*4]*256+d[i*4+1]; return {w:c.width,h:c.height,H}; }catch(_){ return null; } }
+const DEMH = await loadDEM();
+function elevAt(x,z){ if(!DEMH) return 1400; const w=DEMH.w, H=DEMH.H; const u=Math.max(0,Math.min(w-1.001,(x-E.x0)/(E.x1-E.x0)*(w-1))), v=Math.max(0,Math.min(DEMH.h-1.001,(z-E.z0)/(E.z1-E.z0)*(DEMH.h-1))); const i=Math.floor(u), j=Math.floor(v), fx=u-i, fz=v-j;
+  return H[j*w+i]*(1-fx)*(1-fz)+H[j*w+i+1]*fx*(1-fz)+H[(j+1)*w+i]*(1-fx)*fz+H[(j+1)*w+i+1]*fx*fz; }
+const yAt = (x,z) => (elevAt(x,z)-1000)/1000*EXAG;
+const GHOSTS = [
+  { id:'p2', name:'Planta 2', short:'P2', ghost:true, site:'Ramos Arizpe', focus:'Taller 5S en línea DT' },
+  { id:'p67', name:'Planta 6-7', short:'P6-7', ghost:true, site:'Ramos Arizpe', focus:'P7 recibe y contiene las fundas de Parras · 5S Línea 11 en P6' },
+];
+const ORDER = ['p1','p2','p4','p67','p8','parras'];
+const PL = {}; [...NETD, ...GHOSTS].forEach(p=>{ PL[p.id]=p; });
+ORDER.forEach(id=>{ const p=PL[id]; const s=siteOf(id); p.ll=s.ll; p.exact=s.exact; p.pos=geo(...s.ll); p.y=yAt(p.pos[0],p.pos[1]); p.cluster = id!=='parras'; });
+const TWINS = ORDER.filter(id=>!PL[id].ghost);
+const PLANT_OPTS = ORDER.map(id=>`<option value="${id}">${esc(PL[id].name)}</option>`).join('');
+
+/* =================================================================== ESCENA REGIONAL */
+const stage = $('#stage');
+const renderer = new THREE.WebGLRenderer({antialias:true, powerPreference:'high-performance'});
+renderer.setPixelRatio(Math.min(devicePixelRatio,1.75)); renderer.setSize(innerWidth,innerHeight);
+renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.0;
+stage.appendChild(renderer.domElement);
+const scene = new THREE.Scene(); scene.background = new THREE.Color('#0A0D11'); scene.fog = new THREE.Fog('#0A0D11', 260, 620);
+const camera = new THREE.PerspectiveCamera(42, innerWidth/innerHeight, 0.05, 2000);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true; controls.dampingFactor = .08; controls.maxPolarAngle = 1.32; controls.minDistance = 2.2; controls.maxDistance = 420; controls.screenSpacePanning = false;
+scene.add(new THREE.HemisphereLight(0xdfe7ef, 0x1a1f26, 1.1));
+const sun = new THREE.DirectionalLight(0xfff2e0, 2.2); sun.position.set(-60,120,80); scene.add(sun);
+/* terreno real: mapa base (Natural Earth + INEGI) sobre relieve interpolado, con detalle Saltillo–Ramos Arizpe */
+const TEXC = {}; const tLoad = new THREE.TextureLoader();
+const mapTex = f => { const t=tLoad.load(f); t.colorSpace=THREE.SRGBColorSpace; t.anisotropy=renderer.capabilities.getMaxAnisotropy(); return t; };
+const TU = { tBase:{value:null}, tMetro:{value:null}, rBase:{value:new THREE.Vector4(E.x0,E.z0,E.x1,E.z1)}, rMetro:{value:new THREE.Vector4(0,0,1,1)}, uL:{value:new THREE.Vector3(-.55,.75,.35).normalize()} };
+const geoT = new THREE.PlaneGeometry(E.x1-E.x0, E.z1-E.z0, 460, 165).rotateX(-Math.PI/2); geoT.translate((E.x0+E.x1)/2,0,(E.z0+E.z1)/2);
+{ const pa=geoT.attributes.position; for(let i=0;i<pa.count;i++) pa.setY(i, yAt(pa.getX(i),pa.getZ(i))); geoT.computeVertexNormals(); }
+const TERRAIN = new THREE.Mesh(geoT, new THREE.ShaderMaterial({ uniforms:TU,
+  vertexShader:`varying vec3 vW; varying vec3 vN; void main(){ vW=(modelMatrix*vec4(position,1.)).xyz; vN=normal; gl_Position=projectionMatrix*viewMatrix*vec4(vW,1.); }`,
+  fragmentShader:`uniform sampler2D tBase,tMetro; uniform vec4 rBase,rMetro; uniform vec3 uL; varying vec3 vW; varying vec3 vN;
+    void main(){ vec2 ub=(vW.xz-rBase.xy)/(rBase.zw-rBase.xy); vec4 c=texture2D(tBase,vec2(ub.x,1.-ub.y));
+      vec2 um=(vW.xz-rMetro.xy)/(rMetro.zw-rMetro.xy);
+      if(um.x>0.&&um.x<1.&&um.y>0.&&um.y<1.){ float e=min(min(um.x,1.-um.x),min(um.y,1.-um.y)); c=mix(c,texture2D(tMetro,vec2(um.x,1.-um.y)),smoothstep(0.,.05,e)); }
+      float l=.88+.2*clamp(dot(normalize(vN),uL),0.,1.);
+      gl_FragColor=vec4(c.rgb*l,1.);
+      #include <colorspace_fragment>
+    }` }));
+TERRAIN.name='terrain'; scene.add(TERRAIN);
+const UNDER = new THREE.Mesh(new THREE.PlaneGeometry(4000,4000).rotateX(-Math.PI/2), new THREE.MeshBasicMaterial({color:'#101418'})); UNDER.position.y=-2.2; scene.add(UNDER);
+let MAPSTYLE = (()=>{ try{ return localStorage.getItem('net_mapstyle')||'light'; }catch(_){ return 'light'; } })();
+function setMapStyle(st){ if(!MAPM.styles[st]) st='light'; MAPSTYLE=st; const S=MAPM.styles[st]; TEXC[st]=TEXC[st]||{base:mapTex(S.base.f),metro:mapTex(S.metro.f)};
+  TU.tBase.value=TEXC[st].base; TU.tMetro.value=TEXC[st].metro; TU.rMetro.value.set(S.metro.x0,S.metro.z0,S.metro.x1,S.metro.z1);
+  const bg = st==='light' ? '#b9bfc4' : '#0A0D11'; scene.background.set(bg); scene.fog.color.set(bg); UNDER.material.color.set(st==='light'?'#cfd2cd':'#101418');
+  try{ localStorage.setItem('net_mapstyle',st); }catch(_){}
+  document.querySelectorAll('#mapSty button').forEach(b=>b.classList.toggle('on',b.dataset.v===st)); }
+setMapStyle(MAPSTYLE);
+document.querySelectorAll('#mapSty button').forEach(b=>b.addEventListener('click',()=>setMapStyle(b.dataset.v)));
+const LABELS = []; const LBL = $('#labels');
+function addLabel(el, pos, opts={}){ LBL.appendChild(el); const o={el,pos:new THREE.Vector3(pos[0],pos[1]??0,pos[2]),...opts}; LABELS.push(o); return o; }
+/* pedestales y miniaturas de cada planta */
+const PICKABLE = [];
+const TIER_COL = { verde:'#2FBF71', ambar:'#F2B01E', rojo:'#FF5F57', none:'#5a6470' };
+const texLoader = new THREE.TextureLoader();
+ORDER.forEach(id=>{
+  const p=PL[id]; const g=new THREE.Group(); g.position.set(p.pos[0],p.y,p.pos[1]); scene.add(g); p.g=g;
+  const R = p.ghost ? .95 : 1.45;
+  const disc = new THREE.Mesh(new THREE.CylinderGeometry(R,R*1.06,.14,64).translate(0,.07,0), new THREE.MeshStandardMaterial({color:'#161b21',roughness:.7,metalness:.3}));
+  disc.userData.plant=id; PICKABLE.push(disc); g.add(disc);
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(R*1.04,.055,8,96).rotateX(Math.PI/2), new THREE.MeshBasicMaterial({color:TIER_COL.none,toneMapped:false})); ring.position.y=.15; g.add(ring); p.ring=ring;
+  const halo = new THREE.Mesh(new THREE.RingGeometry(R*1.1,R*1.9,64).rotateX(-Math.PI/2), new THREE.MeshBasicMaterial({color:TIER_COL.none,transparent:true,opacity:0,depthWrite:false,toneMapped:false})); halo.position.y=.02; g.add(halo); p.halo=halo;
+  if(p.ghost){
+    const box=new THREE.Mesh(new THREE.BoxGeometry(1.0,.35,.62).translate(0,.32,0),new THREE.MeshStandardMaterial({color:'#3a434d',transparent:true,opacity:.45,roughness:.6})); g.add(box);
+    const e=new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(1.0,.35,.62)),new THREE.LineDashedMaterial({color:'#8B929B',dashSize:.08,gapSize:.06})); e.position.y=.32; e.computeLineDistances(); g.add(e);
+    return;
+  }
+  // miniatura: huellas reales de las naves (polígonos del plano), escaladas al pedestal
+  const all=p.polys.flatMap(b=>b.p); const xs=all.map(q=>q[0]), zs=all.map(q=>q[1]);
+  const cx=(Math.min(...xs)+Math.max(...xs))/2, cz=(Math.min(...zs)+Math.max(...zs))/2, ext=Math.max(Math.max(...xs)-Math.min(...xs), Math.max(...zs)-Math.min(...zs));
+  const s = 2.15/ext; p.miniS=s; p.miniC=[cx,cz];
+  const mini=new THREE.Group(); mini.scale.set(s,s*2.2,s); mini.position.y=.145; g.add(mini);
+  const m=p.mini; texLoader.load(m.f, t=>{ t.colorSpace=THREE.SRGBColorSpace; const pl=new THREE.Mesh(new THREE.PlaneGeometry(m.x1-m.x0,m.z1-m.z0).rotateX(-Math.PI/2), new THREE.MeshBasicMaterial({map:t,toneMapped:false,transparent:true,opacity:.92}));
+    pl.position.set((m.x0+m.x1)/2-cx,.2,(m.z0+m.z1)/2-cz); mini.add(pl); });
+  p.polys.forEach(b=>{
+    const sh=new THREE.Shape(b.p.map(q=>new THREE.Vector2(q[0]-cx,-(q[1]-cz))));
+    const geoE=new THREE.ExtrudeGeometry(sh,{depth:b.h,bevelEnabled:false}).rotateX(-Math.PI/2);
+    const mt = b.prop ? new THREE.MeshStandardMaterial({color:'#FFB020',transparent:true,opacity:.28,depthWrite:false}) : new THREE.MeshStandardMaterial({color:'#c9d0d7',roughness:.55,metalness:.15,transparent:true,opacity:.86});
+    const me=new THREE.Mesh(geoE,mt); mini.add(me);
+    const ed=new THREE.LineSegments(new THREE.EdgesGeometry(geoE,30),new THREE.LineBasicMaterial({color:b.prop?'#FFB020':'#ED3037',transparent:true,opacity:b.prop?.6:.55})); mini.add(ed);
+  });
+});
+// etiquetas de planta y del clúster
+function plantLabel(id){ const p=PL[id]; const el=document.createElement('div'); el.className='lbl'+(p.ghost?' ghost':''); el.tabIndex=0;
+  el.innerHTML=`<div class="card"><b>${esc(p.name)}</b><small>${esc(p.ghost?'sin gemelo · falta plano':p.sub)}</small><div class="row"><span class="sq" data-sq="${id}"></span><span class="badge" data-op="${id}" hidden></span><span class="apx" data-apx="${id}" title="Ubicación aproximada: fíjala con coordenadas de Google Maps en la pestaña Plantas">aprox.</span></div></div><div class="stem"></div>`;
+  el.addEventListener('click',()=>onPlantClick(id)); el.addEventListener('keydown',e=>{ if(e.key==='Enter') onPlantClick(id); });
+  p.lbl = addLabel(el,[p.pos[0],p.y+1.2,p.pos[1]],{plant:id,cluster:p.cluster}); return p.lbl; }
+ORDER.forEach(plantLabel);
+const clusterEl=document.createElement('div'); clusterEl.className='lbl cluster'; clusterEl.innerHTML=`<div class="card"><b>Ramos Arizpe</b><small>5 plantas · 3 con gemelo</small><div class="row"><span class="sq" data-sq="cluster"></span><span class="badge" data-op="cluster" hidden></span></div></div><div class="stem"></div>`;
+clusterEl.addEventListener('click',()=>flyTo([RA[0],0,RA[1]],16,.82,0));
+const CLUSTER = addLabel(clusterEl,[RA[0],1.6,RA[1]],{isCluster:true});
+function placePlants(){
+  ORDER.forEach(id=>{ const p=PL[id]; const s=siteOf(id); p.ll=s.ll; p.exact=s.exact; p.pos=geo(...s.ll); p.y=yAt(p.pos[0],p.pos[1]);
+    p.g.position.set(p.pos[0],p.y,p.pos[1]); p.lbl.pos.set(p.pos[0],p.y+1.2,p.pos[1]); });
+  // escala de pedestal: si dos plantas quedan cerca, el pedestal se encoge para no encimarse
+  ORDER.forEach(id=>{ const p=PL[id]; const R0=p.ghost?.95:1.45; let dmin=1e9; ORDER.forEach(o=>{ if(o!==id){ const q=PL[o]; dmin=Math.min(dmin,Math.hypot(p.pos[0]-q.pos[0],p.pos[1]-q.pos[1])); } });
+    const k=Math.max(.14,Math.min(1,(dmin*.46)/R0)); p.g.scale.setScalar(k); p.k=k; p.lbl.pos.y=p.y+.3+.9*k; });
+  const cl=ORDER.filter(id=>PL[id].cluster).map(id=>PL[id]); RA=[cl.reduce((t,p)=>t+p.pos[0],0)/cl.length, cl.reduce((t,p)=>t+p.pos[1],0)/cl.length]; PARRAS=PL.parras.pos;
+  CLUSTER.pos.set(RA[0],yAt(RA[0],RA[1])+1.6,RA[1]);
+  document.querySelectorAll('[data-apx]').forEach(el=>{ el.hidden=!!PL[el.dataset.apx].exact; });
+  buildFlows();
+}
+const clusterLL = () => ungeo(RA[0],RA[1]);
+
+/* =================================================================== FLUJOS ENTRE PLANTAS */
+const FLOW_G = new THREE.Group(); scene.add(FLOW_G);
+let FLOWS=[], FLOW_OBJS=[];
+const FLOW_COL = { material:'#cfd6dd', calidad:'#ED3037', informacion:'#4C8DFF' };
+function buildFlows(){
+  FLOW_OBJS.forEach(o=>{ FLOW_G.remove(o.line); FLOW_G.remove(o.pts); o.lbl.el.remove(); LABELS.splice(LABELS.indexOf(o.lbl),1); }); FLOW_OBJS=[];
+  if(!PL.parras.g) return;
+  FLOWS.forEach(f=>{
+    const A=PL[f.from], B=PL[f.to]; if(!A||!B||A===B) return;
+    const a=new THREE.Vector3(A.pos[0],A.y+.3,A.pos[1]), b=new THREE.Vector3(B.pos[0],B.y+.3,B.pos[1]); const d=Math.hypot(a.x-b.x,a.z-b.z);
+    const mid=a.clone().add(b).multiplyScalar(.5); mid.y=Math.max(a.y,b.y)+Math.max(1.6,d*.2);
+    const curve=new THREE.QuadraticBezierCurve3(a,mid,b);
+    const col=new THREE.Color(FLOW_COL[f.kind]||FLOW_COL.material);
+    const line=new THREE.Line(new THREE.BufferGeometry().setFromPoints(curve.getPoints(80)),new THREE.LineBasicMaterial({color:col,transparent:true,opacity:.75,toneMapped:false})); FLOW_G.add(line);
+    const n=14, arr=new Float32Array(n*3); const pg=new THREE.BufferGeometry(); pg.setAttribute('position',new THREE.BufferAttribute(arr,3));
+    const pts=new THREE.Points(pg,new THREE.PointsMaterial({color:col,size:5,sizeAttenuation:false,toneMapped:false})); FLOW_G.add(pts);
+    const km=haversine(A.ll,B.ll);
+    const el=document.createElement('div'); el.className='lbl flow'; el.innerHTML=`<span>${esc(A.short)} → ${esc(B.short)} · ${esc(f.what||'flujo')}</span>`;
+    el.addEventListener('click',()=>{ openDrawer('flujos'); renderFlows(f.id); });
+    const lbl=addLabel(el,[curve.getPoint(.5).x,curve.getPoint(.5).y,curve.getPoint(.5).z],{flow:f.id, near: d<20});
+    FLOW_OBJS.push({f,curve,pts,line,lbl,n,km,ph:Math.random()});
+  });
+}
+
+placePlants();
+/* =================================================================== CÁMARA */
+let tween=null;
+function flyTo(t,dist,polar,azim,dur=1.4){
+  const T=new THREE.Vector3(t[0],t[1]||yAt(t[0],t[2]),t[2]);
+  const off=new THREE.Vector3().setFromSphericalCoords(dist,polar,azim);
+  const P1=T.clone().add(off);
+  const P0=camera.position.clone(), T0=controls.target.clone();
+  return new Promise(res=>{ tween={t:0,dur,P0,P1,T0,T1:T,res}; });
+}
+function setView(t,dist,polar,azim){ const T=new THREE.Vector3(t[0],yAt(t[0],t[2]),t[2]); controls.target.copy(T); camera.position.copy(T.clone().add(new THREE.Vector3().setFromSphericalCoords(dist,polar,azim))); controls.update(); }
+const OVERVIEW = ()=>{ const wide=innerWidth>=900 && !$('#drawer').hidden; const asp=innerWidth/innerHeight; return flyTo([wide?30:-1,0,1.5],wide?178:Math.max(168,205/asp),.74,0,1.6); };
+setView([-1,0,1.5],230,.62,.25);
+
+/* =================================================================== ESTADO DE LA RED */
+let MODE='red', CUR=null, SPLIT=null;
+const FR = new Map(); const HTMLC = new Map();
+const vh=$('#veil');
+function veil(on,t,s){ vh.classList.toggle('on',!!on); if(t!==undefined) $('#veilT').textContent=t; if(s!==undefined) $('#veilS').textContent=s; }
+function toast(msg,ms=3200){ const t=$('#toast'); t.textContent=msg; t.hidden=false; clearTimeout(toast._t); toast._t=setTimeout(()=>t.hidden=true,ms); }
+function fetchHTML(id){ if(!HTMLC.has(id)) HTMLC.set(id, fetch(id+'.html').then(r=>{ if(!r.ok) throw new Error('HTTP '+r.status); return r.text(); })); return HTMLC.get(id); }
+function makeFrame(id){
+  const f={id, ready:false, q:[], hello:false};
+  f.readyP=new Promise(r=>f.readyR=r);
+  const ifr=document.createElement('iframe'); ifr.title='Gemelo digital '+PL[id].name; ifr.setAttribute('allow','fullscreen'); f.ifr=ifr;
+  let loadR; f.loadP=new Promise(r=>loadR=r);
+  $('#frames').appendChild(ifr);
+  fetchHTML(id).then(html=>{ const base=new URL('./',location.href).href; ifr.addEventListener('load',()=>loadR(),{once:true}); ifr.srcdoc=html.replace(/<head>/i,'<head><base href="'+base+'">'); })
+    .catch(e=>{ f.err=String(e); loadR(); });
+  FR.set(id,f); return f;
+}
+function post(id,msg){ const f=FR.get(id); if(!f) return; if(!f.ready){ f.q.push(msg); return; } try{ f.ifr.contentWindow.postMessage(Object.assign({src:'net'},msg),'*'); }catch(_){} }
+function postNow(f,msg){ try{ f.ifr.contentWindow.postMessage(Object.assign({src:'net'},msg),'*'); }catch(_){} }
+function showFrames(ids){
+  const box=$('#frames'); box.hidden=false; box.classList.toggle('split',ids.length>1);
+  box.querySelectorAll('.splitlbl').forEach(e=>e.remove());
+  const q = ids.length>1 || matchMedia('(pointer:coarse)').matches ? 'low' : 'high';
+  FR.forEach((f,id)=>{ const on=ids.includes(id); f.ifr.hidden=!on; f.ifr.style.order=String(ids.indexOf(id)); postNow(f,{cmd:'pause',v:!on}); if(on){ f.q2=q; postNow(f,{cmd:'quality',v:q}); } });
+  if(ids.length>1) ids.forEach((id,i)=>{ const l=document.createElement('div'); l.className='splitlbl'; l.textContent=PL[id].name; if(i) l.style.right='12px'; else l.style.left='12px'; box.appendChild(l); });
+  // libera memoria: máximo 2 gemelos vivos
+  const keep=new Set([...ids, CUR]); const ids2=[...FR.keys()].filter(k=>!keep.has(k));
+  while(FR.size>Math.max(2,ids.length) && ids2.length){ const k=ids2.shift(); const f=FR.get(k); f.ifr.remove(); FR.delete(k); dropSubs(k); }
+}
+async function enterPlant(id, after){
+  const p=PL[id]; if(!p) return;
+  if(p.ghost){ onPlantClick(id); return; }
+  if(SPLIT) exitSplit(false);
+  if(MODE==='plant' && CUR===id){ if(after) await runAfter(id,after); return; }
+  if(MODE==='red'){ const az=Math.atan2(camera.position.x-controls.target.x, camera.position.z-controls.target.z); await flyTo([p.pos[0],0,p.pos[1]],3.6,.95,az,1.1); }
+  veil(true, p.name, `${p.kind} · ${p.file}`);
+  await sleep(260);
+  const f = FR.get(id) || makeFrame(id);
+  MODE='plant'; CUR=id; showFrames([id]); setBar();
+  if(innerWidth<900) closeDrawer(); else if(!$('#drawer').hidden && TAB==='plantas') closeDrawer();
+  const t0=performance.now();
+  await Promise.race([f.loadP, sleep(9000)]);
+  veil(false);
+  const ok = await Promise.race([f.readyP.then(()=>true), sleep(45000).then(()=>false)]);
+  if(!ok && !f.hello){ veil(true,'No se pudo abrir '+p.name, 'Ábrelo como gemelo independiente desde la pestaña Plantas.'); setTimeout(()=>veil(false),4500); return; }
+  if(after) await runAfter(id,after);
+}
+async function runAfter(id,after){ const f=FR.get(id); if(!f) return; await f.readyP; await sleep(300); after.forEach(m=>post(id,m)); }
+function showRed(){
+  if(SPLIT) exitSplit(false);
+  const was=CUR; MODE='red'; CUR=null; $('#frames').hidden=true; FR.forEach(f=>postNow(f,{cmd:'pause',v:true})); setBar();
+  if(was && PL[was]){ const p=PL[was]; setView([p.pos[0],0,p.pos[1]],3.6,.95,0); flyTo([p.pos[0],0,p.pos[1]], p.cluster?18:22, .85, 0, 1.4); }
+}
+function onPlantClick(id){
+  const p=PL[id];
+  if(p.ghost){ flyTo([p.pos[0],0,p.pos[1]],9,.85,0); openDrawer('plantas'); renderPlantas(id); return; }
+  enterPlant(id);
+}
+/* barra */
+function setBar(){
+  const j=$('#jumps'); j.innerHTML=`<button data-j="red" class="${MODE==='red'?'on':''}">Red</button>`+TWINS.map(id=>`<button data-j="${id}" class="${(CUR===id||(SPLIT&&SPLIT.includes(id)))?'on':''}"><i class="dot" style="background:${TIER_COL[tierOf(id)]}"></i>${esc(PL[id].short)}</button>`).join('');
+  j.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{ stopTour(); b.dataset.j==='red'?showRed():enterPlant(b.dataset.j); }));
+  const s=$('#seal');
+  if(MODE==='plant'&&CUR){ const p=PL[CUR]; s.hidden=false; s.innerHTML=`<span class="k">${p.kind}</span><span>${esc(p.drawn)} · gemelo ${esc(p.built)}</span><a href="${twinHref(p)}" target="_blank" rel="noopener" style="color:var(--dim)">abrir solo ↗</a>`; }
+  else if(SPLIT){ s.hidden=false; s.innerHTML=`<span class="k">Lado a lado</span><span>${esc(PL[SPLIT[0]].short)} | ${esc(PL[SPLIT[1]].short)}</span>`; }
+  else s.hidden=true;
+  $('#mapui').hidden = MODE!=='red'; LBL.hidden = MODE!=='red';
+  const bh=$('#bar').getBoundingClientRect().height; document.documentElement.style.setProperty('--bar-top', bh+'px');
+}
+function enterSplit(a,b){
+  if(a===b) return; stopTour(); SPLIT=[a,b]; MODE='split'; CUR=null;
+  [a,b].forEach(id=>{ if(!FR.has(id)) makeFrame(id); });
+  showFrames([a,b]); setBar(); closeDrawer();
+}
+function exitSplit(toRed=true){ const s=SPLIT; SPLIT=null; if(toRed){ MODE='red'; $('#frames').hidden=true; FR.forEach(f=>postNow(f,{cmd:'pause',v:true})); setBar(); } return s; }
+
+/* =================================================================== MENSAJES DE LAS PLANTAS (+ base de datos delegada) */
+let DB=null, USER=null, ME=null, DLS=null, DBDONE=false;
+const SUBS=new Map();
+function dropSubs(plant){ SUBS.forEach((s,k)=>{ if(s.plant===plant){ try{ s.un(); }catch(_){} SUBS.delete(k); } }); }
+const ser = s => ({id:s.id, exists:!!s.exists, data:s.exists?s.data():undefined});
+addEventListener('message', async e=>{
+  const m=e.data; if(!m||m.src!=='plant') return;
+  const f=[...FR.values()].find(x=>x.ifr.contentWindow===e.source); if(!f) return;
+  const reply=(o)=>postNow(f,o);
+  if(m.type==='hello'){ f.hello=true; dropSubs(f.id); return; }
+  if(m.type==='ready'){ f.ready=true; f.readyR(); postNow(f,{cmd:'pause',v:f.ifr.hidden}); if(f.q2) postNow(f,{cmd:'quality',v:f.q2}); const q=f.q; f.q=[]; q.forEach(x=>postNow(f,x)); sendPins(f.id); escalate(f.id); return; }
+  if(m.type==='picked'){ onPicked(f.id,m.x,m.z); return; }
+  if(m.type==='pin'){ openDrawer('opex'); renderOpex(m.id); return; }
+  if(m.type==='db'){
+    const mp=p=>'pl/'+f.id+'/'+p;
+    try{
+      if(m.op==='avail') return reply({cmd:'dbres',rid:m.rid,ok:true,val:!!DB});
+      if(!DB) throw {code:'unavailable'};
+      if(m.op==='get'){ const s=await DB.doc(mp(m.path)).get(); return reply({cmd:'dbres',rid:m.rid,ok:true,val:ser(s)}); }
+      if(m.op==='getq'){ const q=await DB.collection(mp(m.path)).get(); return reply({cmd:'dbres',rid:m.rid,ok:true,val:q.docs.map(ser)}); }
+      if(m.op==='set'){ await DB.doc(mp(m.path)).set(m.data); return reply({cmd:'dbres',rid:m.rid,ok:true}); }
+      if(m.op==='update'){ await DB.doc(mp(m.path)).update(m.data); return reply({cmd:'dbres',rid:m.rid,ok:true}); }
+      if(m.op==='delete'){ await DB.doc(mp(m.path)).delete(); return reply({cmd:'dbres',rid:m.rid,ok:true}); }
+      if(m.op==='sub'){ const ref = m.kind==='doc' ? DB.doc(mp(m.path)) : DB.collection(mp(m.path));
+        const un = ref.onSnapshot(s=>{ if(m.kind==='doc') reply({cmd:'dbsnap',sid:m.sid,doc:ser(s)}); else reply({cmd:'dbsnap',sid:m.sid,docs:s.docs.map(ser)}); }, er=>reply({cmd:'dberr',sid:m.sid,err:{code:er?.code||'unavailable'}}));
+        SUBS.set(m.sid,{un,plant:f.id}); return; }
+      if(m.op==='unsub'){ const s=SUBS.get(m.sid); if(s){ s.un(); SUBS.delete(m.sid); } return; }
+    }catch(er){ if(m.rid) reply({cmd:'dbres',rid:m.rid,ok:false,err:{code:er?.code||'unavailable',message:er?.message||''}}); }
+  }
+});
+
+/* =================================================================== DATOS COMPARTIDOS: portafolio, flujos, Tier 3 */
+let PROJ=[], TIER=[], PROFILES={};
+const today = () => { const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
+let TDATE = today();
+const RANK={verde:1,ambar:2,rojo:3};
+function worst(cats){ let w=null; Object.values(cats||{}).forEach(c=>{ if(c&&c.st&&RANK[c.st] && (!w||RANK[c.st]>RANK[w])) w=c.st; }); return w; }
+function tierDoc(id,date=TDATE){ return TIER.find(t=>t.plant===id && t.date===date); }
+function tierOf(id){ const t=tierDoc(id); return (t && worst(t.cats)) || 'none'; }
+function paintTier(){
+  ORDER.forEach(id=>{ const p=PL[id]; const st=tierOf(id); const c=new THREE.Color(TIER_COL[st]); p.ring.material.color.copy(c); p.halo.material.color.copy(c); p.halo.material.opacity = st==='rojo'?.22:st==='ambar'?.14:st==='verde'?.08:0; });
+  document.querySelectorAll('[data-sq]').forEach(el=>{ const id=el.dataset.sq;
+    if(id==='cluster'){ const sts=ORDER.filter(x=>PL[x].cluster).map(tierOf); el.innerHTML=ORDER.filter(x=>PL[x].cluster).map((x,i)=>`<i class="${sts[i]!=='none'?sts[i]:''}" title="${esc(PL[x].name)}">${esc(PL[x].short.replace('P',''))}</i>`).join(''); return; }
+    const t=tierDoc(id); el.innerHTML='SQDCP'.split('').map(k=>`<i class="${t?.cats?.[k]?.st||''}" title="${k}">${k}</i>`).join(''); });
+  document.querySelectorAll('[data-op]').forEach(el=>{ const id=el.dataset.op; const n = id==='cluster' ? PROJ.filter(p=>PL[p.plant]?.cluster).length : PROJ.filter(p=>p.plant===id).length; el.hidden=!n; el.textContent=`OPEX ${n}`; });
+  setBar();
+}
+function sendPins(id){ post(id,{cmd:'pins',pins:PROJ.filter(p=>p.plant===id && typeof p.x==='number').map(p=>({id:p.id,name:p.name,x:p.x,z:p.z,status:p.status||'gris',type:p.type,phase:p.phase,owner:p.owner}))}); }
+function escalate(id){ const t=tierDoc(id,today()); if(!t) return; const st=worst(t.cats); if(st!=='rojo'&&st!=='ambar') return;
+  const z=(PL[id].zones||[]).find(z=>z.n===t.zone); const bad=Object.entries(t.cats||{}).filter(([k,c])=>c?.st===st).map(([k])=>k).join(' ');
+  const lab=`Tier 3 · ${bad} ${st==='rojo'?'en rojo':'en ámbar'}`;
+  if(z&&z.rect) post(id,{cmd:'highlight',x0:z.rect[0],z0:z.rect[1],x1:z.rect[2],z1:z.rect[3],color:TIER_COL[st],label:lab});
+  else if(z) post(id,{cmd:'focus',x:z.x,z:z.z,r:30,label:lab,color:TIER_COL[st]});
+  toast(`${PL[id].name}: ${lab}${t.zone?' · '+t.zone:''}`,5200); }
+async function resolveNames(ids){ if(!USER) return; const u=[...new Set(ids.filter(Boolean))]; if(!u.length) return; try{ const ps=await USER.profiles(u); Object.assign(PROFILES,ps); }catch(_){} }
+const who = id => (id && PROFILES[id]?.name) || (id? 'alguien del equipo':'—');
+/* =================================================================== MODO ESTÁTICO (GitHub Pages): base de datos local con la misma API */
+const STATIC = !window.claude?.use;
+const LKEY = 'reddaimay_db_v1';
+const LocalDB = (()=>{
+  let mem = null, memOnly = false;
+  const load = () => { if(mem) return mem; let raw=null; try{ raw=localStorage.getItem(LKEY); }catch(_){ memOnly=true; }
+    if(raw){ try{ mem=JSON.parse(raw); }catch(_){ mem=null; } }
+    if(!mem){ mem={}; try{ const s=JSON.parse(document.getElementById('seed')?.textContent||'{}'); Object.assign(mem,s); }catch(_){} persist(); }
+    return mem; };
+  const persist = () => { if(memOnly) return; try{ localStorage.setItem(LKEY, JSON.stringify(mem)); }catch(_){ memOnly=true; } };
+  const subs = new Set();
+  const clone = o => o==null ? o : JSON.parse(JSON.stringify(o));
+  const notify = () => subs.forEach(s=>{ try{ s(); }catch(_){} });
+  const kick = () => setTimeout(notify, 0);
+  addEventListener('storage', e=>{ if(e.key===LKEY){ mem=null; load(); notify(); } });
+  const snapDoc = (path) => { const d=load()[path]; return {id:path.split('/').pop(), exists:d!==undefined, data:()=>clone(d), metadata:{fromCache:true,hasPendingWrites:false}}; };
+  const rid = () => Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+  const docRef = path => ({ id:path.split('/').pop(), path,
+    get: async () => snapDoc(path),
+    set: async d => { load()[path]=clone(d); persist(); kick(); },
+    update: async d => { const db=load(); if(db[path]===undefined) throw {code:'not-found',message:'el documento no existe'}; db[path]={...db[path],...clone(d)}; persist(); kick(); },
+    delete: async () => { delete load()[path]; persist(); kick(); },
+    onSnapshot: (n) => { const f=()=>n(snapDoc(path)); subs.add(f); setTimeout(f,0); return ()=>subs.delete(f); },
+    collection: c => colRef(path+'/'+c) });
+  const colRef = (path, opt={}) => {
+    const run = () => { const db=load(), pre=path+'/'; let ds=Object.keys(db).filter(k=>k.startsWith(pre) && !k.slice(pre.length).includes('/')).map(snapDoc);
+      (opt.where||[]).forEach(([f,op,v])=>{ ds=ds.filter(s=>{ const x=s.data()?.[f]; return op==='=='?x===v:op==='!='?x!==v:op==='<'?x<v:op==='<='?x<=v:op==='>'?x>v:op==='>='?x>=v:op==='in'?(v||[]).includes(x):op==='array-contains'?(x||[]).includes(v):true; }); });
+      if(opt.order){ const [f,dir]=opt.order; ds.sort((a,b)=>{ const x=a.data()?.[f], y=b.data()?.[f]; const c = x===y?0 : (x==null?-1 : y==null?1 : x<y?-1:1); return dir==='desc'?-c:c; }); }
+      if(opt.limit) ds=ds.slice(0,opt.limit);
+      return {docs:ds, size:ds.length, empty:!ds.length, docChanges:()=>[], forEach:fn=>ds.forEach(fn), metadata:{fromCache:true,hasPendingWrites:false}}; };
+    return { path,
+      doc: id => docRef(path+'/'+(id||rid())),
+      add: async d => { const r=docRef(path+'/'+rid()); await r.set(d); return r; },
+      get: async () => run(),
+      onSnapshot: (n) => { const f=()=>n(run()); subs.add(f); setTimeout(f,0); return ()=>subs.delete(f); },
+      where: (f,op,v) => colRef(path,{...opt, where:[...(opt.where||[]),[f,op,v]]}),
+      orderBy: (f,dir='asc') => colRef(path,{...opt, order:[f,dir]}),
+      limit: n => colRef(path,{...opt, limit:n}) };
+  };
+  return { doc:docRef, collection:colRef,
+    exportAll: () => clone(load()),
+    importAll: obj => { mem=clone(obj)||{}; persist(); notify(); },
+    reset: () => { mem=null; try{ localStorage.removeItem(LKEY); }catch(_){} load(); notify(); },
+    get volatile(){ load(); return memOnly; } };
+})();
+const LocalDL = { save: async ({filename,data}) => { const blob = data instanceof Blob ? data : new Blob([data],{type: /\.csv$/i.test(filename)?'text/csv;charset=utf-8':/\.json$/i.test(filename)?'application/json':'application/octet-stream'});
+  const u=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=u; a.download=filename; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(u),4000); } };
+const twinHref = p => STATIC ? `${p.id}.html` : p.twin;
+async function initDB(){
+  try{
+    if(STATIC){ DB=LocalDB; DLS=LocalDL; ME='local'; PROFILES.local={name:'este navegador'}; DBDONE=true; }
+    else { const [db,user,dl]=await Promise.all([window.claude.use('db'),window.claude.use('user'),window.claude.use('downloads')]);
+      DB=db; USER=user; DLS=dl; DBDONE=true; if(USER){ try{ ME=await USER.id(); }catch(_){} } }
+    if(!DB){ renderAll(); return; }
+    DB.collection('portfolio').onSnapshot(s=>{ PROJ=s.docs.filter(d=>d.exists).map(d=>({id:d.id,...d.data()})); PROJ.sort((a,b)=>(a.plant||'').localeCompare(b.plant||'')||(a.name||'').localeCompare(b.name||'')); paintTier(); FR.forEach((f,id)=>sendPins(id)); if(TAB==='opex') renderOpex(); }, e=>toast('Portafolio no disponible ('+(e?.code||'')+')'));
+    DB.doc('config/sites').onSnapshot(sn=>{ SITES = sn.exists ? (sn.data()||{}) : {}; placePlants(); if(TAB==='plantas'&&!LOCEDIT) renderPlantas(); }, ()=>{});
+    DB.collection('flows').onSnapshot(s=>{ FLOWS=s.docs.filter(d=>d.exists).map(d=>({id:d.id,...d.data()})); buildFlows(); if(TAB==='flujos') renderFlows(); }, ()=>{});
+    DB.collection('tier3').orderBy('date','desc').limit(800).onSnapshot(async s=>{ TIER=s.docs.filter(d=>d.exists).map(d=>({id:d.id,...d.data()})); await resolveNames(TIER.map(t=>t.by)); paintTier(); if(TAB==='tier') renderTier(); if(TAB==='plantas') renderPlantas(); }, ()=>{});
+  }catch(_){ DBDONE=true; }
+  renderAll();
+}
+
+/* =================================================================== PANEL */
+let TAB='plantas';
+function openDrawer(t){ $('#drawer').hidden=false; $('#panelBtn').classList.add('on'); if(t) setTab(t); }
+function closeDrawer(){ $('#drawer').hidden=true; $('#panelBtn').classList.remove('on'); }
+function setTab(t){ TAB=t; document.querySelectorAll('#tabs [data-t]').forEach(b=>b.classList.toggle('on',b.dataset.t===t)); ({plantas:renderPlantas,comparar:renderComparar,opex:renderOpex,tier:renderTier,flujos:renderFlows})[t](); }
+document.querySelectorAll('#tabs [data-t]').forEach(b=>b.addEventListener('click',()=>setTab(b.dataset.t)));
+$('#drawerX').addEventListener('click',closeDrawer);
+$('#panelBtn').addEventListener('click',()=>{ $('#drawer').hidden?openDrawer():closeDrawer(); });
+const body = () => $('#dbody');
+const noDB = () => STATIC ? `<div class="banner">Versión estática (GitHub Pages): lo que captures se guarda solo en <b>este navegador</b>${LocalDB.volatile?' — y este navegador no permite guardar, así que se perderá al cerrar':''}. Para moverlo a otra computadora usa el respaldo.<div class="row" style="margin-top:6px"><button class="btn sm" data-bk="exp">Exportar respaldo</button><button class="btn sm" data-bk="imp">Importar respaldo</button><button class="btn sm" data-bk="rst">Restablecer demo</button></div></div>` : (DB||!DBDONE) ? '' : `<div class="banner">Esta vista no tiene la base de datos compartida, así que portafolio, Tier 3 y flujos se muestran vacíos y no se pueden capturar. Ábrela desde claude.ai con tu cuenta.</div>`;
+document.addEventListener('click', async e=>{ const b=e.target.closest('[data-bk]'); if(!b||!STATIC) return;
+  if(b.dataset.bk==='exp'){ await LocalDL.save({filename:'red-daimay-respaldo-'+today()+'.json', data:JSON.stringify({app:'red-daimay',v:1,ts:new Date().toISOString(),docs:LocalDB.exportAll()},null,1)}); toast('Respaldo descargado'); }
+  if(b.dataset.bk==='imp'){ const inp=document.createElement('input'); inp.type='file'; inp.accept='.json,application/json';
+    inp.onchange=async()=>{ const f=inp.files[0]; if(!f) return; try{ const o=JSON.parse(await f.text()); if(!o||o.app!=='red-daimay'||typeof o.docs!=='object') throw 0; LocalDB.importAll(o.docs); toast('Respaldo importado · '+Object.keys(o.docs).length+' registros'); renderAll(); }catch(_){ toast('Ese archivo no es un respaldo de la Red DAIMAY'); } }; inp.click(); }
+  if(b.dataset.bk==='rst'){ if(b.dataset.armed){ LocalDB.reset(); toast('Datos de demostración restablecidos'); renderAll(); } else { b.dataset.armed='1'; b.textContent='¿Seguro? Borra lo capturado'; setTimeout(()=>{ if(b.isConnected){ delete b.dataset.armed; b.textContent='Restablecer demo'; } },4000); } }
+});
+function renderAll(){ setTab(TAB); paintTier(); }
+/* ---------- Plantas */
+let LOCEDIT=null;
+function parseLL(str){ const s=String(str||'').trim();
+  const m=s.match(/!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)/)||s.match(/@(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)/)||s.match(/[?&](?:q|ll|query|center|destination)=(-?\d+(?:\.\d+)?)(?:,|%2C)\s*(-?\d+(?:\.\d+)?)/i)||s.match(/(-?\d{1,2}\.\d{3,})\s*[,;\s]\s*(-?\d{1,3}\.\d{3,})/);
+  if(!m) return {err:'No encontré coordenadas. Pega algo como 25.53938, -100.95634 o el enlace de Google Maps.'};
+  let la=+m[1], lo=+m[2]; if(Math.abs(la)>90){ [la,lo]=[lo,la]; }
+  if(la<E.S-0.6||la>E.N+0.6||lo<E.W-0.6||lo>E.E+0.6) return {err:`Esas coordenadas (${la.toFixed(4)}, ${lo.toFixed(4)}) quedan fuera del sureste de Coahuila. Revisa que la longitud lleve el signo menos.`};
+  return {lat:+la.toFixed(6), lon:+lo.toFixed(6)}; }
+async function saveSite(id,ll){ if(!DB){ toast('Sin base de datos en esta vista'); return false; }
+  const next={...SITES}; if(ll) next[id]={lat:ll.lat,lon:ll.lon,by:ME||null,ts:new Date().toISOString(),src:'Google Maps'}; else delete next[id];
+  try{ await DB.doc('config/sites').set(next); SITES=next; placePlants(); return true; }catch(e){ toast('No se guardó la ubicación ('+(e?.code||'error')+')'); return false; } }
+function locBlock(id){ const p=PL[id]; const [la,lo]=p.ll;
+  if(LOCEDIT===id) return `<div class="locedit"><label class="note" for="ll_${id}">Pega las coordenadas o el enlace de Google Maps</label><input id="ll_${id}" placeholder="25.53938, -100.95634" autocomplete="off"><p class="note">En Google Maps: clic derecho sobre la nave → clic en las coordenadas (se copian) → pégalas aquí. También sirve el enlace de “Compartir”.</p><p class="note" id="llerr_${id}" style="color:var(--bad)"></p><div class="row"><button class="btn sm prim" data-llsave="${id}">Guardar ubicación</button><button class="btn sm" data-llcancel="${id}">Cancelar</button>${p.exact?`<span style="flex:1"></span><button class="btn sm" data-llclear="${id}">Volver a aproximada</button>`:''}</div></div>`;
+  return `<div class="loc ${p.exact?'ok':''}"><span>📍 ${p.exact?'Ubicación fijada':'Ubicación aproximada'}</span><span class="mono">${la.toFixed(5)}, ${lo.toFixed(5)}</span><span style="flex:1"></span><button class="btn sm" data-ll="${id}" ${DB?'':'disabled'}>${p.exact?'Cambiar':'Fijar con Google Maps'}</button></div>`; }
+function renderPlantas(focusId){
+  const cards=ORDER.map(id=>{ const p=PL[id]; const t=tierDoc(id); const n=PROJ.filter(x=>x.plant===id).length;
+    if(p.ghost) return `<div class="pcard ghost" id="pc_${id}"><div class="hd"><b>${esc(p.name)}</b><small>${esc(p.site)}</small></div><p class="note">${esc(p.focus)}</p>${locBlock(id)}<p class="note">Sin gemelo: falta el plano. Ya puede capturar su Tier 3 y tener proyectos en el portafolio.</p><div class="row"><span class="sq">${'SQDCP'.split('').map(k=>`<i class="${t?.cats?.[k]?.st||''}">${k}</i>`).join('')}</span>${n?`<span class="badge">OPEX ${n}</span>`:''}</div></div>`;
+    const m=p.met;
+    return `<div class="pcard" id="pc_${id}"><div class="hd"><b>${esc(p.name)}</b><small>${esc(p.sub)} · ${esc(p.site)}</small></div>
+      <div class="kv"><div><small>Superficie</small><span>${fmt(m.area)} m²</span></div><div><small>Operadores</small><span>${fmt(m.ops)}</span></div><div><small>m² / op</small><span>${fmt(m.m2op,1)}</span></div></div>
+      <p class="note">${esc(p.focus)}</p>
+      ${locBlock(id)}
+      <div class="src"><span class="chip ${p.kind==='PDF'?'pdf':'dwg'}">${p.kind}</span> ${esc(p.file)}<br>Plano ${esc(p.drawn)} · gemelo construido ${esc(p.built)} · alturas y modelos 3D <span class="chip est">EST</span></div>
+      <div class="row"><span class="sq">${'SQDCP'.split('').map(k=>`<i class="${t?.cats?.[k]?.st||''}">${k}</i>`).join('')}</span>${n?`<span class="badge">OPEX ${n}</span>`:''}<span style="flex:1"></span><a class="btn sm" href="${twinHref(p)}" target="_blank" rel="noopener">Gemelo solo ↗</a><button class="btn sm prim" data-enter="${id}">Entrar</button></div></div>`; }).join('');
+  const pend=ORDER.filter(id=>!PL[id].exact).length;
+  body().innerHTML=`<h3>Plantas de la red</h3><p class="note">Clic en una planta del mapa o en <b>Entrar</b>. Las cuatro plantas con gemelo usan el mismo motor y el mismo puente con la red; cada una se descarga solo al entrar.</p>
+    ${pend?`<div class="banner">${pend} de ${ORDER.length} plantas tienen ubicación aproximada (alrededor de la cabecera municipal). Fíjalas con las coordenadas de Google Maps y el mapa las coloca en su punto real para todos.</div>`:''}${cards}
+    <p class="note">Mapa: carreteras, vías y límites estatales de Natural Earth (escala 1:10 M, trazo generalizado); localidades y altitudes del catálogo INEGI; relieve interpolado de esas altitudes, exagerado ×${EXAG}. Ramos Arizpe–Parras ≈${fmt(haversine(PL.parras.ll,clusterLL()),0)} km en línea recta.</p>`;
+  body().querySelectorAll('[data-enter]').forEach(b=>b.addEventListener('click',()=>enterPlant(b.dataset.enter)));
+  body().querySelectorAll('[data-ll]').forEach(b=>b.addEventListener('click',()=>{ LOCEDIT=b.dataset.ll; renderPlantas(LOCEDIT); setTimeout(()=>$('#ll_'+LOCEDIT)?.focus(),30); }));
+  body().querySelectorAll('[data-llcancel]').forEach(b=>b.addEventListener('click',()=>{ LOCEDIT=null; renderPlantas(); }));
+  body().querySelectorAll('[data-llclear]').forEach(b=>b.addEventListener('click',async()=>{ const id=b.dataset.llclear; if(await saveSite(id,null)){ LOCEDIT=null; toast(PL[id].name+': vuelve a ubicación aproximada'); renderPlantas(id); } }));
+  body().querySelectorAll('[data-llsave]').forEach(b=>b.addEventListener('click',async()=>{ const id=b.dataset.llsave; const r=parseLL($('#ll_'+id).value); if(r.err){ $('#llerr_'+id).textContent=r.err; return; }
+    if(await saveSite(id,r)){ LOCEDIT=null; toast(`${PL[id].name} fijada en ${r.lat}, ${r.lon}`); renderPlantas(id); if(MODE==='red'){ const p=PL[id]; flyTo([p.pos[0],0,p.pos[1]],7,.8,0); } } }));
+  body().querySelectorAll('.locedit input').forEach(inp=>inp.addEventListener('keydown',e=>{ if(e.key==='Enter') body().querySelector('[data-llsave]')?.click(); }));
+  if(focusId){ const el=$('#pc_'+focusId); if(el){ el.scrollIntoView({block:'nearest'}); el.style.borderColor='var(--red)'; } }
+}
+/* ---------- Comparar */
+function renderComparar(){
+  const P=TWINS.map(id=>PL[id]);
+  const bar=(k,lab,fmtd=0)=>{ const vals=P.map(p=>p.met[k]||0); const mx=Math.max(...vals); return `<h4>${lab}</h4><div class="bars">${P.map(p=>`<div class="b"><span style="text-align:left;color:var(--text)">${esc(p.short)}</span><i class="${p.id==='parras'&&k==='m2op'?'':'g'}" style="width:${mx?Math.max(2,100*(p.met[k]||0)/mx):0}%"></i><span>${fmt(p.met[k],fmtd)}</span></div>`).join('')}</div>`; };
+  const row=(lab,f)=>`<tr><td>${lab}</td>${P.map(p=>`<td>${f(p)}</td>`).join('')}</tr>`;
+  body().innerHTML=`<h3>Comparativo entre plantas</h3><p class="note">Todo sale de los planos, sin captura. Los operadores son los símbolos dibujados en cada layout, no la plantilla real.</p>
+   <div class="twrap"><table class="t"><thead><tr><th></th>${P.map(p=>`<th>${esc(p.short)}</th>`).join('')}</tr></thead><tbody>
+    ${row('Fuente',p=>`<span class="chip ${p.kind==='PDF'?'pdf':'dwg'}">${p.kind}</span>`)}
+    ${row('Superficie techada',p=>fmt(p.met.area)+' m²')}
+    ${row('Naves / anexos',p=>fmt(p.met.blds))}
+    ${row('Operadores en plano',p=>fmt(p.met.ops))}
+    ${row('m² por operador',p=>fmt(p.met.m2op,1))}
+    ${row('Columnas',p=>fmt(p.met.cols))}
+    ${row('Puertas y andenes',p=>p.met.docks?fmt(p.met.docks):'—')}
+    ${row('Racks',p=>esc(p.met.racks))}
+    ${row('Equipo mayor',p=>esc(p.met.eq[0]||'—'))}
+    ${row('Pasillo marcado¹',p=>p.met.aislePct!=null?fmt(p.met.aislePct,1)+' %':'—')}
+   </tbody></table></div>
+   <p class="note">¹ Cada plano marca pasillos con criterio distinto (P8 incluye calles de almacén), así que no compares ese renglón entre plantas.</p>
+   ${bar('area','Superficie techada (m²)')}${bar('ops','Operadores en plano')}${bar('m2op','m² por operador',1)}
+   <p class="note"><b>Lectura:</b> Parras trabaja con ${fmt(PL.parras.met.m2op,1)} m² por operador contra ${fmt(Math.min(PL.p1.met.m2op,PL.p4.met.m2op,PL.p8.met.m2op),0)}–${fmt(Math.max(PL.p1.met.m2op,PL.p4.met.m2op,PL.p8.met.m2op),0)} en las plantas de inyección y ensamble. La costura es intensiva en mano de obra: ahí la densidad pesa en ergonomía, evacuación y flujo de surtido más que en cualquier otra planta.</p>
+   <h3>Lado a lado</h3>
+   <div class="f"><label for="spA">Izquierda</label><select id="spA">${TWINS.map(id=>`<option value="${id}">${esc(PL[id].name)}</option>`).join('')}</select></div>
+   <div class="f"><label for="spB">Derecha</label><select id="spB">${TWINS.map(id=>`<option value="${id}" ${id==='parras'?'selected':''}>${esc(PL[id].name)}</option>`).join('')}</select></div>
+   <div class="row"><button class="btn prim" id="spGo">Ver lado a lado</button>${SPLIT?'<button class="btn" id="spX">Salir de lado a lado</button>':''}</div>
+   <p class="note">Abre dos gemelos al mismo tiempo, cada uno con sus controles. Pide más memoria; en celular se ven uno sobre otro.</p>`;
+  $('#spGo').addEventListener('click',()=>{ const a=$('#spA').value,b=$('#spB').value; if(a===b){ toast('Elige dos plantas distintas'); return; } enterSplit(a,b); });
+  $('#spX')?.addEventListener('click',()=>exitSplit(true));
+}
+/* ---------- Portafolio OPEX */
+const PHASES=['Define','Measure','Analyze','Improve','Control'];
+const TYPES=['DMAIC','Kaizen','5S','Sistema digital','Estudio','Acción de ingeniería'];
+const STN={verde:'En tiempo',ambar:'En riesgo',rojo:'Atrasado',gris:'Sin evaluar'};
+let opexF={plant:'',st:''}, opexEdit=null;
+function phaseBar(ph){ const i=PHASES.indexOf(ph); if(i<0) return ph?`<span class="pchip">${esc(ph)}</span>`:''; return `<span class="phase">${PHASES.map((x,k)=>`<i class="${k<i?'done':k===i?'cur':''}">${x[0]}</i>`).join('')}</span>`; }
+function renderOpex(openId){
+  if(opexEdit){ return renderOpexForm(opexEdit); }
+  const L=PROJ.filter(p=>(!opexF.plant||p.plant===opexF.plant)&&(!opexF.st||(p.status||'gris')===opexF.st));
+  const cnt=k=>PROJ.filter(p=>(p.status||'gris')===k).length;
+  body().innerHTML=`${noDB()}<h3>Portafolio OPEX</h3><p class="note">Cada proyecto vive en su planta: con ubicación aparece como pin dentro del gemelo; sin ella, como contador en el mapa.</p>
+   <div class="row"><div class="seg" id="opSt">${['','verde','ambar','rojo','gris'].map(k=>`<button data-v="${k}" class="${k} ${opexF.st===k?'on':''}">${k?STN[k]+' '+cnt(k):'Todos '+PROJ.length}</button>`).join('')}</div></div>
+   <div class="f"><label for="opPl">Planta</label><select id="opPl"><option value="">Todas</option>${PLANT_OPTS}<option value="regional">Regional / varias</option></select></div>
+   <div class="row"><button class="btn prim" id="opNew" ${DB?'':'disabled'}>+ Nuevo proyecto</button><button class="btn" id="opCsv" ${DLS&&PROJ.length?'':'disabled'}>Descargar CSV</button></div>
+   <div id="opList" style="display:flex;flex-direction:column;gap:8px">${L.length?L.map(p=>`<div class="proj ${p.status||''}" data-id="${p.id}" tabindex="0"><b>${esc(p.name)}</b><div class="meta"><span class="pchip">${esc(PL[p.plant]?.short||'Regional')}</span><span>${esc(p.type||'')}</span>${phaseBar(p.phase)}<span>${esc(STN[p.status||'gris'])}</span>${p.owner?`<span>· ${esc(p.owner)}</span>`:''}${typeof p.x==='number'?'<span>· 📍 en plano</span>':''}</div>${openId===p.id?`<p class="note">${esc(p.note||'')}</p><div class="row">${typeof p.x==='number'||p.zone?`<button class="btn sm prim" data-go="${p.id}">Ir al proyecto</button>`:''}<button class="btn sm" data-ed="${p.id}" ${DB?'':'disabled'}>Editar</button>${p.link?`<a class="btn sm" href="${esc(p.link)}" target="_blank" rel="noopener">Abrir enlace ↗</a>`:''}</div>`:''}</div>`).join(''):`<p class="note">${PROJ.length?'Ningún proyecto con ese filtro.':'Todavía no hay proyectos. Agrega el primero con “+ Nuevo proyecto”.'}</p>`}</div>`;
+  $('#opPl').value=opexF.plant;
+  $('#opPl').addEventListener('change',e=>{ opexF.plant=e.target.value; renderOpex(); });
+  body().querySelectorAll('#opSt button').forEach(b=>b.addEventListener('click',()=>{ opexF.st=b.dataset.v; renderOpex(); }));
+  $('#opNew').addEventListener('click',()=>{ opexEdit={plant:CUR||'',status:'gris',type:'DMAIC',phase:'Define'}; renderOpex(); });
+  $('#opCsv').addEventListener('click',()=>downloadCSV('portafolio_opex.csv',[['Proyecto','Planta','Tipo','Fase','Estado','Responsable','Zona','x','z','Nota','Enlace'],...PROJ.map(p=>[p.name,PL[p.plant]?.name||'Regional',p.type,p.phase,STN[p.status||'gris'],p.owner,p.zone,p.x,p.z,p.note,p.link])]));
+  body().querySelectorAll('.proj').forEach(el=>el.addEventListener('click',e=>{ if(e.target.closest('button,a')) return; renderOpex(openId===el.dataset.id?null:el.dataset.id); }));
+  body().querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click',()=>goProject(PROJ.find(p=>p.id===b.dataset.go))));
+  body().querySelectorAll('[data-ed]').forEach(b=>b.addEventListener('click',()=>{ opexEdit={...PROJ.find(p=>p.id===b.dataset.ed)}; renderOpex(); }));
+  if(openId){ const el=body().querySelector(`.proj[data-id="${openId}"]`); el&&el.scrollIntoView({block:'nearest'}); }
+}
+function goProject(p){ if(!p||!PL[p.plant]||PL[p.plant].ghost){ if(p&&PL[p.plant]) onPlantClick(p.plant); return; }
+  const z=(PL[p.plant].zones||[]).find(z=>z.n===p.zone);
+  const msg = typeof p.x==='number' ? {cmd:'focus',x:p.x,z:p.z,r:26,label:p.name} : z ? (z.rect?{cmd:'highlight',x0:z.rect[0],z0:z.rect[1],x1:z.rect[2],z1:z.rect[3],label:p.name}:{cmd:'focus',x:z.x,z:z.z,r:30,label:p.name}) : null;
+  enterPlant(p.plant, msg?[msg]:null); }
+function renderOpexForm(p){
+  const zones=(PL[p.plant]?.zones||[]);
+  body().innerHTML=`<h3>${p.id?'Editar proyecto':'Nuevo proyecto'}</h3>
+   <div class="f"><label for="pfN">Nombre</label><input id="pfN" value="${esc(p.name||'')}" placeholder="Ej. Kaizen contención Línea 1"></div>
+   <div class="f"><label for="pfP">Planta</label><select id="pfP">${PLANT_OPTS}<option value="regional">Regional / varias</option></select></div>
+   <div class="f"><label for="pfT">Tipo</label><select id="pfT">${TYPES.map(t=>`<option>${t}</option>`).join('')}</select></div>
+   <div class="f"><label for="pfF">Fase</label><select id="pfF">${[...PHASES,'Planeación','Cerrado'].map(t=>`<option>${t}</option>`).join('')}</select></div>
+   <div class="f"><span>Estado</span><div class="seg" id="pfS">${['verde','ambar','rojo','gris'].map(k=>`<button data-v="${k}" class="${k} ${(p.status||'gris')===k?'on':''}">${STN[k]}</button>`).join('')}</div></div>
+   <div class="f"><label for="pfO">Responsable</label><input id="pfO" value="${esc(p.owner||'')}" placeholder="Nombre de quien lo lidera"></div>
+   <div class="f"><label for="pfZ">Zona</label><select id="pfZ"><option value="">— sin zona —</option>${zones.map(z=>`<option ${z.n===p.zone?'selected':''}>${esc(z.n)}</option>`).join('')}</select></div>
+   <div class="f"><span>En el plano</span><div class="row"><span class="mono" id="pfXY">${typeof p.x==='number'?`x ${p.x} · z ${p.z}`:'sin punto'}</span><button class="btn sm" id="pfPick" ${PL[p.plant]&&!PL[p.plant].ghost?'':'disabled'}>Colocar en el plano</button>${typeof p.x==='number'?'<button class="btn sm" id="pfClr">Quitar</button>':''}</div></div>
+   <div class="f"><label for="pfNo">Nota</label><textarea id="pfNo" placeholder="Y, meta, siguiente paso">${esc(p.note||'')}</textarea></div>
+   <div class="f"><label for="pfL">Enlace</label><input id="pfL" value="${esc(p.link||'')}" placeholder="https:// (charter, tablero, carpeta)"></div>
+   <div class="row"><button class="btn prim" id="pfSave">Guardar</button><button class="btn" id="pfCancel">Cancelar</button>${p.id?'<span style="flex:1"></span><button class="btn" id="pfDel" style="color:var(--bad)">Eliminar</button>':''}</div>`;
+  $('#pfP').value=p.plant||'regional'; $('#pfT').value=p.type||'DMAIC'; $('#pfF').value=p.phase||'Define';
+  const grab=()=>{ p.name=$('#pfN').value.trim(); p.plant=$('#pfP').value==='regional'?'':$('#pfP').value; p.type=$('#pfT').value; p.phase=$('#pfF').value; p.owner=$('#pfO').value.trim(); p.zone=$('#pfZ').value; p.note=$('#pfNo').value.trim(); p.link=$('#pfL').value.trim(); };
+  $('#pfP').addEventListener('change',()=>{ grab(); delete p.x; delete p.z; p.zone=''; renderOpexForm(p); });
+  body().querySelectorAll('#pfS button').forEach(b=>b.addEventListener('click',()=>{ p.status=b.dataset.v; body().querySelectorAll('#pfS button').forEach(x=>x.classList.toggle('on',x===b)); }));
+  $('#pfPick').addEventListener('click',()=>{ grab(); startPick(p); });
+  $('#pfClr')?.addEventListener('click',()=>{ grab(); delete p.x; delete p.z; renderOpexForm(p); });
+  $('#pfCancel').addEventListener('click',()=>{ opexEdit=null; renderOpex(); });
+  $('#pfSave').addEventListener('click',async()=>{ grab(); if(!p.name){ toast('Ponle nombre al proyecto'); return; } if(!DB) return;
+    const id=p.id||('pr_'+Date.now().toString(36)); const doc={name:p.name,plant:p.plant||'',type:p.type,phase:p.phase,status:p.status||'gris',owner:p.owner||'',zone:p.zone||'',note:p.note||'',link:p.link||'',updated:new Date().toISOString(),by:ME||null};
+    if(typeof p.x==='number'){ doc.x=p.x; doc.z=p.z; }
+    try{ await DB.doc('portfolio/'+id).set(doc); opexEdit=null; toast('Proyecto guardado'); renderOpex(id); }catch(e){ toast('No se guardó ('+(e?.code||'error')+'). Necesitas acceso de colaborador.'); } });
+  const del=$('#pfDel'); if(del){ let armed=false; del.addEventListener('click',async()=>{ if(!armed){ armed=true; del.textContent='Confirmar eliminación'; return; } try{ await DB.doc('portfolio/'+p.id).delete(); opexEdit=null; toast('Proyecto eliminado'); renderOpex(); }catch(e){ toast('No se pudo eliminar ('+(e?.code||'')+')'); } }); }
+}
+let PICKING=null;
+function startPick(p){ PICKING=p; enterPlant(p.plant,[{cmd:'pick'}]); $('#pickbar').hidden=false; closeDrawer(); }
+$('#pickCancel').addEventListener('click',()=>{ PICKING=null; $('#pickbar').hidden=true; openDrawer('opex'); });
+function onPicked(id,x,z){ if(!PICKING||PICKING.plant!==id) return; PICKING.x=x; PICKING.z=z; opexEdit=PICKING; PICKING=null; $('#pickbar').hidden=true; openDrawer('opex'); toast('Punto colocado. Revisa y guarda.'); }
+/* ---------- Tier 3 */
+const CATS=[['S','Seguridad','Incidentes y casi accidentes del día','verde: 0 · ámbar: casi accidente · rojo: incidente'],['Q','Calidad','% contención, PPM o quejas de cliente','verde: en meta · ámbar: fuera de meta · rojo: queja o contención abierta'],['D','Entrega','% cumplimiento del plan del turno','verde: ≥ 95 % · ámbar: 85–95 % · rojo: < 85 %'],['C','Costo','% scrap contra meta','verde: en meta · ámbar: hasta +20 % · rojo: > +20 %'],['P','Personal','Ausentismo y puestos sin cubrir','verde: cubiertos · ámbar: con apoyo · rojo: puesto crítico sin cubrir']];
+let tierEdit=null;
+function renderTier(){
+  if(tierEdit) return renderTierForm(tierEdit);
+  const days=[...Array(10)].map((_,i)=>{ const d=new Date(TDATE+'T12:00:00'); d.setDate(d.getDate()-9+i); return d.toISOString().slice(0,10); });
+  body().innerHTML=`${noDB()}<h3>Tier 3 regional</h3><p class="note">Una captura por planta y día, con corte a las 07:00. El anillo de cada planta en el mapa toma el peor estado del día y, al entrar a la planta, la zona afectada se resalta.</p>
+   <div class="row"><div class="f" style="grid-template-columns:auto 1fr"><label for="tDate">Fecha</label><input id="tDate" type="date" value="${TDATE}"></div><button class="btn" id="tCsv" ${DLS&&TIER.length?'':'disabled'}>Descargar CSV</button></div>
+   ${ORDER.map(id=>{ const p=PL[id], t=tierDoc(id), st=t?worst(t.cats):null;
+     return `<div class="tier"><div class="hd"><b>${esc(p.name)}</b><span class="sq">${'SQDCP'.split('').map(k=>`<i class="${t?.cats?.[k]?.st||''}" title="${k}${t?.cats?.[k]?.v?': '+esc(t.cats[k].v):''}">${k}</i>`).join('')}</span></div>
+      ${t?`<div class="src">${Object.entries(t.cats||{}).filter(([k,c])=>c&&(c.v||c.c)).map(([k,c])=>`<b style="color:var(--text)">${k}</b> ${esc(c.v||'')}${c.c?' — '+esc(c.c):''}`).join('<br>')||'Sin comentarios'}${t.zone?`<br>Zona: ${esc(t.zone)}`:''}<br>Capturó ${esc(who(t.by))} · ${t.ts?new Date(t.ts).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}):''}</div>`:`<p class="note">Sin captura para ${TDATE}.</p>`}
+      <div class="row"><span class="hist" title="Últimos 10 días">${days.map(d=>{ const x=tierDoc(id,d); return `<i class="${x?worst(x.cats)||'':''}" title="${d}"></i>`; }).join('')}</span><span style="flex:1"></span>${!p.ghost&&st&&st!=='verde'?`<button class="btn sm" data-tgo="${id}">Ver en planta</button>`:''}<button class="btn sm prim" data-tcap="${id}" ${DB?'':'disabled'}>${t?'Editar':'Capturar'}</button></div></div>`; }).join('')}
+   <details><summary>Definiciones SQDCP (criterio sugerido)</summary><div class="src" style="margin-top:6px">${CATS.map(c=>`<b style="color:var(--text)">${c[0]} · ${c[1]}</b> — ${c[2]}. ${c[3]}.`).join('<br>')}<br>Ajusta metas con cada gerente de planta antes de comparar plantas entre sí.</div></details>`;
+  $('#tDate').addEventListener('change',e=>{ TDATE=e.target.value||today(); paintTier(); renderTier(); });
+  $('#tCsv').addEventListener('click',()=>downloadCSV('tier3_regional.csv',[['Fecha','Planta','Estado del día',...CATS.flatMap(c=>[c[0]+' estado',c[0]+' valor',c[0]+' comentario']),'Zona','Nota'],...TIER.map(t=>[t.date,PL[t.plant]?.name||t.plant,worst(t.cats)||'',...CATS.flatMap(c=>{ const x=t.cats?.[c[0]]||{}; return [x.st||'',x.v||'',x.c||'']; }),t.zone||'',t.note||''])]));
+  body().querySelectorAll('[data-tcap]').forEach(b=>b.addEventListener('click',()=>{ const id=b.dataset.tcap; const t=tierDoc(id); tierEdit=t?JSON.parse(JSON.stringify(t)):{plant:id,date:TDATE,cats:{}}; renderTier(); }));
+  body().querySelectorAll('[data-tgo]').forEach(b=>b.addEventListener('click',()=>{ const id=b.dataset.tgo; if(MODE==='plant'&&CUR===id) escalate(id); else enterPlant(id); }));
+}
+function renderTierForm(t){
+  const zones=PL[t.plant]?.zones||[];
+  body().innerHTML=`<h3>Tier 3 · ${esc(PL[t.plant].name)}</h3><p class="note">${t.date} · corte 07:00. Marca el estado de cada letra; valor y comentario son opcionales.</p>
+   ${CATS.map(([k,n,d,cr])=>{ const c=t.cats[k]||{}; return `<div class="catrow"><b>${k}</b><div class="in"><h4>${n} <span class="note" style="font-weight:400">· ${esc(d)}</span></h4><div class="seg" data-cat="${k}">${['verde','ambar','rojo'].map(s=>`<button data-v="${s}" class="${s} ${c.st===s?'on':''}">${s==='ambar'?'ámbar':s}</button>`).join('')}</div><div class="row"><input id="v_${k}" placeholder="Valor (ej. 96 %)" value="${esc(c.v||'')}" style="background:var(--raise);border:1px solid var(--line);border-radius:6px;padding:5px 7px"><input id="c_${k}" placeholder="Comentario" value="${esc(c.c||'')}" style="background:var(--raise);border:1px solid var(--line);border-radius:6px;padding:5px 7px"></div></div></div>`; }).join('')}
+   <div class="f"><label for="tZ">Zona afectada</label>${zones.length?`<select id="tZ"><option value="">— ninguna —</option>${zones.map(z=>`<option ${z.n===t.zone?'selected':''}>${esc(z.n)}</option>`).join('')}</select>`:`<input id="tZ" value="${esc(t.zone||'')}" placeholder="Línea o área">`}</div>
+   <div class="f"><label for="tN">Nota</label><textarea id="tN" placeholder="Escalación, ayuda que se pide">${esc(t.note||'')}</textarea></div>
+   <div class="row"><button class="btn prim" id="tSave">Guardar</button><button class="btn" id="tCancel">Cancelar</button></div>`;
+  body().querySelectorAll('[data-cat]').forEach(sg=>sg.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{ const k=sg.dataset.cat; t.cats[k]=t.cats[k]||{}; t.cats[k].st = t.cats[k].st===b.dataset.v ? undefined : b.dataset.v; sg.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x.dataset.v===t.cats[k].st)); })));
+  $('#tCancel').addEventListener('click',()=>{ tierEdit=null; renderTier(); });
+  $('#tSave').addEventListener('click',async()=>{ CATS.forEach(([k])=>{ t.cats[k]=t.cats[k]||{}; t.cats[k].v=$('#v_'+k).value.trim(); t.cats[k].c=$('#c_'+k).value.trim(); if(!t.cats[k].st) delete t.cats[k].st; });
+    const cats={}; Object.entries(t.cats).forEach(([k,c])=>{ const o={}; if(c.st) o.st=c.st; if(c.v) o.v=c.v; if(c.c) o.c=c.c; cats[k]=o; });
+    const doc={plant:t.plant,date:t.date,cats,zone:$('#tZ').value.trim(),note:$('#tN').value.trim(),by:ME||null,ts:new Date().toISOString()};
+    try{ await DB.doc('tier3/'+t.plant+'_'+t.date).set(doc); tierEdit=null; toast('Tier 3 guardado'); renderTier(); }catch(e){ toast('No se guardó ('+(e?.code||'error')+'). Necesitas acceso de colaborador.'); } });
+}
+/* ---------- Flujos */
+let flowEdit=null;
+const FK={material:'Material',calidad:'Calidad / contención',informacion:'Información'};
+function renderFlows(openId){
+  if(flowEdit) return renderFlowForm(flowEdit);
+  body().innerHTML=`${noDB()}<h3>Flujos entre plantas</h3><p class="note">Cada flujo se dibuja como un arco animado en el mapa. Úsalos para ver dónde un defecto de una planta se detecta en otra.</p>
+   <div class="row"><button class="btn prim" id="flNew" ${DB?'':'disabled'}>+ Nuevo flujo</button></div>
+   ${FLOWS.length?FLOWS.map(f=>{ const A=PL[f.from],B=PL[f.to]; const km=A&&B?haversine(A.ll,B.ll):null; return `<div class="proj" data-id="${f.id}" style="border-left-color:${FLOW_COL[f.kind]||FLOW_COL.material}"><b>${esc(A?.name||f.from)} → ${esc(B?.name||f.to)}</b><div class="meta"><span class="pchip">${esc(FK[f.kind]||'Material')}</span><span>${esc(f.what||'')}</span>${f.freq?`<span>· ${esc(f.freq)}</span>`:''}<span>· ${km!=null?(km<15?'mismo sitio':fmt(km,0)+' km'):''}</span></div>${openId===f.id?`<p class="note">${esc(f.note||'')}</p><div class="row"><button class="btn sm" data-fview="${f.id}">Ver en el mapa</button><button class="btn sm" data-fed="${f.id}" ${DB?'':'disabled'}>Editar</button></div>`:''}</div>`; }).join(''):`<p class="note">Sin flujos todavía. Agrega el primero con “+ Nuevo flujo”.</p>`}`;
+  $('#flNew').addEventListener('click',()=>{ flowEdit={kind:'material'}; renderFlows(); });
+  body().querySelectorAll('.proj').forEach(el=>el.addEventListener('click',e=>{ if(e.target.closest('button')) return; renderFlows(openId===el.dataset.id?null:el.dataset.id); }));
+  body().querySelectorAll('[data-fed]').forEach(b=>b.addEventListener('click',()=>{ flowEdit={...FLOWS.find(f=>f.id===b.dataset.fed)}; renderFlows(); }));
+  body().querySelectorAll('[data-fview]').forEach(b=>b.addEventListener('click',()=>{ const f=FLOWS.find(x=>x.id===b.dataset.fview); const A=PL[f.from],B=PL[f.to]; if(MODE!=='red') showRed(); const mx=(A.pos[0]+B.pos[0])/2, mz=(A.pos[1]+B.pos[1])/2; const d=Math.hypot(A.pos[0]-B.pos[0],A.pos[1]-B.pos[1]); setTimeout(()=>flyTo([mx,0,mz],Math.max(14,d*1.25),.8,0),MODE==='red'?0:300); }));
+}
+function renderFlowForm(f){
+  body().innerHTML=`<h3>${f.id?'Editar flujo':'Nuevo flujo'}</h3>
+   <div class="f"><label for="ffA">Desde</label><select id="ffA">${PLANT_OPTS}</select></div>
+   <div class="f"><label for="ffB">Hacia</label><select id="ffB">${PLANT_OPTS}</select></div>
+   <div class="f"><label for="ffK">Tipo</label><select id="ffK">${Object.entries(FK).map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}</select></div>
+   <div class="f"><label for="ffW">Qué se mueve</label><input id="ffW" value="${esc(f.what||'')}" placeholder="Ej. fundas cosidas"></div>
+   <div class="f"><label for="ffQ">Frecuencia</label><input id="ffQ" value="${esc(f.freq||'')}" placeholder="Ej. 2 embarques diarios"></div>
+   <div class="f"><label for="ffN">Nota</label><textarea id="ffN">${esc(f.note||'')}</textarea></div>
+   <div class="row"><button class="btn prim" id="ffSave">Guardar</button><button class="btn" id="ffCancel">Cancelar</button>${f.id?'<span style="flex:1"></span><button class="btn" id="ffDel" style="color:var(--bad)">Eliminar</button>':''}</div>`;
+  $('#ffA').value=f.from||'parras'; $('#ffB').value=f.to||'p67'; $('#ffK').value=f.kind||'material';
+  $('#ffCancel').addEventListener('click',()=>{ flowEdit=null; renderFlows(); });
+  $('#ffSave').addEventListener('click',async()=>{ const doc={from:$('#ffA').value,to:$('#ffB').value,kind:$('#ffK').value,what:$('#ffW').value.trim(),freq:$('#ffQ').value.trim(),note:$('#ffN').value.trim(),updated:new Date().toISOString(),by:ME||null};
+    if(doc.from===doc.to){ toast('Origen y destino deben ser distintos'); return; }
+    const id=f.id||('fl_'+Date.now().toString(36)); try{ await DB.doc('flows/'+id).set(doc); flowEdit=null; toast('Flujo guardado'); renderFlows(id); }catch(e){ toast('No se guardó ('+(e?.code||'error')+')'); } });
+  const del=$('#ffDel'); if(del){ let armed=false; del.addEventListener('click',async()=>{ if(!armed){ armed=true; del.textContent='Confirmar eliminación'; return; } try{ await DB.doc('flows/'+f.id).delete(); flowEdit=null; renderFlows(); }catch(e){ toast('No se pudo eliminar'); } }); }
+}
+async function downloadCSV(name,rows){ if(!DLS){ toast('La descarga no está disponible en esta vista'); return; }
+  const csv='﻿'+rows.map(r=>r.map(v=>{ const s=v==null?'':String(v); return /[",\n;]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s; }).join(',')).join('\n');
+  try{ await DLS.save({filename:name,data:csv}); }catch(e){ if(e?.code!=='declined') toast('No se pudo descargar ('+(e?.code||'')+')'); } }
+
+/* =================================================================== BUSCADOR GLOBAL */
+const SIDX=[];
+NETD.forEach(p=>p.search.forEach(e=>SIDX.push({...e,plant:p.id,n:norm(e.t)})));
+ORDER.forEach(id=>SIDX.push({t:PL[id].name,k:'planta',plant:id,n:norm(PL[id].name+' '+PL[id].short)}));
+let sSel=0, sList=[];
+function runSearch(q){
+  const box=$('#sres'); const terms=norm(q).split(/\s+/).filter(Boolean);
+  if(!terms.length){ box.hidden=true; return; }
+  const pool=[...SIDX, ...PROJ.map(p=>({t:p.name,k:'proyecto',plant:p.plant,proj:p.id,n:norm(p.name+' '+(p.owner||'')+' '+(p.type||''))})), ...FLOWS.map(f=>({t:`${PL[f.from]?.short} → ${PL[f.to]?.short} · ${f.what||''}`,k:'flujo',flow:f.id,n:norm((f.what||'')+' '+PL[f.from]?.name+' '+PL[f.to]?.name)}))];
+  sList=pool.filter(e=>terms.every(t=>e.n.includes(t)||norm(PL[e.plant]?.short).includes(t))).map(e=>({e,s:(e.n.startsWith(terms[0])?2:0)+(e.k==='planta'?3:0)+(e.k==='proyecto'?1:0)})).sort((a,b)=>b.s-a.s).slice(0,14).map(x=>x.e);
+  sSel=0;
+  box.innerHTML=sList.length?sList.map((e,i)=>`<button data-i="${i}" class="${i===0?'sel':''}"><span class="pchip">${esc(PL[e.plant]?.short||'Red')}</span><span>${esc(e.t)}</span><span class="k">${esc(e.k)}</span></button>`).join(''):`<div class="note" style="padding:10px">Sin resultados en las 4 plantas.</div>`;
+  box.hidden=false; box.querySelectorAll('button').forEach(b=>b.addEventListener('mousedown',ev=>{ ev.preventDefault(); pickResult(sList[+b.dataset.i]); }));
+}
+function pickResult(e){ if(!e) return; $('#sres').hidden=true; $('#q').blur(); stopTour();
+  if(e.k==='proyecto'){ const p=PROJ.find(x=>x.id===e.proj); openDrawer('opex'); renderOpex(p.id); goProject(p); return; }
+  if(e.k==='flujo'){ openDrawer('flujos'); renderFlows(e.flow); return; }
+  if(e.k==='planta'){ onPlantClick(e.plant); return; }
+  if(e.preset){ enterPlant(e.plant,[{cmd:'preset',k:e.preset}]); return; }
+  if(e.rect){ enterPlant(e.plant,[{cmd:'highlight',x0:e.rect[0],z0:e.rect[1],x1:e.rect[2],z1:e.rect[3],label:e.t}]); return; }
+  if(typeof e.x==='number') enterPlant(e.plant,[{cmd:'focus',x:e.x,z:e.z,r:26,label:e.t}]);
+}
+const qi=$('#q');
+qi.addEventListener('input',()=>runSearch(qi.value));
+qi.addEventListener('focus',()=>{ if(qi.value) runSearch(qi.value); });
+qi.addEventListener('blur',()=>setTimeout(()=>$('#sres').hidden=true,150));
+qi.addEventListener('keydown',e=>{ const bs=[...$('#sres').querySelectorAll('button')]; if(e.key==='ArrowDown'||e.key==='ArrowUp'){ e.preventDefault(); sSel=(sSel+(e.key==='ArrowDown'?1:-1)+bs.length)%Math.max(1,bs.length); bs.forEach((b,i)=>b.classList.toggle('sel',i===sSel)); bs[sSel]?.scrollIntoView({block:'nearest'}); } else if(e.key==='Enter'){ pickResult(sList[sSel]); } else if(e.key==='Escape'){ $('#sres').hidden=true; } });
+
+/* =================================================================== RECORRIDO REGIONAL */
+let TOUR=null;
+function cap(n,t){ const c=$('#cap'); if(!t){ c.hidden=true; return; } c.hidden=false; $('#capN').textContent=n; $('#capT').textContent=t; }
+function stopTour(){ if(!TOUR) return; TOUR.stop=true; TOUR=null; cap(); $('#tourBtn').classList.remove('on'); $('#tourBtn').firstChild.textContent='▶ '; }
+async function tourWait(ms){ const t=TOUR; const end=performance.now()+ms; while(performance.now()<end){ if(!t||t.stop) throw 0; await sleep(120); } }
+async function startTour(){
+  stopTour(); const T={stop:false}; TOUR=T; $('#tourBtn').classList.add('on'); $('#tourBtn').firstChild.textContent='■ ';
+  const steps=[
+    async()=>{ if(MODE!=='red') showRed(); await OVERVIEW(); },'Red DAIMAY · 6 plantas en Coahuila, 4 con gemelo digital leído de su plano',6500,
+    async()=>{ await flyTo([RA[0],0,RA[1]],17,.8,.25,1.6); },'Ramos Arizpe · P1, P2, P3-4, P6-7 y P8. El anillo de cada planta es su Tier 3 del día',6000,
+    async()=>{ await enterPlant('p8',[{cmd:'preset',k:'honda'}]); },'Planta 8 · líneas Honda CR-V y Civic, con el estudio de runners',8000,
+    async()=>{ await enterPlant('p1',[{cmd:'preset',k:'mold'}]); },'Planta 1 · Propuesta B: moldeo por inyección, almacén y ensamble',7500,
+    async()=>{ await enterPlant('p4',[{cmd:'preset',k:'imm'}]); },'Planta 4 · Rev 10: inyectoras IMM de 1,000 a 2,850 t',7500,
+    async()=>{ showRed(); await sleep(400); await flyTo([(RA[0]+PARRAS[0])/2,0,0],135,.7,0,2.2); },`De Ramos Arizpe a Parras · ≈${fmt(haversine(PL.parras.ll,clusterLL()),0)} km en línea recta`,5500,
+    async()=>{ await enterPlant('parras',[{cmd:'preset',k:'costura'}]); },`Planta Parras · 10 líneas de costura, ${fmt(PL.parras.met.ops)} operadores en el plano`,8000,
+    async()=>{ post('parras',{cmd:'preset',k:'corte'}); },'Parras · 11 líneas de corte que surten a costura',6500,
+    async()=>{ showRed(); await sleep(400); await OVERVIEW(); openDrawer('comparar'); },'Comparativo, portafolio OPEX, Tier 3 y flujos viven en el panel de la derecha',7000,
+  ];
+  try{ for(let i=0;i<steps.length;i+=3){ if(T.stop) break; cap(`${i/3+1}/${steps.length/3}`,steps[i+1]); await steps[i](); await tourWait(steps[i+2]); } }catch(_){ }
+  if(TOUR===T) stopTour();
+}
+$('#tourBtn').addEventListener('click',()=>{ TOUR?stopTour():startTour(); });
+renderer.domElement.addEventListener('pointerdown',()=>{ if(TOUR) stopTour(); tween=null; });
+
+/* =================================================================== INTERACCIÓN EN EL MAPA */
+const rc=new THREE.Raycaster(), mv=new THREE.Vector2(), ground=new THREE.Plane(new THREE.Vector3(0,1,0),0), hit=new THREE.Vector3();
+let downXY=null;
+renderer.domElement.addEventListener('pointerdown',e=>{ downXY=[e.clientX,e.clientY]; });
+renderer.domElement.addEventListener('pointermove',e=>{
+  mv.set(e.clientX/innerWidth*2-1, -(e.clientY/innerHeight)*2+1); rc.setFromCamera(mv,camera);
+  const h=rc.intersectObjects(PICKABLE,false)[0]; renderer.domElement.style.cursor = h ? 'pointer' : '';
+  const now=performance.now(); if(now-(window.__lastRC||0)<70) return; window.__lastRC=now;
+  const th=rc.intersectObject(TERRAIN,false)[0]; if(th){ const [la,lo]=ungeo(th.point.x,th.point.z); const el=Math.round(elevAt(th.point.x,th.point.z)); const near=ORDER.map(id=>[id,haversine([la,lo],PL[id].ll)]).sort((a,b)=>a[1]-b[1])[0];
+    $('#coord').textContent=`${la.toFixed(4)}° N  ${Math.abs(lo).toFixed(4)}° O · ≈${fmt(el)} msnm · ${fmt(near[1],near[1]<10?1:0)} km de ${PL[near[0]].short}`; }
+});
+renderer.domElement.addEventListener('pointerup',e=>{ if(!downXY||Math.hypot(e.clientX-downXY[0],e.clientY-downXY[1])>5) return;
+  mv.set(e.clientX/innerWidth*2-1, -(e.clientY/innerHeight)*2+1); rc.setFromCamera(mv,camera); const h=rc.intersectObjects(PICKABLE,false)[0]; if(h) onPlantClick(h.object.userData.plant); });
+renderer.domElement.addEventListener('dblclick',e=>{ mv.set(e.clientX/innerWidth*2-1, -(e.clientY/innerHeight)*2+1); rc.setFromCamera(mv,camera); const th=rc.intersectObject(TERRAIN,false)[0]; if(th){ const hit=th.point; const d=camera.position.distanceTo(controls.target); flyTo([hit.x,0,hit.z],Math.max(4,d*.5),.85,Math.atan2(camera.position.x-controls.target.x,camera.position.z-controls.target.z),.9); } });
+addEventListener('keydown',e=>{ if(e.key==='Escape'&&!e.target.closest('input,textarea,select')){ if(TOUR) stopTour(); else if(MODE!=='red') showRed(); } });
+
+/* =================================================================== LOOP */
+const _v=new THREE.Vector3(); let last=performance.now();
+function updateScale(){ const d=camera.position.distanceTo(controls.target); const h=2*d*Math.tan(camera.fov*Math.PI/360); const kmPerPx=h/innerHeight; const nice=[1,2,5,10,20,50,100]; let km=nice.find(n=>n/kmPerPx>60)||100; $('#scale').firstChild.textContent=km+' km'; $('#scaleI').style.width=Math.round(km/kmPerPx)+'px'; }
+function loop(now){
+  requestAnimationFrame(loop);
+  const dt=Math.min(.05,(now-last)/1000); last=now;
+  if(MODE!=='red') return;
+  if(tween){ tween.t+=dt/tween.dur; const k=tween.t>=1?1:(tween.t<.5?4*tween.t**3:1-Math.pow(-2*tween.t+2,3)/2); camera.position.lerpVectors(tween.P0,tween.P1,k); controls.target.lerpVectors(tween.T0,tween.T1,k); camera.lookAt(controls.target); if(tween.t>=1){ const r=tween.res; tween=null; r(); } }
+  else controls.update();
+  FLOW_OBJS.forEach(o=>{ const a=o.pts.geometry.attributes.position; for(let i=0;i<o.n;i++){ const t=((now/1000)*(o.km>20?.05:.18)+i/o.n+o.ph)%1; const p=o.curve.getPoint(t); a.setXYZ(i,p.x,p.y,p.z); } a.needsUpdate=true; });
+  const dist=camera.position.distanceTo(controls.target); const far=dist>46;
+  const W=innerWidth,H=innerHeight;
+  LABELS.forEach(L=>{ let show=true;
+    if(L.plant) show = !(L.cluster && far);
+    if(L.isCluster) show = far;
+    if(L.flow!==undefined) show = L.near ? !far : true;
+    if(!show){ L.el.style.display='none'; return; }
+    _v.copy(L.pos).project(camera); if(_v.z>1||Math.abs(_v.x)>1.2||Math.abs(_v.y)>1.2){ L.el.style.display='none'; return; }
+    L.el.style.display=''; L.el.style.transform=`translate(${(_v.x*.5+.5)*W}px,${(-_v.y*.5+.5)*H}px) translate(-50%,${L.el.classList.contains('city')||L.el.classList.contains('flow')?'-50%':'-100%'})`; });
+  ORDER.forEach(id=>{ const p=PL[id]; if(p.halo.material.opacity>0){ p.halo.scale.setScalar(1+.06*Math.sin(now/400)); } });
+  updateScale();
+  renderer.render(scene,camera);
+}
+addEventListener('resize',()=>{ camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth,innerHeight); setBar(); });
+
+/* =================================================================== ARRANQUE */
+setBar(); if(innerWidth<900) closeDrawer(); else openDrawer('plantas');
+renderAll(); requestAnimationFrame(loop);
+OVERVIEW();
+initDB();
+setTimeout(()=>TWINS.forEach(id=>fetchHTML(id)),2500);   // precarga del HTML de cada gemelo
+const h=(location.hash||'').slice(1); if(PL[h]&&!PL[h].ghost) setTimeout(()=>enterPlant(h),900);
+window.__net={enterPlant,showRed,enterSplit,startTour,PL,FR,cam:()=>[camera.position.distanceTo(controls.target),!!tween,MODE],get MODE(){return MODE;}};
+
+</script>
+</body>
+</html>
