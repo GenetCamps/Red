@@ -1,0 +1,628 @@
+<title>Kanban Sprayado P4</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=Noto+Sans+SC:wght@400;500;700&display=swap">
+<style>
+/* Layout: sala de control de una sola vista — escena 3D de piso a la izquierda, panel de escenarios y KPIs a la derecha, análisis debajo. Look oscuro fijo (cuarto de control), identidad DAIMAY. */
+:root{
+  --bg:#0E1115; --panel:#151A20; --raise:#1D242C; --line:#2A323C;
+  --ink:#ECEFF2; --dim:#A2ABB5; --faint:#6B7580;
+  --red:#ED3037; --red-t:rgba(237,48,55,.16);
+  --ok:#2FBF71; --warn:#F2B01E; --bad:#FF5A5F; --blue:#3E8BFF; --gray:#9AA3AD; --violet:#9B7BF0; --teal:#2EC4B6;
+  --f-d:"Barlow Condensed","Arial Narrow",Arial,sans-serif;
+  --f-b:"IBM Plex Sans","Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+  --f-m:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 var(--f-b)}
+:lang(zh) body,html[lang=zh] body{font-family:"Noto Sans SC",var(--f-b)}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible{outline:2px solid var(--red);outline-offset:2px}
+.mono{font-family:var(--f-m);font-variant-numeric:tabular-nums}
+header{max-width:1440px;margin:0 auto;padding-block:16px 10px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-wrap:wrap;gap:12px 20px;align-items:center;justify-content:space-between;position:relative}
+header::before{content:"";position:absolute;top:0;left:max(16px,env(safe-area-inset-left,0px));width:90px;height:5px;background:var(--red)}
+.k{font:600 12px var(--f-d);letter-spacing:.16em;text-transform:uppercase;color:var(--red)}
+h1{margin:2px 0 0;font:700 30px/1.05 var(--f-d);letter-spacing:.02em;text-transform:uppercase;text-wrap:balance}
+h1 span{color:var(--red)}
+.sub{color:var(--dim);font-size:13px;margin-top:3px;max-width:720px}
+.hctl{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.seg{display:inline-flex;gap:2px;background:var(--raise);border:1px solid var(--line);border-radius:8px;padding:3px}
+.seg button{border:0;background:none;padding:6px 11px;border-radius:6px;font-size:12.5px;font-weight:600;color:var(--dim);white-space:nowrap}
+.seg button[aria-pressed=true]{background:var(--ink);color:var(--bg)}
+.seg.r button[aria-pressed=true]{background:var(--red);color:#fff}
+main{max-width:1440px;margin:0 auto;padding-block:0 32px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:12px}
+.top{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:12px}
+@media(max-width:1020px){.top{grid-template-columns:1fr}}
+#stage{position:relative;height:620px;border-radius:12px;overflow:hidden;border:1px solid var(--line);background:radial-gradient(120% 90% at 40% 10%,#1c232b,#0b0d10)}
+@media(max-width:700px){#stage{height:480px}.clock>div:last-child{display:none}.lb{font-size:10px;padding:2px 6px}.lb small{font-size:9.5px}.simtag{font-size:10px}}
+#stage canvas{display:block;width:100%;height:100%;touch-action:none;outline:none}
+#labels{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.lb{position:absolute;left:0;top:0;transform:translate(-50%,-100%);white-space:nowrap;font-size:11.5px;font-weight:600;color:#F1F3F5;background:rgba(14,17,21,.84);border:1px solid rgba(255,255,255,.1);border-left:3px solid var(--gray);padding:3px 8px;border-radius:5px;will-change:transform}
+.lb small{display:block;font-family:var(--f-m);font-weight:400;font-size:10.5px;color:var(--dim)}
+.lb.r{border-left-color:var(--red)} .lb.b{border-left-color:var(--blue)} .lb.t{border-left-color:var(--teal)} .lb.bad{border-left-color:var(--bad);background:rgba(80,12,14,.88)} .lb.bad small{color:#ffc2c4}
+.lb.ghost{background:none;border:0;color:var(--faint);font-family:var(--f-d);letter-spacing:.12em;text-transform:uppercase;font-size:12px}
+.ov{position:absolute;z-index:3}
+.clock{left:12px;top:12px;display:flex;gap:10px;align-items:stretch;pointer-events:none}
+.clock>div{background:rgba(14,17,21,.86);border:1px solid var(--line);border-radius:8px;padding:6px 10px}
+.clock small{display:block;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint)}
+.clock b{font:600 20px var(--f-m)}
+#capt{max-width:360px;font-size:12.5px;color:var(--ink);line-height:1.35}
+#capt i{font-style:normal;color:var(--faint);font-family:var(--f-m);font-size:11px;margin-right:6px}
+.views{right:12px;top:12px;display:flex;flex-direction:column;gap:6px;align-items:flex-end}
+.views .seg{background:rgba(14,17,21,.86)}
+.ctl{left:12px;right:12px;bottom:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.ctl .btn{background:rgba(14,17,21,.88);border:1px solid var(--line);border-radius:8px;padding:8px 12px;font-weight:600;font-size:12.5px}
+.ctl .btn.pri{background:var(--red);border-color:var(--red);color:#fff}
+.prog{flex:1 1 140px;height:6px;border-radius:3px;background:rgba(255,255,255,.12);overflow:hidden;min-width:120px}
+.prog i{display:block;height:100%;width:0;background:var(--red)}
+.simtag{position:absolute;z-index:3;left:12px;bottom:58px;font:600 11px var(--f-m);letter-spacing:.04em;color:#1a1300;background:var(--warn);padding:4px 9px;border-radius:5px;max-width:calc(100% - 24px)}
+.endcard{position:absolute;z-index:4;left:50%;top:50%;transform:translate(-50%,-50%);width:min(440px,calc(100% - 32px));background:rgba(14,17,21,.96);border:1px solid var(--red);border-radius:12px;padding:16px 18px;box-shadow:0 20px 50px rgba(0,0,0,.6)}
+.endcard h3{margin:0 0 8px;font:700 20px var(--f-d);text-transform:uppercase;letter-spacing:.04em}
+.endcard p{margin:0 0 10px;color:var(--dim);font-size:13px}
+aside{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:14px;max-height:620px;overflow:auto}
+@media(max-width:1020px){aside{max-height:none}}
+.h{font:600 13px var(--f-d);letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin:0 0 6px;display:flex;justify-content:space-between;gap:8px}
+.h span:last-child{font-family:var(--f-m);letter-spacing:0;text-transform:none;color:var(--ink)}
+.scn{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.scn button{text-align:left;background:var(--raise);border:1px solid var(--line);border-radius:8px;padding:8px 9px;font-size:12px;line-height:1.25}
+.scn button b{display:block;font-size:12.5px}
+.scn button small{color:var(--dim)}
+.scn button:hover{border-color:var(--red)}
+.scn button.on{border-color:var(--red);background:var(--red-t)}
+.sl{display:flex;flex-direction:column;gap:9px}
+.sl label{display:grid;grid-template-columns:1fr auto;gap:2px 8px;font-size:12.5px;color:var(--dim)}
+.sl label output{font-family:var(--f-m);color:var(--ink)}
+.sl input{grid-column:1/-1;width:100%;accent-color:var(--red)}
+.cmp{width:100%;border-collapse:collapse;font-size:12.5px}
+.cmp th{font-weight:500;color:var(--faint);font-size:11px;text-align:right;padding:4px 4px 6px;letter-spacing:.04em;text-transform:uppercase}
+.cmp th:first-child,.cmp td:first-child{text-align:left}
+.cmp td{padding:6px 4px;border-top:1px solid var(--line);text-align:right;font-family:var(--f-m);font-variant-numeric:tabular-nums}
+.cmp td:first-child{font-family:var(--f-b);color:var(--dim)}
+.cmp td.win{color:var(--ok);font-weight:600}
+.cmp td.lose{color:var(--bad)}
+.why{font-size:12px;color:var(--dim);border:1px dashed var(--line);border-radius:8px;padding:9px 10px;display:flex;flex-direction:column;gap:5px}
+.why b{color:var(--ink)}
+.row{display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:12px}
+@media(max-width:1100px){.row{grid-template-columns:1fr 1fr}}
+@media(max-width:700px){.row{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;min-width:0}
+.card h2{margin:0 0 4px;font:700 17px var(--f-d);letter-spacing:.05em;text-transform:uppercase}
+.card .n{margin:0 0 8px;color:var(--dim);font-size:12px}
+#chart{display:block;width:100%;height:240px}
+.leg{display:flex;gap:14px;font-size:11.5px;color:var(--dim);margin-top:6px;flex-wrap:wrap}
+.leg i{display:inline-block;width:14px;height:3px;border-radius:2px;margin-right:5px;vertical-align:3px}
+#log{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px;font-size:12px;max-height:250px;overflow:auto}
+#log li{display:grid;grid-template-columns:44px 1fr;gap:6px;padding:4px 6px;border-radius:6px;background:var(--raise)}
+#log li i{font-style:normal;font-family:var(--f-m);color:var(--faint);font-size:11px}
+#log li.bad{background:rgba(255,90,95,.12)} #log li.bad span{color:#ffc2c4}
+#log li.ok span{color:#a9f0c8}
+.sz{width:100%;border-collapse:collapse;font-family:var(--f-m);font-size:12.5px;font-variant-numeric:tabular-nums}
+.sz th,.sz td{padding:6px;text-align:center;border-bottom:1px solid var(--line)}
+.sz th{font-family:var(--f-b);font-weight:500;color:var(--faint);font-size:11px}
+.sz td.over{color:var(--bad);font-weight:600}
+.sz td.cur{outline:2px solid var(--red);outline-offset:-2px;border-radius:4px}
+.sz tr.hi td:first-child{color:var(--warn)}
+.foot{font-size:11.5px;color:var(--faint);line-height:1.5}
+@media (prefers-reduced-motion:reduce){.prog i{transition:none}}
+</style>
+
+<header>
+  <div>
+    <div class="k" data-i="kick">DAIMAY · Planta 4 · Rivian R2 · Mejora Continua</div>
+    <h1 data-i="title">Kanban de sprayado <span>· simulación 3D</span></h1>
+    <div class="sub" data-i="sub">La línea pide, el runner surte y la cabina solo produce lo que se pidió. Corre el turno, provoca una falla y compara contra el sistema actual (push).</div>
+  </div>
+  <div class="hctl">
+    <div class="seg r" id="segMode" role="group" aria-label="Área"><button data-v="upper" aria-pressed="true">Door Upper</button><button data-v="armrest" aria-pressed="false">Armrest</button></div>
+    <div class="seg" id="segLang" role="group" aria-label="Idioma"><button data-v="es" aria-pressed="true">ES</button><button data-v="en" aria-pressed="false">EN</button><button data-v="zh" aria-pressed="false">中文</button></div>
+  </div>
+</header>
+
+<main>
+<div class="top">
+  <div id="stage">
+    <div id="labels"></div>
+    <div class="ov clock">
+      <div><small data-i="hora">Hora</small><b id="clk" class="mono">06:00</b></div>
+      <div><small data-i="pasa">Qué está pasando</small><div id="capt"></div></div>
+    </div>
+    <div class="ov views">
+      <div class="seg" id="segView" role="group" aria-label="Vista"><button data-v="iso" aria-pressed="true" data-i="vIso">Iso</button><button data-v="top" aria-pressed="false" data-i="vTop">Planta</button><button data-v="booth" aria-pressed="false" data-i="vBooth">Cabinas</button><button data-v="line" aria-pressed="false" data-i="vLine">Línea</button></div>
+      <div class="seg r" id="segSys" role="group" aria-label="Sistema"><button data-v="pull" aria-pressed="true" data-i="sPull">Kanban (pull)</button><button data-v="push" aria-pressed="false" data-i="sPush">Hoy (push)</button></div>
+    </div>
+    <div class="simtag" data-i="simtag">SIMULACIÓN · comportamiento observado en piso, no calibrado</div>
+    <div class="ov ctl">
+      <button class="btn pri" id="bPlay" data-i="play">▶ Correr turno</button>
+      <button class="btn" id="bSpeed">×6</button>
+      <button class="btn" id="bReset" data-i="reset">Reiniciar</button>
+      <div class="prog" aria-hidden="true"><i id="progI"></i></div>
+    </div>
+    <div class="endcard" id="endc" hidden></div>
+  </div>
+
+  <aside>
+    <section>
+      <div class="h"><span data-i="escen">Escenarios</span></div>
+      <div class="scn" id="scn">
+        <button data-s="normal" class="on"><b data-i="s1">Operación normal</b><small data-i="s1d">Demanda real 275 por turno</small></button>
+        <button data-s="booth"><b data-i="s2">Cabina tapada</b><small data-i="s2d">Pistola W-77 fuera 40 min</small></button>
+        <button data-s="runner"><b data-i="s3">Runner ausente</b><small data-i="s3d">60 min sin surtir</small></button>
+        <button data-s="comp"><b data-i="s4">3 componentes</b><small data-i="s4d">Sustrato + vinil + spacer</small></button>
+      </div>
+    </section>
+    <section class="sl">
+      <div class="h"><span data-i="param">Parámetros</span></div>
+      <label><span data-i="pCaja">Piezas por contenedor</span><output id="oC">10</output><input type="range" id="iC" min="10" max="30" step="10" value="10"></label>
+      <label><span data-i="pSlots">Lugares por parte (tarjetas)</span><output id="oS">6</output><input type="range" id="iS" min="2" max="9" step="1" value="6"></label>
+      <label><span data-i="pComp">Componentes sprayados por pieza</span><output id="oK">2</output><input type="range" id="iK" min="1" max="3" step="1" value="2"></label>
+      <label><span data-i="pRun">Ronda del runner (min)</span><output id="oR">20</output><input type="range" id="iR" min="10" max="60" step="5" value="20"></label>
+      <label><span data-i="pDem">Demanda vs 275 por turno</span><output id="oD">100%</output><input type="range" id="iD" min="80" max="130" step="5" value="100"></label>
+    </section>
+    <section>
+      <div class="h"><span data-i="cmpT">Kanban vs hoy · mismo turno</span><span id="cmpT">—</span></div>
+      <table class="cmp"><thead><tr><th></th><th data-i="sPullS">Kanban</th><th data-i="sPushS">Hoy</th></tr></thead><tbody id="cmpB"></tbody></table>
+    </section>
+    <div class="why" id="why"></div>
+  </aside>
+</div>
+
+<div class="row">
+  <div class="card">
+    <h2 data-i="chT">WIP sprayado y paro de línea</h2>
+    <p class="n" data-i="chN">Mismo turno, misma demanda y mismas fallas para los dos sistemas.</p>
+    <canvas id="chart" aria-label="Gráfica de WIP y paro acumulado"></canvas>
+    <div class="leg"><span><i style="background:var(--red)"></i><span data-i="lgPull">Kanban</span></span><span><i style="background:var(--gray)"></i><span data-i="lgPush">Hoy (push)</span></span></div>
+  </div>
+  <div class="card">
+    <h2 data-i="logT">Bitácora del turno</h2>
+    <p class="n" data-i="logN">Lo que pasa en el sistema que estás viendo.</p>
+    <ul id="log"></ul>
+  </div>
+  <div class="card">
+    <h2 data-i="szT">¿Cuántos lugares por parte?</h2>
+    <p class="n" id="szN"></p>
+    <div style="overflow-x:auto"><table class="sz" id="sz"></table></div>
+    <p class="foot" id="szM"></p>
+  </div>
+</div>
+<p class="foot" data-i="foot">Fuente: diseño Kanban Upper Rev. B (28-oct), tableros de piso 2-nov, capacidad de cabina 1,280 operaciones por turno, demanda 275 por turno y posición (takt 144 s). Fallas, paros cortos y tiempos de traslado son supuestos para mostrar el comportamiento observado en piso; el piloto de 2 semanas mide los valores reales.</p>
+</main>
+
+<script>(function(){var b=location.pathname.indexOf('/rivian/')>=0?'../':'';document.write('<script src="'+b+'vendor/three-r128/three.min.js"><\/script><script src="'+b+'vendor/three-r128/OrbitControls.js"><\/script>');})();</script>
+
+<script>
+(function(){
+"use strict";
+if(typeof THREE==="undefined"){document.getElementById("stage").insertAdjacentHTML("beforeend","<div class='ov' style='inset:0;display:grid;place-items:center;color:var(--dim);pointer-events:none'>No se pudo cargar el motor 3D. Revisa la conexión y recarga.</div>");return;}
+/* ============ i18n ============ */
+var L={
+es:{kick:"DAIMAY · Planta 4 · Rivian R2 · Mejora Continua",title:"Kanban de sprayado <span>· simulación 3D</span>",sub:"La línea pide, el runner surte y la cabina solo produce lo que se pidió. Corre el turno, provoca una falla y compara contra el sistema actual (push).",hora:"Hora",pasa:"Qué está pasando",vIso:"Iso",vTop:"Planta",vBooth:"Cabinas",vLine:"Línea",sPull:"Kanban (pull)",sPush:"Hoy (push)",simtag:"SIMULACIÓN · comportamiento observado en piso, no calibrado",play:"▶ Correr turno",pause:"❚❚ Pausa",reset:"Reiniciar",escen:"Escenarios",s1:"Operación normal",s1d:"Demanda real 275 por turno",s2:"Cabina tapada",s2d:"Pistola W-77 fuera 40 min",s3:"Runner ausente",s3d:"60 min sin surtir",s4:"3 componentes",s4d:"Sustrato + vinil + spacer",param:"Parámetros",pCaja:"Piezas por contenedor",pSlots:"Lugares por parte (tarjetas)",pComp:"Componentes sprayados por pieza",pRun:"Ronda del runner (min)",pDem:"Demanda vs 275 por turno",cmpT:"Kanban vs hoy · mismo turno",sPullS:"Kanban",sPushS:"Hoy",chT:"WIP sprayado y paro de línea",chN:"Mismo turno, misma demanda y mismas fallas para los dos sistemas.",lgPull:"Kanban",lgPush:"Hoy (push)",logT:"Bitácora del turno",logN:"Lo que pasa en el sistema que estás viendo.",szT:"¿Cuántos lugares por parte?",foot:"Fuente: diseño Kanban Upper Rev. B (28-oct), tableros de piso 2-nov, capacidad de cabina 1,280 operaciones por turno, demanda 275 por turno y posición (takt 144 s). Fallas, paros cortos y tiempos de traslado son supuestos para mostrar el comportamiento observado en piso; el piloto de 2 semanas mide los valores reales.",
+ kParo:"Paro de línea",kWip:"WIP sprayado ahora",kOver:"Producido sin pedido",kRed:"Tiempo en zona roja",kRepo:"Reposición promedio",kCum:"Cumplimiento",kUse:"Uso de cabinas",min:"min",pzs:"pzs",
+ booth:"Cabina",boothUp:"Upper",others:"Cabinas 3–8 · otras partes",super:"Supermercado",superSub:"máx. {n} contenedores por parte",bBlue:"Tablero de sprayado",bBlueSub:"tarjeta azul: pide producir",bGray:"Tablero de la línea",bGraySub:"tarjeta gris: pide surtir",line:"Línea Upper",lineA:"Línea armrest",asm:"Ensamble",asmSub:"espera upper",runner:"Runner",idle:"sin tarjeta: no produce",down:"PISTOLA TAPADA",pile:"WIP en piso",pushSub:"produce por programa, sin tarjeta",boothA:"Cabina armrest + vinil",
+ eOpen:"{p}: abre contenedor, cuelga tarjeta gris",eRun:"Runner surte {n} contenedor(es); tarjetas azules al tablero",eEmpty:"Supermercado vacío en {p}: la línea va a parar",eStarve:"PARO {p}: sin contenedor",eResume:"{p} reanuda tras {m} min de paro",eDone:"Cabina {b} termina {p}, regresa al supermercado",eStart:"Cabina {b} toma tarjeta azul de {p}",eDown:"Cabina {b}: pistola tapada, fuera 40 min",eUp:"Cabina {b} vuelve a operar",eRunOff:"Runner fuera 60 min",eRunOn:"Runner regresa a la ronda",eRed:"{p} en zona roja: avisar al supervisor",ePushB:"Cabina {b} produce {p} por programa",eShift:"Turno iniciado",
+ endT:"Fin del turno",endP:"Kanban: {a} min de paro y {w} pzs de WIP al cierre. Hoy (push): {b} min de paro y {x} pzs de WIP.",endBtn:"Volver a correr",
+ why:"<b>Por qué importa (piso, 2-nov):</b><span>460 min de paro en ensamble por upper lento en un turno.</span><span>Spray produce +700 a +1,000 piezas por turno sin pedido.</span><span>Cabinas 1 y 2: 2,560 operaciones por turno contra 1,100 uppers × componentes. Con 3 componentes no alcanzan (129%).</span>",
+ whyA:"<b>Por qué importa (piso):</b><span>Armrest RR LH en 154 de 240 al corte; 3 semanas con faltante de descansabrazos.</span><span>El rack de 36 dura ≈87 min a 24.9 piezas por hora.</span><span>Tasa de la cabina de armrest: por medir (se usa la de upper).</span>",
+ szN:"N = demanda por hora × (reposición + 10%) ÷ piezas por contenedor. Demanda: {d} piezas por hora y parte.",szM:"Reposición medida en esta simulación: {r} h (tarjeta azul → contenedor de vuelta). Rojo = no alcanza con {n} lugares.",szR:"Reposición",szC:"Contenedor de {c}",cap:"Capacidad requerida de cabinas: {u}%"},
+en:{kick:"DAIMAY · Plant 4 · Rivian R2 · Continuous Improvement",title:"Spray Kanban <span>· 3D simulation</span>",sub:"The line asks, the runner supplies and the booth only makes what was asked for. Run the shift, trigger a failure and compare against today's push system.",hora:"Time",pasa:"What is happening",vIso:"Iso",vTop:"Plan",vBooth:"Booths",vLine:"Line",sPull:"Kanban (pull)",sPush:"Today (push)",simtag:"SIMULATION · floor-observed behavior, not calibrated",play:"▶ Run shift",pause:"❚❚ Pause",reset:"Reset",escen:"Scenarios",s1:"Normal operation",s1d:"Real demand 275 per shift",s2:"Booth clogged",s2d:"W-77 gun down 40 min",s3:"Runner absent",s3d:"60 min without supply",s4:"3 components",s4d:"Substrate + vinyl + spacer",param:"Parameters",pCaja:"Pieces per container",pSlots:"Slots per part (cards)",pComp:"Sprayed components per piece",pRun:"Runner loop (min)",pDem:"Demand vs 275 per shift",cmpT:"Kanban vs today · same shift",sPullS:"Kanban",sPushS:"Today",chT:"Sprayed WIP and line downtime",chN:"Same shift, same demand and same failures for both systems.",lgPull:"Kanban",lgPush:"Today (push)",logT:"Shift log",logN:"What happens in the system you are viewing.",szT:"How many slots per part?",foot:"Source: Upper Kanban design Rev. B (Oct 28), floor boards Nov 2, booth capacity 1,280 operations per shift, demand 275 per shift and position (takt 144 s). Failures, micro-stops and travel times are assumptions to show floor-observed behavior; the 2-week pilot measures the real values.",
+ kParo:"Line downtime",kWip:"Sprayed WIP now",kOver:"Made without order",kRed:"Time in red zone",kRepo:"Average replenishment",kCum:"Attainment",kUse:"Booth utilization",min:"min",pzs:"pcs",
+ booth:"Booth",boothUp:"Upper",others:"Booths 3–8 · other parts",super:"Supermarket",superSub:"max {n} containers per part",bBlue:"Spray board",bBlueSub:"blue card: make",bGray:"Line board",bGraySub:"grey card: supply",line:"Upper line",lineA:"Armrest line",asm:"Assembly",asmSub:"waits for upper",runner:"Runner",idle:"no card: no production",down:"GUN CLOGGED",pile:"WIP on floor",pushSub:"produces to schedule, no card",boothA:"Armrest + vinyl booth",
+ eOpen:"{p}: opens container, hangs grey card",eRun:"Runner supplies {n} container(s); blue cards to board",eEmpty:"Supermarket empty for {p}: line will stop",eStarve:"STOP {p}: no container",eResume:"{p} resumes after {m} min stop",eDone:"Booth {b} finishes {p}, back to supermarket",eStart:"Booth {b} takes blue card for {p}",eDown:"Booth {b}: gun clogged, down 40 min",eUp:"Booth {b} running again",eRunOff:"Runner away 60 min",eRunOn:"Runner back on the loop",eRed:"{p} in red zone: call supervisor",ePushB:"Booth {b} makes {p} to schedule",eShift:"Shift started",
+ endT:"End of shift",endP:"Kanban: {a} min downtime and {w} pcs WIP at close. Today (push): {b} min downtime and {x} pcs WIP.",endBtn:"Run again",
+ why:"<b>Why it matters (floor, Nov 2):</b><span>460 min of assembly downtime from slow upper in one shift.</span><span>Spray makes +700 to +1,000 pieces per shift with no order.</span><span>Booths 1 and 2: 2,560 operations per shift vs 1,100 uppers × components. With 3 components they fall short (129%).</span>",
+ whyA:"<b>Why it matters (floor):</b><span>Armrest RR LH at 154 of 240 at cut-off; 3 weeks of armrest shortages.</span><span>A rack of 36 lasts ≈87 min at 24.9 pieces per hour.</span><span>Armrest booth rate: to be measured (upper rate used).</span>",
+ szN:"N = demand per hour × (replenishment + 10%) ÷ pieces per container. Demand: {d} pieces per hour per part.",szM:"Replenishment measured in this simulation: {r} h (blue card → container back). Red = {n} slots are not enough.",szR:"Replenishment",szC:"Container of {c}",cap:"Required booth capacity: {u}%"},
+zh:{kick:"DAIMAY · 4 号工厂 · Rivian R2 · 持续改进",title:"喷胶看板 <span>· 3D 仿真</span>",sub:"产线发出需求，物料员配送，喷房只生产被需求的数量。运行一个班次，制造一次故障，并与现行推动式系统对比。",hora:"时间",pasa:"当前状态",vIso:"等轴",vTop:"平面",vBooth:"喷房",vLine:"产线",sPull:"看板（拉动）",sPush:"现状（推动）",simtag:"仿真 · 基于现场观察，未校准",play:"▶ 运行班次",pause:"❚❚ 暂停",reset:"重置",escen:"场景",s1:"正常运行",s1d:"实际需求每班 275 件",s2:"喷房堵枪",s2d:"W-77 喷枪停机 40 分钟",s3:"物料员缺岗",s3d:"60 分钟无配送",s4:"3 个部件",s4d:"基材 + 表皮 + 隔层",param:"参数",pCaja:"每箱件数",pSlots:"每零件库位（看板卡数）",pComp:"每件需喷胶部件数",pRun:"物料员巡回周期（分钟）",pDem:"需求 vs 每班 275 件",cmpT:"看板 vs 现状 · 同一班次",sPullS:"看板",sPushS:"现状",chT:"喷胶在制品与产线停线",chN:"两种系统采用相同班次、相同需求与相同故障。",lgPull:"看板",lgPush:"现状（推动）",logT:"班次记录",logN:"当前所看系统中发生的事件。",szT:"每个零件需要几个库位？",foot:"来源：上饰板看板设计 Rev. B（10 月 28 日）、11 月 2 日现场看板、喷房产能每班 1,280 次操作、每班每位置需求 275 件（节拍 144 秒）。故障、短停与搬运时间为假设，用于展示现场观察到的行为；两周试点将测量真实数值。",
+ kParo:"产线停线",kWip:"当前喷胶在制品",kOver:"无需求生产",kRed:"红区时间",kRepo:"平均补货时间",kCum:"达成率",kUse:"喷房利用率",min:"分钟",pzs:"件",
+ booth:"喷房",boothUp:"上饰板",others:"3–8 号喷房 · 其他零件",super:"超市",superSub:"每零件最多 {n} 箱",bBlue:"喷胶看板",bBlueSub:"蓝卡：要求生产",bGray:"产线看板",bGraySub:"灰卡：要求配送",line:"上饰板产线",lineA:"扶手产线",asm:"总装",asmSub:"等待上饰板",runner:"物料员",idle:"无看板卡：不生产",down:"喷枪堵塞",pile:"地面在制品",pushSub:"按计划生产，无看板卡",boothA:"扶手 + 表皮喷房",
+ eOpen:"{p}：开新箱，挂灰卡",eRun:"物料员配送 {n} 箱；蓝卡挂到看板",eEmpty:"{p} 超市已空：产线将停线",eStarve:"停线 {p}：无料箱",eResume:"{p} 停线 {m} 分钟后恢复",eDone:"{b} 号喷房完成 {p}，送回超市",eStart:"{b} 号喷房取 {p} 蓝卡",eDown:"{b} 号喷房：喷枪堵塞，停机 40 分钟",eUp:"{b} 号喷房恢复运行",eRunOff:"物料员离岗 60 分钟",eRunOn:"物料员恢复巡回",eRed:"{p} 进入红区：通知主管",ePushB:"{b} 号喷房按计划生产 {p}",eShift:"班次开始",
+ endT:"班次结束",endP:"看板：停线 {a} 分钟，收班在制品 {w} 件。现状（推动）：停线 {b} 分钟，在制品 {x} 件。",endBtn:"再次运行",
+ why:"<b>为何重要（现场，11 月 2 日）：</b><span>一个班次内因上饰板缓慢导致总装停线 460 分钟。</span><span>喷胶每班无需求多生产 700–1,000 件。</span><span>1、2 号喷房每班 2,560 次操作 vs 1,100 件上饰板 × 部件数。3 个部件时产能不足（129%）。</span>",
+ whyA:"<b>为何重要（现场）：</b><span>扶手 RR LH 截点时 154/240；扶手缺料已持续 3 周。</span><span>每架 36 件，按每小时 24.9 件约可用 87 分钟。</span><span>扶手喷房节拍待测（暂用上饰板数据）。</span>",
+ szN:"N = 每小时需求 × (补货时间 + 10%) ÷ 每箱件数。需求：每零件每小时 {d} 件。",szM:"本仿真测得补货时间：{r} 小时（蓝卡 → 料箱返回）。红色 = {n} 个库位不够。",szR:"补货时间",szC:"每箱 {c} 件",cap:"喷房所需产能：{u}%"}
+};
+var lang="es";
+function T(k,o){var s=(L[lang][k]!=null?L[lang][k]:L.es[k])||k;if(o)for(var x in o)s=s.split("{"+x+"}").join(o[x]);return s;}
+function applyLang(){document.documentElement.lang=lang;document.querySelectorAll("[data-i]").forEach(function(e){var k=e.getAttribute("data-i");if(k==="play"){e.textContent=running?T("pause"):T("play");return;}e.innerHTML=T(k);});rebuildLabels();renderSide(true);renderSizing();drawChart();}
+
+/* ============ configuración ============ */
+var SHIFT=662; // min netos (39,724 s)
+var OPS_MIN=1280/SHIFT; // operaciones por minuto por cabina
+var MODES={
+ upper:{parts:[{n:"RR LH",c:0xED3037},{n:"RR RH",c:0x3E8BFF},{n:"FR LH",c:0xF2B01E},{n:"FR RH",c:0x2EC4B6}],booths:[0,1],trip:6,pushBatch:6,slotsDef:6,CDef:10,KDef:2,RDef:20},
+ armrest:{parts:[{n:"Armrest",c:0xC0914F},{n:"Vinil",c:0x6F8DB5}],booths:[2],trip:8,pushBatch:3,slotsDef:3,CDef:36,KDef:1,RDef:30}
+};
+var mode="upper";
+var P={C:10,S:6,K:2,R:20,D:1};
+var DEM=275/(SHIFT/60); // 24.9 pzs/h por parte
+
+/* ============ motor de simulación ============ */
+function rng(a){return function(){a|=0;a=a+0x6D2B79F5|0;var t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+function Engine(sys,seed){
+ var M=MODES[mode],r=rng(seed),self=this;
+ this.sys=sys;this.t=0;this.ev=[];this.hist=[];this.repo=[];
+ this.parts=M.parts.map(function(p,i){return{i:i,n:p.n,sup:P.S,pile:0,use:P.C,wait:1,gray:0,blue:0,enr:0,starve:0,stS:-1,dem:0,cons:0,stop:0,red:0,redF:false,bt:[]};});
+ this.booths=M.booths.map(function(id){return{id:id,part:-1,rem:0,tot:0,down:0,busy:0,wasDown:false};});
+ this.run={next:P.R*0.5,trip:null,off:0,wasOff:false};
+ this.made=0;this.pushPtr=-1;this.pushLeft=0;
+ this.R=r;
+ this.log=function(k,o,cls){self.ev.unshift({t:self.t,k:k,o:o||{},c:cls||""});if(self.ev.length>60)self.ev.pop();};
+ this.log("eShift");
+ this.bn=function(b){return mode==="upper"?b.id+1:"A";};
+}
+Engine.prototype.step=function(dt){
+ var s=this,M=MODES[mode],C=P.C,rate=DEM*P.D/60,t=s.t;
+ // línea consume
+ s.parts.forEach(function(p){
+  p.dem+=rate*dt;
+  if(p.stop>t){return;}
+  if(s.R()<0.012*dt)p.stop=t+1+s.R()*3; // paro corto de operador
+  var need=rate*dt*(0.85+s.R()*0.3);
+  while(need>0){
+   if(p.use>0){var u=Math.min(p.use,need);p.use-=u;p.cons+=u;need-=u;}
+   if(p.use<=1e-9){
+    if(p.wait>0){p.wait--;p.use=C;p.gray++;s.log("eOpen",{p:p.n});if(p.stS>=0){s.log("eResume",{p:p.n,m:Math.round(t-p.stS)},"ok");p.stS=-1;}}
+    else{if(p.stS<0){p.stS=t;s.log("eStarve",{p:p.n},"bad");}p.starve+=dt;need=0;}
+   }
+  }
+ });
+ // runner
+ if(s.run.off>t){if(!s.run.wasOff){s.run.wasOff=true;s.log("eRunOff",{}, "bad");}}
+ else{
+  if(s.run.wasOff){s.run.wasOff=false;s.log("eRunOn",{},"ok");s.run.next=Math.min(s.run.next,t);}
+  if(!s.run.trip&&t>=s.run.next){
+   var n=0;
+   s.parts.forEach(function(p){
+    while(p.gray>0){
+     var have=p.sup+(s.sys==="push"?p.pile:0);
+     if(have<=0){s.log("eEmpty",{p:p.n},"bad");break;}
+     if(p.sup>0)p.sup--;else p.pile--;
+     p.gray--;p.enr++;n++;
+     if(s.sys==="pull"){p.blue++;p.bt.push(t);}
+    }
+   });
+   s.run.next=t+P.R;
+   if(n>0){s.run.trip={st:t,d:M.trip,carry:n};s.log("eRun",{n:n});}
+  }
+  if(s.run.trip&&t>=s.run.trip.st+s.run.trip.d){s.parts.forEach(function(p){p.wait+=p.enr;p.enr=0;});s.run.trip=null;}
+ }
+ // cabinas
+ var ops=C*P.K;
+ s.booths.forEach(function(b,bi){
+  if(b.down>t){if(!b.wasDown){b.wasDown=true;s.log("eDown",{b:s.bn(b)},"bad");}return;}
+  if(b.wasDown){b.wasDown=false;s.log("eUp",{b:s.bn(b)},"ok");}
+  if(b.part>=0){
+   b.rem-=OPS_MIN*dt*(0.9+s.R()*0.2);b.busy+=dt;
+   if(b.rem<=0){
+    var p=s.parts[b.part];
+    if(s.sys==="pull"){p.sup++;p.blue--;var t0=p.bt.shift();if(t0!=null)s.repo.push(t-t0);}
+    else{if(p.sup<P.S)p.sup++;else p.pile++;}
+    s.made+=C;s.log("eDone",{b:s.bn(b),p:p.n});b.part=-1;
+   }
+  }
+  if(b.part<0){
+   if(s.sys==="pull"){
+    var best=-1,bv=0;
+    s.parts.forEach(function(p,i){var prod=s.booths.filter(function(x){return x.part===i;}).length;var w=p.blue-prod;if(w>bv){bv=w;best=i;}});
+    if(best>=0){b.part=best;b.rem=ops;b.tot=ops;s.log("eStart",{b:s.bn(b),p:s.parts[best].n});}
+   }else{
+    if(s.pushLeft<=0){s.pushPtr=(s.pushPtr+1)%s.parts.length;s.pushLeft=M.pushBatch;}
+    s.pushLeft--;b.part=s.pushPtr;b.rem=ops;b.tot=ops;
+    if(s.pushLeft===M.pushBatch-1)s.log("ePushB",{b:s.bn(b),p:s.parts[b.part].n});
+   }
+  }
+ });
+ // zona roja
+ if(s.sys==="pull")s.parts.forEach(function(p){var z=zoneOf(p.blue);if(z===2){p.red+=dt;if(!p.redF){p.redF=true;if(s.sys==="pull")s.log("eRed",{p:p.n},"bad");}}else p.redF=false;});
+ s.t+=dt;
+ if(Math.floor(s.t/2)!==Math.floor((s.t-dt)/2))s.hist.push({t:s.t,w:s.wip(),s:s.paro()});
+};
+Engine.prototype.wip=function(){var C=P.C;return Math.round(this.parts.reduce(function(a,p){return a+(p.sup+p.pile+p.wait+p.enr)*C+p.use;},0));};
+Engine.prototype.paro=function(){return this.parts.reduce(function(a,p){return a+p.starve;},0);};
+Engine.prototype.over=function(){var dem=this.parts.reduce(function(a,p){return a+p.cons;},0);return Math.max(0,Math.round(this.made-dem));};
+Engine.prototype.cum=function(){var d=0,c=0;this.parts.forEach(function(p){d+=p.dem;c+=p.cons;});return d>0?c/d*100:100;};
+Engine.prototype.repoAvg=function(){return this.repo.length?this.repo.reduce(function(a,b){return a+b;},0)/this.repo.length:null;};
+Engine.prototype.use=function(){var b=0;this.booths.forEach(function(x){b+=x.busy;});return this.t>0?b/(this.t*this.booths.length)*100:0;};
+Engine.prototype.redMin=function(){return this.parts.reduce(function(a,p){return a+p.red;},0);};
+function zoneOf(k){var S=P.S;if(k<=0)return -1;var a=Math.ceil(S/3),b=Math.ceil(2*S/3);return k<=a?0:(k<=b?1:2);}
+
+var E={},seed=20261102,running=false,speed=6,scen="normal",ended=false;
+function newEngines(){E.pull=new Engine("pull",seed);E.push=new Engine("push",seed);ended=false;document.getElementById("endc").hidden=true;}
+
+/* ============ escena 3D ============ */
+var stage=document.getElementById("stage"),labelsEl=document.getElementById("labels");
+var renderer,scene,camera,controls,ok3d=true;
+try{
+ renderer=new THREE.WebGLRenderer({antialias:true});
+ renderer.setPixelRatio(Math.min(2,window.devicePixelRatio||1));
+ renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+ renderer.outputEncoding=THREE.sRGBEncoding;
+ stage.insertBefore(renderer.domElement,labelsEl);
+}catch(e){ok3d=false;stage.insertAdjacentHTML("beforeend","<div class='ov' style='inset:0;display:grid;place-items:center;color:var(--dim);pointer-events:none'>WebGL no disponible en este equipo.</div>");}
+scene=new THREE.Scene();
+scene.fog=new THREE.Fog(0x0e1115,60,125);scene.background=new THREE.Color(0x0e1115);
+camera=new THREE.PerspectiveCamera(38,1,0.5,300);
+if(ok3d){controls=new THREE.OrbitControls(camera,renderer.domElement);controls.enableDamping=true;controls.maxPolarAngle=1.45;controls.minDistance=12;controls.maxDistance=110;}
+scene.add(new THREE.HemisphereLight(0xcfd8e3,0x15181c,0.55));
+var sun=new THREE.DirectionalLight(0xffffff,0.85);sun.position.set(-18,34,22);sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);
+var sc=sun.shadow.camera;sc.left=-40;sc.right=40;sc.top=30;sc.bottom=-30;sc.near=1;sc.far=90;scene.add(sun);
+function mat(c,o){o=o||{};return new THREE.MeshStandardMaterial({color:c,roughness:o.r!=null?o.r:0.75,metalness:o.m||0.05,emissive:o.e||0,emissiveIntensity:o.ei||1,transparent:!!o.op,opacity:o.op||1});}
+function box(w,h,d,m,x,y,z,par){var g=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m);g.position.set(x,y,z);g.castShadow=true;g.receiveShadow=true;(par||scene).add(g);return g;}
+// piso
+var floor=new THREE.Mesh(new THREE.PlaneGeometry(200,150),mat(0x1a1f25,{r:0.95}));floor.rotation.x=-Math.PI/2;floor.receiveShadow=true;scene.add(floor);
+var grid=new THREE.GridHelper(120,60,0x2a323c,0x20262d);grid.position.y=0.01;scene.add(grid);
+function stripe(x1,z1,x2,z2,c){var dx=x2-x1,dz=z2-z1,len=Math.hypot(dx,dz);var m=new THREE.Mesh(new THREE.PlaneGeometry(len,0.18),new THREE.MeshBasicMaterial({color:c||0xE6B800}));m.rotation.x=-Math.PI/2;m.rotation.z=-Math.atan2(dz,dx);m.position.set((x1+x2)/2,0.02,(z1+z2)/2);scene.add(m);}
+// pasillo de runner
+stripe(-14,5.2,24,5.2);stripe(-14,8.2,24,8.2);
+// cabinas
+var BX=function(i){return -27+i*6;},BZ=-11;
+var boothObj=[];
+for(var i=0;i<8;i++){
+ var g=new THREE.Group();g.position.set(BX(i),0,BZ);scene.add(g);
+ var shell=mat(0x2b323b,{m:0.4,r:0.5});
+ box(5,0.2,4.4,mat(0x23292f),0,0.1,0,g);
+ box(5,3.4,0.15,shell,0,1.8,-2.2,g);
+ box(0.15,3.4,4.4,shell,-2.5,1.8,0,g);box(0.15,3.4,4.4,shell,2.5,1.8,0,g);
+ box(5.2,0.2,4.6,shell,0,3.55,0,g);
+ var duct=new THREE.Mesh(new THREE.CylinderGeometry(0.45,0.45,2.2,16),mat(0x3a424c,{m:0.6,r:0.4}));duct.position.set(1.4,4.7,-1.2);duct.castShadow=true;g.add(duct);
+ var wallM=mat(0x11151a,{e:0x000000});var wall=box(4.7,3,0.05,wallM,0,1.7,-2.1,g);
+ var frameM=mat(0x3a424c,{m:0.5});var fr=box(5.2,0.18,0.2,frameM,0,3.4,2.25,g);
+ var fix=box(1.6,1,1,mat(0x39414a,{m:0.5}),0,0.7,-0.4,g);
+ var piece=box(1.4,0.12,0.9,mat(0x777f88),0,1.27,-0.4,g);
+ var light=null;
+ if(i<3){light=new THREE.PointLight(0xffffff,0,9,2);light.position.set(0,2.8,0.6);g.add(light);}
+ // partículas de spray
+ var pg=new THREE.BufferGeometry(),N=70,pos=new Float32Array(N*3);pg.setAttribute("position",new THREE.BufferAttribute(pos,3));
+ var pts=new THREE.Points(pg,new THREE.PointsMaterial({color:0xdde6ef,size:0.08,transparent:true,opacity:0.75,depthWrite:false}));pts.visible=false;g.add(pts);
+ var seeds=[];for(var k=0;k<N;k++)seeds.push(Math.random());
+ boothObj.push({g:g,wallM:wallM,frameM:frameM,piece:piece,light:light,pts:pts,seeds:seeds});
+}
+// ensamble
+var asm=[];for(i=0;i<4;i++){var cg=new THREE.Group();cg.position.set(27,0,-6+i*4.2);scene.add(cg);var cm=mat(0x39414a,{m:0.5,r:0.45});var disc=new THREE.Mesh(new THREE.CylinderGeometry(1.5,1.5,0.35,28),cm);disc.position.y=0.9;disc.castShadow=true;cg.add(disc);var col=new THREE.Mesh(new THREE.CylinderGeometry(0.25,0.3,0.9,12),mat(0x2b323b));col.position.y=0.45;cg.add(col);for(var q=0;q<4;q++){var a=q*Math.PI/2;box(0.9,0.5,0.15,mat(0x59616b),Math.cos(a)*1.1,1.3,Math.sin(a)*1.1,disc);}asm.push({g:cg,disc:disc,m:cm});}
+
+// grupo dinámico (cambia con el área)
+var dyn=new THREE.Group();scene.add(dyn);
+var R={};
+function canvasBoard(w,h){var c=document.createElement("canvas");c.width=w;c.height=h;var tex=new THREE.CanvasTexture(c);tex.encoding=THREE.sRGBEncoding;tex.anisotropy=4;return{c:c,x:c.getContext("2d"),tex:tex};}
+function figure(vest){var g=new THREE.Group();var b=new THREE.Mesh(new THREE.CylinderGeometry(0.32,0.36,1.15,12),mat(vest,{r:0.6}));b.position.y=1.15;b.castShadow=true;g.add(b);var h=new THREE.Mesh(new THREE.SphereGeometry(0.27,16,12),mat(0xd9a97f));h.position.y=1.98;h.castShadow=true;g.add(h);var cap=new THREE.Mesh(new THREE.SphereGeometry(0.29,16,8,0,Math.PI*2,0,Math.PI/2),mat(vest));cap.position.y=2.02;g.add(cap);var l1=box(0.17,0.6,0.17,mat(0x1d2228),-0.13,0.3,0,g),l2=box(0.17,0.6,0.17,mat(0x1d2228),0.13,0.3,0,g);g.userData={l1:l1,l2:l2};return g;}
+function buildDyn(){
+ while(dyn.children.length)dyn.remove(dyn.children[0]);
+ var M=MODES[mode],np=M.parts.length,S=P.S;R={parts:[]};
+ // supermercado
+ var sw=1.25,lvl=1.05,rx=-4-(S*sw)/2,rz=1.2;R.rx=rx;R.rz=rz;
+ var frameM=mat(0x4a5560,{m:0.6,r:0.4}),shelfM=mat(0x2f6fb3,{m:0.3,r:0.5});
+ var H=np*lvl+0.3;
+ [0,S*sw].forEach(function(dx){[-0.55,0.55].forEach(function(dz){box(0.12,H,0.12,frameM,rx+dx,H/2,rz+dz,dyn);});});
+ for(var l=0;l<=np;l++){box(S*sw+0.1,0.07,1.2,shelfM,rx+S*sw/2,0.25+l*lvl,rz,dyn);}
+ var tape=new THREE.Mesh(new THREE.BoxGeometry(S*sw+0.1,0.06,0.02),new THREE.MeshBasicMaterial({color:0x9B7BF0}));tape.position.set(rx+S*sw/2,0.25+np*lvl-0.12,rz+0.62);dyn.add(tape);
+ // tableros
+ R.bb=canvasBoard(1024,640);R.gb=canvasBoard(1024,640);
+ function board(cb,x,z,ry){var g=new THREE.Group();g.position.set(x,0,z);g.rotation.y=ry;dyn.add(g);box(0.12,3.2,0.12,frameM,-1.9,1.6,0,g);box(0.12,3.2,0.12,frameM,1.9,1.6,0,g);var pl=new THREE.Mesh(new THREE.PlaneGeometry(3.9,2.44),new THREE.MeshBasicMaterial({map:cb.tex}));pl.position.set(0,2.35,0.08);g.add(pl);box(4,2.55,0.1,mat(0x15191e),0,2.35,0,g);return g;}
+ R.bbG=board(R.bb,-11,-4.4,0.35);R.gbG=board(R.gb,9.5,10.5,-0.25);
+ // contenedores
+ for(var p=0;p<np;p++){
+  var col=M.parts[p].c,cm=mat(col,{r:0.55}),y0=0.29+p*lvl;
+  var slots=[];for(var s=0;s<S;s++){var b=box(1.0,0.62,0.85,cm,rx+sw/2+s*sw,y0+0.31,rz,dyn);slots.push(b);}
+  var pile=[];for(var q=0;q<18;q++){var pb=box(1.0,0.62,0.85,cm,-14.5-(q%3)*1.1-p*3.5+ (np===2?2:0),0.31+Math.floor(q/3)*0.64,1.6,dyn);pb.visible=false;pile.push(pb);}
+  // estación de línea
+  var lz=np===2?(-0.4+p*3.2):(-3.2+p*3.4),lx=17;
+  box(2.6,0.9,1.6,mat(0x39414a,{m:0.4}),lx,0.45,lz,dyn);
+  var tbl=box(2.8,0.08,1.8,mat(0x2a3138,{e:0x000000}),lx,0.94,lz,dyn);
+  var useB=box(1.0,0.62,0.85,cm,lx-0.6,1.29,lz,dyn);
+  var waits=[];for(var w=0;w<3;w++){var wb=box(1.0,0.62,0.85,cm,lx+0.6,1.29+w*0.64,lz,dyn);wb.visible=false;waits.push(wb);}
+  var op=figure(0xE07F45);op.position.set(lx+2.1,0,lz);op.rotation.y=-Math.PI/2;dyn.add(op);
+  R.parts.push({slots:slots,pile:pile,use:useB,waits:waits,tbl:tbl,lz:lz,lx:lx,y0:y0});
+ }
+ // runner
+ R.runner=figure(0x2EC4B6);dyn.add(R.runner);
+ R.carry=box(1.0,0.62,0.85,mat(0x8b939c),0,1.55,0.55,R.runner);R.carry.visible=false;
+ R.home=new THREE.Vector3(8.5,0,7);R.superP=new THREE.Vector3(rx+S*sw/2,0,6.6);R.lineP=new THREE.Vector3(14.6,0,6.6);
+ R.runner.position.copy(R.home);
+ asm.forEach(function(a,i){a.g.visible=(mode==="upper");});
+ rebuildLabels();drawBoards(true);
+}
+/* --- dibujo de tableros (canvas) --- */
+var lastBoardKey="";
+function drawBoard(cb,title,sub,rows,cardCol,counts,dim){
+ var x=cb.x,W=cb.c.width,Hh=cb.c.height,S=P.S;
+ x.fillStyle="#f4f5f2";x.fillRect(0,0,W,Hh);
+ x.fillStyle=cardCol;x.fillRect(0,0,W,70);
+ x.fillStyle="#fff";x.font="700 40px 'Barlow Condensed',Arial";x.fillText(title.toUpperCase(),28,48);
+ x.font="500 24px 'IBM Plex Sans',Arial";x.textAlign="right";x.fillText(sub,W-28,46);x.textAlign="left";
+ var top=96,lh=(Hh-top-20)/rows.length,lw=170,cw=(W-lw-40)/S,zc=["#d6ecd9","#f6ecbf","#f5d3d1"],zb=["#308446","#d2a400","#cc0605"];
+ rows.forEach(function(r,i){
+  var y=top+i*lh;
+  x.fillStyle="#1d2321";x.font="700 34px 'Barlow Condensed',Arial";x.fillText(r,24,y+lh/2+12);
+  for(var s=0;s<S;s++){var z=zoneOf(s+1);var cx=lw+s*cw+6;x.fillStyle=zc[z];x.fillRect(cx,y+6,cw-12,lh-12);x.strokeStyle=zb[z];x.lineWidth=3;x.strokeRect(cx,y+6,cw-12,lh-12);
+   if(s<counts[i]){x.fillStyle=cardCol;x.fillRect(cx+cw*0.18,y+lh*0.16,cw*0.64-12,lh*0.68-12);x.fillStyle="#fff";x.font="600 22px 'IBM Plex Mono',monospace";x.fillText((s+1)+"/"+S,cx+cw*0.22,y+lh*0.55);}
+  }
+ });
+ if(dim){x.fillStyle="rgba(20,24,28,.72)";x.fillRect(0,70,W,Hh-70);x.fillStyle="#fff";x.font="700 40px 'Barlow Condensed',Arial";x.textAlign="center";x.fillText(dim,W/2,Hh/2+20);x.textAlign="left";}
+ cb.tex.needsUpdate=true;
+}
+function drawBoards(force){
+ var e=E[view],rows=MODES[mode].parts.map(function(p){return p.n;});
+ var prodBy=rows.map(function(_,i){return e.booths.filter(function(b){return b.part===i;}).length;});
+ var blue=e.parts.map(function(p,i){return e.sys==="pull"?Math.max(0,p.blue-prodBy[i]):0;}),gray=e.parts.map(function(p){return Math.min(P.S,p.gray);});
+ var key=view+blue.join()+"|"+gray.join()+lang+mode+P.S;
+ if(!force&&key===lastBoardKey)return;lastBoardKey=key;
+ drawBoard(R.bb,T("bBlue"),T("bBlueSub"),rows,"#2874b2",blue,e.sys==="push"?T("pushSub"):null);
+ drawBoard(R.gb,T("bGray"),T("bGraySub"),rows,"#6b6f6c",gray,null);
+}
+
+/* --- etiquetas HTML --- */
+var LB=[];
+function addLabel(cls,get,anchor){var el=document.createElement("div");el.className="lb "+cls;labelsEl.appendChild(el);var o={el:el,get:get,a:anchor,last:"",base:cls};LB.push(o);return o;}
+function rebuildLabels(){
+ if(!R.parts)return;
+ labelsEl.innerHTML="";LB=[];var M=MODES[mode];
+ M.booths.forEach(function(id,bi){addLabel("r",function(){var e=E[view],b=e.booths[bi];var st=b.down>e.t?T("down"):(b.part>=0?(e.parts[b.part].n+" · "+Math.round((1-b.rem/b.tot)*100)+"%"):(e.sys==="pull"?T("idle"):"—"));var cls=b.down>e.t?"bad":"r";return [mode==="upper"?(T("booth")+" "+(id+1)+" · "+T("boothUp")):T("boothA"),st,cls];},new THREE.Vector3(BX(id),4.2,BZ+2));});
+ if(mode==="upper")addLabel("ghost",function(){return[T("others"),"",""];},new THREE.Vector3(BX(5),5.6,BZ));
+ addLabel("b",function(){return[T("super"),T("superSub",{n:P.S}),""];},new THREE.Vector3(R.rx+P.S*1.25+0.6,MODES[mode].parts.length*1.05+0.6,R.rz+0.6));
+ addLabel("b",function(){return[T("bBlue"),T("bBlueSub"),""];},new THREE.Vector3(-12.6,4.1,-4.6));
+ addLabel("",function(){return[T("bGray"),T("bGraySub"),""];},new THREE.Vector3(9.5,4.1,10.5));
+ addLabel("t",function(){var e=E[view];return[T("runner"),e.run.off>e.t?"—":(e.run.trip?("▶ "+e.run.trip.carry+"×"):""),""];},null).isRunner=true;
+ addLabel("ghost",function(){return[mode==="upper"?T("line"):T("lineA"),"",""];},new THREE.Vector3(17,3.4,mode==="upper"?-5.8:-2.2));
+ R.parts.forEach(function(rp,i){addLabel("",function(){var e=E[view],p=e.parts[i];var bad=p.stS>=0;return[p.n,(bad?"PARO · ":"")+Math.round(p.use)+"/"+P.C,bad?"bad":""];},new THREE.Vector3(rp.lx+1.4,1.6,rp.lz+0.9));});
+ if(mode==="upper")addLabel("ghost",function(){return[T("asm"),T("asmSub"),""];},new THREE.Vector3(27,2.8,-8.4));
+ var e=E[view];if(e&&e.sys==="push")addLabel("bad",function(){var e=E[view],n=e.parts.reduce(function(a,p){return a+p.pile;},0);return[T("pile"),n*P.C+" "+T("pzs"),n>0?"bad":"ghost"];},new THREE.Vector3(-16,2.6,1.6));
+}
+var tmpV=new THREE.Vector3();
+function placeLabels(w,h){
+ LB.forEach(function(o){
+  var a=o.a;if(o.isRunner){tmpV.copy(R.runner.position);tmpV.y=2.9;a=tmpV;}
+  var v=a.clone?a.clone().project(camera):a;
+  var g=o.get(),html="<span>"+g[0]+"</span>"+(g[1]?"<small>"+g[1]+"</small>":"");
+  if(html!==o.last){o.el.innerHTML=html;o.last=html;}
+  var nc="lb "+(g[2]||o.base);if(o.el.className!==nc)o.el.className=nc;
+  if(v.z>1||v.x<-1.2||v.x>1.2||v.y<-1.2||v.y>1.2){o.el.style.display="none";return;}
+  o.el.style.display="";o.el.style.transform="translate("+((v.x*0.5+0.5)*w).toFixed(1)+"px,"+((-v.y*0.5+0.5)*h).toFixed(1)+"px) translate(-50%,-100%)";
+ });
+}
+
+/* --- render del estado --- */
+var view="pull";
+var col=new THREE.Color();
+function syncScene(time){
+ var e=E[view],M=MODES[mode];
+ // supermercado y piso
+ e.parts.forEach(function(p,i){var rp=R.parts[i];
+  rp.slots.forEach(function(b,s){b.visible=s<p.sup;});
+  rp.pile.forEach(function(b,q){b.visible=q<p.pile;});
+  rp.use.visible=p.use>0.01;rp.use.scale.y=Math.max(0.05,p.use/P.C);rp.use.position.y=0.98+0.31*rp.use.scale.y;
+  rp.waits.forEach(function(b,w){b.visible=w<p.wait;});
+  var bad=p.stS>=0,pul=bad?(0.5+0.5*Math.sin(time*6)):0;
+  rp.tbl.material.emissive.setRGB(0.8*pul,0.05*pul,0.05*pul);
+  if(asm[i]&&mode==="upper"){asm[i].m.emissive.setRGB(0.7*pul,0.03*pul,0.03*pul);if(!bad)asm[i].disc.rotation.y+=0.004;}
+ });
+ // cabinas
+ boothObj.forEach(function(o,bi){var idx=M.booths.indexOf(bi);var b=idx>=0?e.booths[idx]:null;
+  var hi=idx>=0;o.frameM.color.setHex(hi?0xED3037:0x3a424c);
+  if(!b){o.pts.visible=false;o.wallM.emissive.setHex(0);if(o.light)o.light.intensity=0;o.piece.material.color.setHex(0x777f88);return;}
+  var down=b.down>e.t;
+  if(down){var f=0.5+0.5*Math.sin(time*8);o.wallM.emissive.setRGB(0.9*f,0.05*f,0.05*f);o.pts.visible=false;if(o.light){o.light.color.setHex(0xff3b3b);o.light.intensity=1.6*f;}}
+  else if(b.part>=0){col.setHex(M.parts[b.part].c);o.wallM.emissive.copy(col).multiplyScalar(0.35);o.piece.material.color.copy(col);o.pts.visible=true;if(o.light){o.light.color.copy(col);o.light.intensity=1.4;}
+   var arr=o.pts.geometry.attributes.position.array;for(var k=0;k<o.seeds.length;k++){var u=(o.seeds[k]+time*1.6)%1;var ang=o.seeds[k]*40;arr[k*3]=Math.cos(ang)*u*0.55+Math.sin(time*2)*0.4;arr[k*3+1]=2.6-u*1.25;arr[k*3+2]=-0.4+Math.sin(ang)*u*0.35;}o.pts.geometry.attributes.position.needsUpdate=true;}
+  else{o.wallM.emissive.setHex(0);o.pts.visible=false;if(o.light)o.light.intensity=0;o.piece.material.color.setHex(0x777f88);}
+ });
+ // runner
+ var rn=R.runner,tr=e.run.trip;
+ if(tr){var u=Math.min(1,(e.t-tr.st)/tr.d),pts=[R.home,R.superP,R.lineP,R.home],seg=u*3,si=Math.min(2,Math.floor(seg)),f=seg-si;
+  rn.position.lerpVectors(pts[si],pts[si+1],f);var dir=tmpV.subVectors(pts[si+1],pts[si]);rn.rotation.y=Math.atan2(dir.x,dir.z);
+  R.carry.visible=(si===1);var sw=Math.sin(time*14)*0.5;rn.userData.l1.rotation.x=sw;rn.userData.l2.rotation.x=-sw;rn.position.y=Math.abs(Math.sin(time*14))*0.06;}
+ else{rn.position.lerp(R.home,0.2);R.carry.visible=false;rn.userData.l1.rotation.x=0;rn.userData.l2.rotation.x=0;rn.position.y=0;}
+ rn.visible=!(e.run.off>e.t);
+ drawBoards(false);
+}
+
+/* --- cámara --- */
+var VIEWS={iso:[[-12,29,35],[0,0,-1]],top:[[1,70,6],[1,0,0.5]],booth:[[-18,13,10],[-20,1.5,-9]],line:[[30,13,16],[16,1,1]]};
+var camAnim=null;
+function setView(k){var v=VIEWS[k];camAnim={p0:camera.position.clone(),t0:controls?controls.target.clone():new THREE.Vector3(),p1:new THREE.Vector3().fromArray(v[0]),t1:new THREE.Vector3().fromArray(v[1]),s:performance.now()};}
+camera.position.fromArray(VIEWS.iso[0]);if(controls)controls.target.fromArray(VIEWS.iso[1]);
+
+/* ============ UI ============ */
+function $(i){return document.getElementById(i);}
+function seg(id,cb){var g=$(id);g.addEventListener("click",function(ev){var b=ev.target.closest("button");if(!b)return;g.querySelectorAll("button").forEach(function(x){x.setAttribute("aria-pressed",x===b?"true":"false");});cb(b.getAttribute("data-v"));});}
+seg("segLang",function(v){lang=v;applyLang();});
+seg("segView",setView);
+seg("segSys",function(v){view=v;rebuildLabels();drawBoards(true);renderLog(true);});
+seg("segMode",function(v){mode=v;var M=MODES[v];P.C=M.CDef;P.S=M.slotsDef;P.K=M.KDef;P.R=M.RDef;syncInputs();restart();buildDyn();renderSizing();renderSide(true);});
+function syncInputs(){var c=$("iC");if(mode==="armrest"){c.min=12;c.max=48;c.step=12;}else{c.min=10;c.max=30;c.step=10;}c.value=P.C;$("iS").value=P.S;$("iK").value=P.K;$("iR").value=P.R;$("iD").value=Math.round(P.D*100);outs();}
+function outs(){$("oC").textContent=P.C;$("oS").textContent=P.S;$("oK").textContent=P.K;$("oR").textContent=P.R;$("oD").textContent=Math.round(P.D*100)+"%";}
+["iC","iS","iK","iR","iD"].forEach(function(id){$(id).addEventListener("input",function(){var v=+this.value;if(id==="iC")P.C=v;if(id==="iS")P.S=v;if(id==="iK")P.K=v;if(id==="iR")P.R=v;if(id==="iD")P.D=v/100;outs();var sc=id==="iS"||id==="iC";restart();if(sc)buildDyn();renderSizing();});});
+$("scn").addEventListener("click",function(ev){var b=ev.target.closest("button");if(!b)return;var s=b.getAttribute("data-s");
+ if(s==="comp"){P.K=3;syncInputs();restart();}
+ else if(s==="normal"){var M=MODES[mode];P.K=M.KDef;P.D=1;syncInputs();restart();}
+ else{
+  [E.pull,E.push].forEach(function(e){if(s==="booth"){var bi=Math.min(1,e.booths.length-1);e.booths[bi].down=e.t+40;}if(s==="runner")e.run.off=e.t+60;});
+  if(!running)toggle(true);
+ }
+ $("scn").querySelectorAll("button").forEach(function(x){x.classList.toggle("on",x===b);});renderSizing();
+});
+function restart(){newEngines();lastBoardKey="";chartKey="";renderLog(true);renderSide(true);drawChart();if(R.parts)drawBoards(true);$("progI").style.width="0";}
+function toggle(on){running=on==null?!running:on;$("bPlay").textContent=running?T("pause"):T("play");if(ended&&running){restart();}}
+$("bPlay").addEventListener("click",function(){toggle();});
+var SPEEDS=[2,6,15,30];$("bSpeed").addEventListener("click",function(){speed=SPEEDS[(SPEEDS.indexOf(speed)+1)%SPEEDS.length];this.textContent="×"+speed;});
+$("bReset").addEventListener("click",function(){toggle(false);restart();$("scn").querySelectorAll("button").forEach(function(x,i){x.classList.toggle("on",i===0);});});
+
+function hhmm(t){var m=360+Math.floor(t);return String(Math.floor(m/60)%24).padStart(2,"0")+":"+String(m%60).padStart(2,"0");}
+function fmtEv(v){return T(v.k,v.o);}
+var logKey="";
+function renderLog(force){var e=E[view];var k=view+e.ev.length+(e.ev[0]?e.ev[0].t:0)+lang;if(!force&&k===logKey)return;logKey=k;
+ $("log").innerHTML=e.ev.slice(0,24).map(function(v){return"<li class='"+v.c+"'><i>"+hhmm(v.t)+"</i><span>"+fmtEv(v)+"</span></li>";}).join("");
+ var top=e.ev[0];$("capt").innerHTML=top?("<i>"+hhmm(top.t)+"</i>"+fmtEv(top)):"";}
+var sideT=0;
+function renderSide(force){
+ var a=E.pull,b=E.push;if(!a)return;
+ var rows=[
+  [T("kParo"),a.paro(),b.paro(),T("min"),true,0],
+  [T("kWip"),a.wip(),b.wip(),T("pzs"),true,0],
+  [T("kOver"),a.over(),b.over(),T("pzs"),true,0],
+  [T("kRed"),a.redMin(),null,T("min"),true,0],
+  [T("kRepo"),a.repoAvg(),null,T("min"),true,0],
+  [T("kCum"),a.cum(),b.cum(),"%",false,1],
+  [T("kUse"),a.use(),b.use(),"%",null,0]
+ ];
+ $("cmpB").innerHTML=rows.map(function(r){
+  function f(v){return v==null?"—":(r[5]?v.toFixed(1):Math.round(v).toLocaleString("en-US"))+" "+r[3];}
+  var ca="",cb="";if(r[4]!=null&&r[1]!=null&&r[2]!=null&&Math.abs(r[1]-r[2])>0.5){var aw=r[4]?r[1]<r[2]:r[1]>r[2];ca=aw?"win":"lose";cb=aw?"lose":"win";}
+  return"<tr><td>"+r[0]+"</td><td class='"+ca+"'>"+f(r[1])+"</td><td class='"+cb+"'>"+f(r[2])+"</td></tr>";}).join("");
+ $("cmpT").textContent=hhmm(a.t);
+ var need=MODES[mode].parts.length*DEM*P.D*P.K,capH=OPS_MIN*60*MODES[mode].booths.length;
+ $("why").innerHTML=(mode==="upper"?T("why"):T("whyA"))+"<span style='color:"+(need/capH>1?"var(--bad)":"var(--ink)")+"'>"+T("cap",{u:Math.round(need/capH*100)})+"</span>";
+}
+function renderSizing(){
+ var d=DEM*P.D,cs=mode==="upper"?[10,20,30]:[12,36,48],rs=[1,2,3,4];
+ $("szN").textContent=T("szN",{d:d.toFixed(1)});
+ var curR=E.pull&&E.pull.repoAvg()!=null?E.pull.repoAvg()/60:null;
+ var h="<tr><th>"+T("szR")+"</th>"+cs.map(function(c){return"<th>"+T("szC",{c:c})+"</th>";}).join("")+"</tr>";
+ rs.forEach(function(r){var hi=curR!=null&&curR<=r&&curR>r-1;h+="<tr class='"+(hi?"hi":"")+"'><td>"+r+" h</td>"+cs.map(function(c){var n=Math.max(2,Math.ceil(d*r*1.1/c));var cls=(n>P.S?"over ":"")+(hi&&c===P.C?"cur":"");return"<td class='"+cls+"'>"+n+"</td>";}).join("")+"</tr>";});
+ $("sz").innerHTML=h;
+ $("szM").textContent=T("szM",{r:curR!=null?curR.toFixed(2):"—",n:P.S});
+}
+/* --- gráfica --- */
+var chartKey="";
+function drawChart(){
+ var cv=$("chart"),dpr=Math.min(2,window.devicePixelRatio||1),W=cv.clientWidth,H=cv.clientHeight;if(!W)return;
+ if(cv.width!==W*dpr){cv.width=W*dpr;cv.height=H*dpr;}
+ var x=cv.getContext("2d");x.setTransform(dpr,0,0,dpr,0,0);x.clearRect(0,0,W,H);
+ var cs=getComputedStyle(document.documentElement),cRed=cs.getPropertyValue("--red").trim(),cGray=cs.getPropertyValue("--gray").trim(),cLine=cs.getPropertyValue("--line").trim(),cDim=cs.getPropertyValue("--faint").trim();
+ var a=E.pull.hist,b=E.push.hist,padL=38,padR=8,ph=(H-58)/2;
+ var wMax=10,sMax=10;a.concat(b).forEach(function(p){wMax=Math.max(wMax,p.w);sMax=Math.max(sMax,p.s);});
+ wMax=Math.ceil(wMax/50)*50;sMax=Math.ceil(sMax/20)*20;
+ function panel(y0,max,key,title,unit){
+  x.strokeStyle=cLine;x.lineWidth=1;x.fillStyle=cDim;x.font="11px 'IBM Plex Mono',monospace";
+  for(var g=0;g<=2;g++){var yy=y0+ph-g*ph/2;x.beginPath();x.moveTo(padL,yy);x.lineTo(W-padR,yy);x.stroke();x.fillText(String(Math.round(max*g/2)),2,yy+4);}
+  x.font="600 11px 'IBM Plex Sans',sans-serif";x.fillText(title+" ("+unit+")",padL,y0-6);
+  [[b,cGray],[a,cRed]].forEach(function(sr){var d=sr[0];if(!d.length)return;x.strokeStyle=sr[1];x.lineWidth=2;x.beginPath();d.forEach(function(p,i){var px=padL+(p.t/SHIFT)*(W-padL-padR),py=y0+ph-(p[key]/max)*ph;if(i)x.lineTo(px,py);else x.moveTo(px,py);});x.stroke();var l=d[d.length-1];x.fillStyle=sr[1];x.beginPath();x.arc(padL+(l.t/SHIFT)*(W-padL-padR),y0+ph-(l[key]/max)*ph,3,0,7);x.fill();});
+ }
+ panel(18,wMax,"w",T("kWip").replace(/ ahora| now|当前/,""),T("pzs"));
+ panel(ph+50,sMax,"s",T("kParo"),T("min"));
+}
+window.addEventListener("resize",function(){resize();drawChart();});
+
+/* ============ loop ============ */
+function resize(){if(!ok3d)return;var w=stage.clientWidth,h=stage.clientHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();}
+var last=performance.now(),acc=0,uiT=0;
+function frame(now){
+ var dt=Math.min(0.1,(now-last)/1000);last=now;
+ if(running&&!ended){acc+=dt*speed;var st=0;while(acc>=0.25&&st<400){E.pull.step(0.25);E.push.step(0.25);acc-=0.25;st++;}
+  if(E.pull.t>=SHIFT){ended=true;running=false;$("bPlay").textContent=T("play");showEnd();}
+  $("progI").style.width=Math.min(100,E.pull.t/SHIFT*100)+"%";}
+ $("clk").textContent=hhmm(E[view].t);
+ if(camAnim){var u=Math.min(1,(now-camAnim.s)/900),k=u<.5?2*u*u:1-Math.pow(-2*u+2,2)/2;camera.position.lerpVectors(camAnim.p0,camAnim.p1,k);if(controls)controls.target.lerpVectors(camAnim.t0,camAnim.t1,k);if(u>=1)camAnim=null;}
+ if(ok3d){controls.update();syncScene(now/1000);renderer.render(scene,camera);placeLabels(stage.clientWidth,stage.clientHeight);}
+ if(now-uiT>250){uiT=now;renderLog(false);renderSide(false);var k=E.pull.hist.length+"|"+E.push.hist.length;if(k!==chartKey){chartKey=k;drawChart();}if(E.pull.repo.length%3===0)renderSizing();}
+ requestAnimationFrame(frame);
+}
+function showEnd(){var a=E.pull,b=E.push,c=$("endc");c.innerHTML="<h3>"+T("endT")+"</h3><p>"+T("endP",{a:Math.round(a.paro()),w:a.wip(),b:Math.round(b.paro()),x:b.wip()})+"</p><button class='btn' style='background:var(--red);border:0;color:#fff;border-radius:8px;padding:8px 14px;font-weight:600' id='bAgain'>"+T("endBtn")+"</button>";c.hidden=false;$("bAgain").onclick=function(){c.hidden=true;restart();toggle(true);};renderSizing();}
+
+newEngines();buildDyn();syncInputs();resize();applyLang();
+// arranca con una hora ya corrida para que la primera vista muestre el sistema en operación
+for(var w0=0;w0<240;w0++){E.pull.step(0.25);E.push.step(0.25);}
+requestAnimationFrame(frame);
+})();
+</script>
