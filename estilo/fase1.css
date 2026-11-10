@@ -1,0 +1,179 @@
+/* =====================================================================
+   Red DAIMAY · Fase 1 · capa visual unificada
+   Solo presentación: no cambia datos, lógica ni estructura.
+   Para volver al diseño anterior, quita el <link> a este archivo en index.html.
+   ===================================================================== */
+
+/* ---------- 1. Sistema de diseño (variables) ---------- */
+:root{
+  --bg:#0A0D11; --solid:#12161C; --raise:#1A2028; --raise2:#232B36;
+  --panel:rgba(15,19,25,.82);
+  --line:#262E39; --line-soft:rgba(255,255,255,.06);
+  --text:#EDF0F3; --dim:#A3ACB7; --faint:#6E7884;
+  --red:#ED3037; --red-d:#B01B22; --red-t:rgba(237,48,55,.14);
+  --ok:#34C77B; --warn:#F5B431; --bad:#FF6259; --info:#5B9DFF;
+  --r:10px; --r-lg:14px; --r-sm:7px;
+  --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-5:24px;
+  --shadow-1:0 1px 2px rgba(0,0,0,.35);
+  --shadow-2:0 8px 24px rgba(0,0,0,.38), 0 1px 0 var(--line-soft) inset;
+  --shadow-3:0 22px 54px rgba(0,0,0,.55), 0 1px 0 var(--line-soft) inset;
+  --ease:cubic-bezier(.2,.7,.2,1);
+  --t-fast:.14s; --t-med:.22s;
+  --bar-h:58px;
+}
+
+/* ---------- 2. Base y accesibilidad ---------- */
+html{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility}
+body{font-size:13.5px;line-height:1.45}
+:focus-visible{outline:2px solid var(--info);outline-offset:2px;border-radius:6px}
+::selection{background:rgba(237,48,55,.35)}
+*{scrollbar-width:thin;scrollbar-color:#3a4452 transparent}
+*::-webkit-scrollbar{width:10px;height:10px}
+*::-webkit-scrollbar-thumb{background:#313a47;border-radius:99px;border:2px solid transparent;background-clip:content-box}
+*::-webkit-scrollbar-thumb:hover{background:#465163;background-clip:content-box;border:2px solid transparent}
+*::-webkit-scrollbar-track{background:transparent}
+button,.btn,.jumps button,.tabs button,.seg button{transition:background var(--t-fast) var(--ease),border-color var(--t-fast) var(--ease),color var(--t-fast) var(--ease),box-shadow var(--t-fast) var(--ease),transform var(--t-fast) var(--ease)}
+button:active:not(:disabled){transform:translateY(1px)}
+button:disabled{cursor:not-allowed}
+
+/* ---------- 3. Barra de red ---------- */
+#bar{
+  gap:12px;padding-left:16px;padding-right:16px;
+  background:linear-gradient(180deg,rgba(14,18,24,.94),rgba(14,18,24,.84));
+  backdrop-filter:blur(14px) saturate(1.2);-webkit-backdrop-filter:blur(14px) saturate(1.2);
+  border-bottom:1px solid var(--line);
+  box-shadow:0 10px 30px rgba(0,0,0,.35);
+}
+#bar::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;pointer-events:none;
+  background:linear-gradient(90deg,var(--red) 0,rgba(237,48,55,.55) 140px,transparent 38%)}
+.brand{gap:11px;padding-right:10px;margin-right:2px;border-right:1px solid var(--line)}
+.brand .tri{border-left-width:10px;border-right-width:10px;border-bottom-width:17px;filter:drop-shadow(0 0 8px rgba(237,48,55,.55))}
+.brand b{font-size:21px;letter-spacing:.06em}
+.brand b span{font-family:var(--f-body);font-size:11px;font-weight:500;letter-spacing:.04em;text-transform:none;color:var(--faint)}
+
+.jumps{background:rgba(255,255,255,.035);border-color:var(--line);border-radius:12px;padding:3px;gap:3px}
+.jumps button{padding:7px 12px;border-radius:9px;font-size:12.5px;letter-spacing:.01em}
+.jumps button:hover{background:rgba(255,255,255,.06)}
+.jumps button.on{background:var(--raise2);box-shadow:inset 0 -2px 0 var(--red),var(--shadow-1)}
+
+.search input{background:rgba(255,255,255,.04);border-color:var(--line);border-radius:12px;padding:9px 12px 9px 34px;transition:border-color var(--t-fast),background var(--t-fast),box-shadow var(--t-fast)}
+.search input::placeholder{color:var(--faint)}
+.search input:hover{border-color:#364151}
+.search input:focus{outline:none;background:var(--raise);border-color:var(--info);box-shadow:0 0 0 3px rgba(91,157,255,.18)}
+.search svg{left:11px}
+#sres{border-radius:var(--r-lg);box-shadow:var(--shadow-3);background:var(--solid);padding:4px}
+#sres button{border-bottom:0;border-radius:9px;padding:9px 10px}
+
+.btn{background:rgba(255,255,255,.045);border-color:var(--line);border-radius:10px;padding:8px 12px}
+.btn:hover{background:rgba(255,255,255,.08);border-color:#3a4553}
+.btn.on{background:var(--red-t);border-color:var(--red)}
+.btn.prim{background:linear-gradient(180deg,#F23C43,#D9262D);border-color:#F23C43;box-shadow:0 4px 14px rgba(237,48,55,.32)}
+.btn.prim:hover{background:linear-gradient(180deg,#FF4C52,#E52B32);box-shadow:0 6px 18px rgba(237,48,55,.42)}
+.acts{gap:8px}
+
+/* ---------- 4. Panel de módulos ---------- */
+#drawer{
+  border-radius:var(--r-lg);border:1px solid var(--line);
+  background:linear-gradient(180deg,rgba(20,25,32,.94),rgba(14,18,24,.94));
+  backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+  box-shadow:var(--shadow-3);overflow:hidden;
+}
+.tabs{background:rgba(255,255,255,.025);padding:0 4px}
+.tabs button{padding:13px 4px 11px;font-size:12px;letter-spacing:.02em;position:relative}
+.tabs button:hover{color:var(--text)}
+.tabs button.on{box-shadow:inset 0 -2px 0 var(--red)}
+.dbody{padding:16px 14px 20px;gap:14px}
+h3{font-size:17px;letter-spacing:.06em}
+.note{font-size:12px;line-height:1.55}
+
+.pcard,.tier,.proj{border-radius:var(--r);background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,.012));border-color:var(--line);transition:border-color var(--t-fast),background var(--t-fast),box-shadow var(--t-fast),transform var(--t-fast)}
+.pcard:hover,.tier:hover{border-color:#3a4553}
+.proj{border-left-width:4px}
+.proj:hover{background:rgba(255,255,255,.05);transform:translateX(2px)}
+.pcard .hd b{font-size:20px}
+.kv{gap:8px}
+.kv div{background:rgba(255,255,255,.045);border:1px solid var(--line-soft);border-radius:var(--r-sm);padding:7px 9px}
+.kv small{font-size:9.5px;letter-spacing:.08em}
+.kv span{font-size:14px;font-weight:500}
+.banner{border-radius:var(--r)}
+.seg{border-radius:9px;background:rgba(255,255,255,.04);padding:3px}
+.seg button{border-radius:7px;padding:5px 10px}
+.seg button:hover:not(.on){color:var(--text)}
+.f input,.f select,.f textarea{background:rgba(255,255,255,.045);border-radius:var(--r-sm);padding:7px 9px;transition:border-color var(--t-fast),box-shadow var(--t-fast)}
+.f input:focus,.f select:focus,.f textarea:focus{outline:none;border-color:var(--info);box-shadow:0 0 0 3px rgba(91,157,255,.16)}
+table.t th{text-transform:uppercase;letter-spacing:.06em;font-size:9.5px;font-weight:600}
+table.t tbody tr:hover td{background:rgba(255,255,255,.03)}
+.bars .b i{border-radius:99px;height:8px}
+.chip,.badge,.pchip{letter-spacing:.02em}
+
+/* ---------- 5. Mapa y etiquetas ---------- */
+.lbl .card{background:var(--panel);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-color:rgba(255,255,255,.1);border-radius:10px;box-shadow:var(--shadow-2);transition:border-color var(--t-fast),transform var(--t-fast),box-shadow var(--t-fast)}
+.lbl:hover .card{border-color:var(--red);transform:translateY(-2px);box-shadow:0 14px 30px rgba(0,0,0,.5),0 0 0 1px rgba(237,48,55,.35)}
+.lbl .stem{background:linear-gradient(rgba(255,255,255,.28),transparent)}
+.lbl.flow span{background:var(--panel);backdrop-filter:blur(8px);border-color:rgba(255,255,255,.12)}
+.scalebar,.attr,#coord,.north{backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border-color:rgba(255,255,255,.1)}
+#cap,#toast,#pickbar{border-radius:12px;box-shadow:var(--shadow-3)}
+#veil{backdrop-filter:blur(6px)}
+
+/* ---------- 6. Centro de Mejora Continua (tema claro) ---------- */
+#mc{
+  --ink:#141B26;--dim:#5F6B7C;--line:#E3E8EF;--soft:#F2F5F9;--blue:#2563EB;
+  background:linear-gradient(180deg,#F4F7FB,#EAEFF6);
+  font-feature-settings:"tnum" 1,"cv11" 1;
+}
+#mc :focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.mc-top{background:rgba(255,255,255,.88);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);position:sticky;top:0;z-index:5;box-shadow:0 1px 0 var(--line),0 8px 24px rgba(16,24,40,.05);gap:16px}
+.mc-brand b{font-size:15.5px}
+.mc-tabs{border-radius:12px;padding:4px;border:1px solid var(--line)}
+.mc-tabs button{padding:8px 15px;border-radius:9px;transition:background var(--t-fast),color var(--t-fast),box-shadow var(--t-fast)}
+.mc-tabs button:hover:not(.on){color:var(--ink);background:rgba(255,255,255,.6)}
+.mc-tabs button.on{box-shadow:0 1px 2px rgba(16,24,40,.1),0 4px 10px rgba(16,24,40,.06)}
+.mc-plants button{transition:all var(--t-fast)}
+.mc-plants button:hover:not(.on){border-color:var(--c);color:var(--ink)}
+.mc-x{width:34px;height:34px;border-radius:9px;line-height:1}
+.mc-x:hover{background:var(--soft);color:var(--ink)}
+.mc-body{padding:20px;gap:18px;max-width:1680px;width:100%;box-sizing:border-box;margin:0 auto}
+.mc-card{border-radius:var(--r-lg);padding:18px;box-shadow:0 1px 2px rgba(16,24,40,.04),0 6px 20px rgba(16,24,40,.04);transition:box-shadow var(--t-med) var(--ease)}
+.mc-card h3{font-size:14.5px;letter-spacing:-.005em;text-transform:none;font-family:inherit}
+.mc-kpis{gap:12px}
+.mc-kpi{border-radius:var(--r-lg);padding:14px 16px;border-left-width:4px;box-shadow:0 1px 2px rgba(16,24,40,.04),0 6px 18px rgba(16,24,40,.04);transition:transform var(--t-med) var(--ease),box-shadow var(--t-med) var(--ease)}
+.mc-kpi:hover{transform:translateY(-2px);box-shadow:0 2px 4px rgba(16,24,40,.06),0 14px 30px rgba(16,24,40,.09)}
+.mc-kpi small{text-transform:uppercase;letter-spacing:.06em;font-size:10.5px;font-weight:600}
+.mc-kpi b{font-size:26px;line-height:1.1;margin:5px 0 3px}
+.mc-b{border-radius:10px;padding:8px 13px;transition:all var(--t-fast)}
+.mc-b.prim{box-shadow:0 3px 10px rgba(37,99,235,.28)}
+.mc-b.prim:hover{box-shadow:0 5px 14px rgba(37,99,235,.38)}
+.mc-in:focus,.mc-tbl.pe input:focus,.mc-tbl.pe select:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(37,99,235,.14)}
+.mc-tbl th{text-transform:uppercase;letter-spacing:.05em;font-size:10.5px;background:#FAFBFD;position:sticky;top:0}
+.mc-tbl tbody tr{transition:background var(--t-fast)}
+.mc-tbl tbody tr:hover{background:#F7F9FC}
+.mc-chip{border-radius:8px}
+.mc-tl li{border-radius:10px;transition:background var(--t-fast)}
+.mc-tl li:hover{background:#EBEFF5}
+.h5-pl{border-radius:var(--r-lg);transition:border-color var(--t-fast),box-shadow var(--t-fast),transform var(--t-fast)}
+.h5-pl:hover{transform:translateY(-2px);box-shadow:0 10px 24px rgba(16,24,40,.09)}
+.mc-empty{border:1px dashed var(--line);border-radius:var(--r-lg);background:rgba(255,255,255,.5)}
+
+/* ---------- 7. Adaptación a pantallas ---------- */
+@media (max-width:1280px){
+  .brand{border-right:0}
+  .jumps button{padding:7px 10px}
+}
+@media (max-width:900px){
+  #drawer{border-radius:var(--r-lg) var(--r-lg) 0 0;left:0;right:0;bottom:0}
+  .btn,.jumps button,.tabs button,.seg button{min-height:40px}
+  .mc-body{padding:12px;gap:12px}
+}
+@media (max-width:560px){
+  #bar::after{background:linear-gradient(90deg,var(--red),transparent 70%)}
+  .mc-kpi b{font-size:22px}
+}
+
+/* ---------- 8. Preferencias del sistema ---------- */
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{transition-duration:.001ms!important;animation-duration:.001ms!important;scroll-behavior:auto!important}
+}
+@media (prefers-contrast:more){
+  :root{--line:#4a5565;--dim:#c4ccd6;--faint:#98a2af}
+  .btn,.jumps,.seg{border-color:#566274}
+}
