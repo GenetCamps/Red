@@ -11,8 +11,8 @@ window.RD_USERS = [
  {
   "n": "9301078",
   "nombre": "Fatima Tello",
-  "rol": "lector",
-  "salt": "d473f80d52c3cb30b394e8817a8aaa91",
-  "hash": "24d3a3fedd464b4a2940dc4f5216a4435b0e979a91d34797b5070f6b02210dfa"
+  "rol": "admin",
+  "salt": "af74e79bad8b5fcd724512b7ff2c7ea7",
+  "hash": "ad08f17aaada7286c765d48faf6e8797c8b7a6378821bdb7fd8a6aa86a107e32"
  }
 ];
