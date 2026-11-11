@@ -412,6 +412,7 @@
   .h5-tl{display:inline-block;font-size:9.5px;font-weight:700;background:#dbeafe;color:#1e40af;border-radius:99px;padding:1px 7px;margin-left:6px;vertical-align:1px}
   @media (max-width:760px){ .mz-two{grid-template-columns:1fr} .mz-n{display:none} .mz-p{margin-top:6px} .mz-plot{margin-bottom:26px} }
 </style>
+<link rel="stylesheet" href="estilo/fase1.css">
 <div id="stage"></div>
 <div id="labels"></div>
 <div id="mapui">
@@ -1348,8 +1349,20 @@ function vxLadder(r){
 }
 
 /* ---------- datos (mismo espacio que la consola embebida: vx/r2/...) ---------- */
+function vxApplyEdits(k,e){ const S=VX_STREAMS[k]; if(!S) return;
+  if(!S._orig) S._orig={procs:JSON.parse(JSON.stringify(S.procs)),edges:JSON.parse(JSON.stringify(S.edges||[]))};
+  e={procs:(e&&e.procs)||{},add:(e&&e.add)||[],edges:(e&&e.edges)||[]};
+  const ps=JSON.parse(JSON.stringify(S._orig.procs));
+  e.add.forEach(a=>{ if(ps.some(p=>p.id===a.id)) return; const from=ps.find(p=>p.id===a.from);
+    ps.push({id:a.id,n:[a.n1||'Caja nueva',a.n2||''],pl:a.pl||'',k:(from&&from.k!=='ship'&&from.k!=='start')?from.k:'asy',c:+a.c||0,r:+a.r||0,after:'inv',d:{},res:'',user:true}); });
+  ps.forEach(p=>{ const o=e.procs[p.id]; if(!o) return; p.n=[o.n1!==undefined?o.n1:p.n[0],o.n2!==undefined?o.n2:(p.n[1]||'')];
+    ['pl','res','flag'].forEach(f=>{ if(o[f]!==undefined) p[f]=o[f]; }); if(o.c!==undefined) p.c=+o.c; if(o.r!==undefined) p.r=+o.r; p.edited=true; });
+  const has=id=>id==='mp'||ps.some(p=>p.id===id);
+  S.procs=ps; S.edges=S._orig.edges.concat(e.edges.filter(x=>has(x[0])&&has(x[1])));
+}
 function vxSubscribe(){
   if(!DB) return;
+  Object.keys(VX_STREAMS).forEach(k=>DB.doc('vx/r2/cfg/edit_'+k).onSnapshot(s=>{ vxApplyEdits(k, s.exists?s.data():null); if(VX.vs===k) vxSetStream(k); vxRefresh(); }, ()=>{}));
   Object.entries(VX_STREAMS).forEach(([k,S])=>{
     DB.collection('vx/r2/'+S.col).onSnapshot(s=>{ const n={}; s.docs.forEach(d=>{ if(d.exists) n[d.id]=d.data(); }); VX.CAPS[k]=n; if(VX.vs===k) VX.CAP=n; vxRefresh(); }, ()=>{});
     DB.doc('vx/r2/cfg/'+S.par).onSnapshot(s=>{ VX.PARS[k]=s.exists?{...s.data()}:{}; if(VX.vs===k) VX.PAR=VX.PARS[k]; vxRefresh(); }, ()=>{}); });
