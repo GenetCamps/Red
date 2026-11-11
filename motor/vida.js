@@ -9,7 +9,9 @@ export function init(TW){
   const T=TW.THREE, { scene, OBJS, RT, D } = TW;
   const TAU=Math.PI*2, Z0=new T.Matrix4().makeScale(0,0,0);
   const MODES={ off:{ops:0,mach:0,r:0}, zona:{ops:40,mach:8,r:48}, alta:{ops:90,mach:16,r:80} };
-  let mode='zona'; try{ const m=localStorage.getItem('rd_vida'); if(MODES[m]) mode=m; }catch(_){}
+  // 11-nov-2026: operadores y máquinas quedan fijos (decisión del usuario). Solo se mueven runners, tuggers y montacargas.
+  // La animación selectiva (una línea o hasta 10 operadores) llega con la Fase 5; por eso ya no se lee la preferencia guardada.
+  let mode='off';
   const hash=n=>{ let x=Math.sin(n*127.1+311.7)*43758.5453; return x-Math.floor(x); };
   const sm=x=>{ x=Math.min(1,Math.max(0,x)); return x*x*(3-2*x); };
   const std=(c,o={})=>new T.MeshStandardMaterial(Object.assign({color:c,roughness:.8,metalness:.05},o));
@@ -158,7 +160,7 @@ export function init(TW){
   /* ------------------------------------------------------------------ ciclo por cuadro, con freno si la máquina no da */
   let t=0, acc=0, slow=0, cap=1;
   function frame(dt){
-    const st=TW.state(); if(mode==='off'&&!BUSY.size&&!MACH.size) return;
+    const st=TW.state(); if(mode==='off'&&!BUSY.size&&!MACH.size){ if(st.playing!==false) forklifts(dt,st); return; }   // sin animación: solo mástil y carga de montacargas
     acc+=dt; if(scanAt<0||t-scanAt>3){ scan(); scanAt=t; }
     if(acc>.4){ acc=0; reassign(); }
     if(st.playing===false) return;
@@ -176,7 +178,7 @@ export function init(TW){
   { const q=document.getElementById('qual');
     if(q){ const d=document.createElement('div'); d.className=q.className; d.id='vidaSeg'; d.setAttribute('role','group'); d.setAttribute('aria-label','Animación');
       const lab=q.querySelector('.seglabel'); d.innerHTML=(lab?'<span class="'+lab.className+'">Animación</span>':'')+'<button data-v="off" title="Sin animación de operadores ni máquinas">No</button><button data-v="zona" title="Anima lo que está cerca de donde miras">Zona</button><button data-v="alta" title="Más operadores y máquinas animados; pide más equipo">Alta</button>';
-      q.insertAdjacentElement('afterend',d); d.addEventListener('click',e=>{ const b=e.target.closest('button'); if(b) setMode(b.dataset.v); }); noteEl=d; setMode(mode); } }
+      q.insertAdjacentElement('afterend',d); d.addEventListener('click',e=>{ const b=e.target.closest('button'); if(b) setMode(b.dataset.v); }); noteEl=d; d.hidden=true; d.style.display='none'; setMode(mode); } }
   const lookAt=(x,z,r)=>{ const o=TW.orbit; if(!o) return; o.T.target.set(x,0,z); if(r) o.T.r=r; acc=1; };   // para pruebas y para recorridos
   return { frame, setMode, lookAt, where:()=>({ops:[...BUSY.values()].slice(0,5).map(R=>[+R.base.x.toFixed(1),+R.base.z.toFixed(1),R.base.seated]),mach:[...MACH.values()].slice(0,3).map(X=>[+X.g.position.x.toFixed(1),+X.g.position.z.toFixed(1),X.kind])}), get mode(){ return mode; }, stats:()=>({ mode, ops:BUSY.size, mach:MACH.size, pool:POOL.length, total:OPS.length, kinds:[...MACH.values()].map(x=>x.kind) }) };
 }
