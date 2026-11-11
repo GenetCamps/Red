@@ -14,5 +14,12 @@ window.RD_USERS = [
   "rol": "admin",
   "salt": "af74e79bad8b5fcd724512b7ff2c7ea7",
   "hash": "ad08f17aaada7286c765d48faf6e8797c8b7a6378821bdb7fd8a6aa86a107e32"
+ },
+ {
+  "n": "97738",
+  "nombre": "Alejandro de la Maza",
+  "rol": "lector",
+  "salt": "4b07b061a5bd508c77d2d8907170de4c",
+  "hash": "1c2bdbb019e5e796653b374d87e6f049d7b4e4cfaedb0f5865e42af0e6bc8454"
  }
 ];
