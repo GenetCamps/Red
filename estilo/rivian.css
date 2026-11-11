@@ -1,0 +1,66 @@
+/* =====================================================================
+   Rivian · Sala de Guerra y Kanban 3D · Fase 1
+   Solo presentación. Para revertir, quita el <link> a este archivo.
+   ===================================================================== */
+:root{
+  --bg:#0A0D11; --panel:#12161C; --raise:#1A2028; --line:#262E39;
+  --ink:#EDF0F3; --dim:#A3ACB7; --faint:#6E7884;
+  --red:#ED3037; --ok:#34C77B; --warn:#F5B431; --bad:#FF6259; --blue:#5B9DFF;
+  --ease:cubic-bezier(.2,.7,.2,1);
+}
+html{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+:focus-visible{outline:2px solid var(--blue)!important;outline-offset:2px;border-radius:6px}
+::selection{background:rgba(237,48,55,.35)}
+*{scrollbar-width:thin;scrollbar-color:#3a4452 transparent}
+*::-webkit-scrollbar{width:10px;height:10px}
+*::-webkit-scrollbar-thumb{background:#313a47;border-radius:99px;border:2px solid transparent;background-clip:content-box}
+button{transition:background .14s var(--ease),border-color .14s var(--ease),color .14s var(--ease),box-shadow .14s var(--ease),transform .14s var(--ease)}
+button:active:not(:disabled){transform:translateY(1px)}
+
+/* encabezado */
+.bar{background:linear-gradient(180deg,rgba(14,18,24,.95),rgba(14,18,24,.86));backdrop-filter:blur(14px) saturate(1.2);-webkit-backdrop-filter:blur(14px) saturate(1.2);box-shadow:0 10px 30px rgba(0,0,0,.35);position:sticky}
+.bar::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;pointer-events:none;background:linear-gradient(90deg,var(--red) 0,rgba(237,48,55,.55) 140px,transparent 38%)}
+.brand .tri{filter:drop-shadow(0 0 8px rgba(237,48,55,.55))}
+.seg{background:rgba(255,255,255,.04);border-radius:12px;padding:3px;gap:3px}
+.seg button{border-radius:9px;padding:6px 11px}
+.seg button:hover:not([aria-pressed=true]){background:rgba(255,255,255,.07);color:var(--ink)}
+.btn{background:rgba(255,255,255,.05);border-radius:10px;padding:7px 12px}
+.btn:hover{background:rgba(255,255,255,.09);border-color:#3a4553}
+.btn.pri{background:linear-gradient(180deg,#F23C43,#D9262D);border-color:#F23C43;box-shadow:0 4px 14px rgba(237,48,55,.32)}
+.btn.pri:hover{background:linear-gradient(180deg,#FF4C52,#E52B32)}
+nav.tabs button{padding:11px 14px 12px;border-radius:8px 8px 0 0}
+nav.tabs button:hover:not([aria-selected=true]){background:rgba(255,255,255,.04);color:var(--ink)}
+
+/* tarjetas, indicadores y listas */
+main{padding-block:22px 48px}
+section.v{gap:16px}
+.lead h2{letter-spacing:0}
+.card,.dec li,.kpi,.fr button{
+  background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,.012)),var(--panel);
+  border-color:var(--line);border-radius:14px;
+  box-shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.18);
+}
+.card{padding:16px}
+.kpis{gap:12px}
+.kpi{padding:14px 16px;border-left-width:4px;transition:transform .22s var(--ease),box-shadow .22s var(--ease)}
+.kpi:hover{transform:translateY(-2px);box-shadow:0 2px 4px rgba(0,0,0,.35),0 16px 34px rgba(0,0,0,.32)}
+.kpi small{text-transform:uppercase;letter-spacing:.07em;font-size:10.5px;font-weight:600}
+.kpi b{font-size:34px}
+.fr button{transition:border-color .14s var(--ease),transform .14s var(--ease)}
+.fr button:hover{transform:translateY(-1px)}
+.dec li{transition:border-color .14s var(--ease)}
+.dec li:hover{border-color:#3a4553}
+.safety{border-radius:14px;box-shadow:0 10px 34px rgba(237,48,55,.16)}
+.loss div,.fish div{background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.05)}
+table.t th{text-transform:uppercase;letter-spacing:.06em;font-size:10.5px;font-weight:600}
+table.t tbody tr:hover td{background:rgba(255,255,255,.03)}
+.pick button,.stp button{transition:all .14s var(--ease)}
+.pick button:hover:not([aria-pressed=true]),.stp button:hover:not([aria-pressed=true]){border-color:#4a5565;color:var(--ink)}
+.acta textarea{background:rgba(255,255,255,.045);border-radius:10px;transition:border-color .14s,box-shadow .14s}
+.acta textarea:focus{outline:none!important;border-color:var(--blue);box-shadow:0 0 0 3px rgba(91,157,255,.16)}
+.kframe{border-radius:14px;box-shadow:0 14px 40px rgba(0,0,0,.4)}
+#phint{border-radius:12px;box-shadow:0 14px 34px rgba(0,0,0,.5)}
+
+@media (max-width:900px){.btn,.seg button,nav.tabs button{min-height:40px}}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{transition-duration:.001ms!important;animation-duration:.001ms!important}}
+@media (prefers-contrast:more){:root{--line:#4a5565;--dim:#c4ccd6;--faint:#98a2af}}

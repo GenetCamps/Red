@@ -1,0 +1,104 @@
+/* =====================================================================
+   Gemelos de planta · Fase 1 · misma identidad visual que la Red DAIMAY
+   Solo presentación. Para revertir, quita el <link> a este archivo.
+   ===================================================================== */
+:root{
+  --bg:#0A0D11; --panel:rgba(15,19,25,.84); --panel-solid:#12161C; --raise:#1A2028; --line:#262E39;
+  --line-soft:rgba(255,255,255,.06);
+  --text:#EDF0F3; --dim:#A3ACB7; --faint:#6E7884;
+  --accent:#ED3037; --amber:#F5B431; --real:#34C77B; --blue:#5B9DFF;
+  --r:10px; --r-lg:14px;
+  --shadow-2:0 8px 24px rgba(0,0,0,.38);
+  --shadow-3:0 22px 54px rgba(0,0,0,.55);
+  --ease:cubic-bezier(.2,.7,.2,1);
+}
+html{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+body{line-height:1.45}
+:focus-visible{outline:2px solid var(--blue);outline-offset:2px;border-radius:6px}
+::selection{background:rgba(237,48,55,.35)}
+*{scrollbar-width:thin;scrollbar-color:#3a4452 transparent}
+*::-webkit-scrollbar{width:10px;height:10px}
+*::-webkit-scrollbar-thumb{background:#313a47;border-radius:99px;border:2px solid transparent;background-clip:content-box}
+*::-webkit-scrollbar-track{background:transparent}
+button,select,input{transition:background .14s var(--ease),border-color .14s var(--ease),color .14s var(--ease),box-shadow .14s var(--ease),transform .14s var(--ease)}
+button:active:not(:disabled){transform:translateY(1px)}
+button:disabled{cursor:not-allowed}
+
+/* barra superior */
+.brand,.seg,select.presets,.topbtn,#mini,#help{
+  background:var(--panel);border-color:rgba(255,255,255,.09);border-radius:var(--r);
+  backdrop-filter:blur(14px) saturate(1.2);-webkit-backdrop-filter:blur(14px) saturate(1.2);
+  box-shadow:var(--shadow-2);
+}
+.brand{padding:7px 14px;position:relative;overflow:hidden}
+.brand::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--accent);box-shadow:0 0 12px rgba(237,48,55,.6)}
+.brand b{font-size:20px;letter-spacing:.06em}
+.brand span{color:var(--faint)}
+.seg{padding:3px;gap:3px;border-radius:12px}
+.seg button{padding:7px 12px;border-radius:9px;font-weight:500}
+.seg button:hover:not(.on){background:rgba(255,255,255,.06)}
+.seg button.on{background:#232B36;box-shadow:inset 0 -2px 0 var(--accent),0 1px 2px rgba(0,0,0,.35)}
+.seg.tools button.on{box-shadow:inset 0 -2px 0 var(--amber),0 1px 2px rgba(0,0,0,.35)}
+.seglabel{color:var(--faint)}
+select.presets{padding:8px 12px}
+select.presets:hover,.topbtn:hover{border-color:#3a4553}
+.topbtn{padding:8px 13px}
+
+/* panel lateral */
+#side{
+  background:linear-gradient(180deg,rgba(20,25,32,.95),rgba(14,18,24,.95));
+  border-color:var(--line);border-radius:var(--r-lg);
+  backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+  box-shadow:var(--shadow-3);overflow:hidden;
+}
+.side-tabs{background:rgba(255,255,255,.025)}
+.side-tabs button{padding:12px 2px 10px;font-size:11.5px;letter-spacing:.02em}
+.side-tabs button:hover:not(.on){color:var(--text)}
+.side-body{padding:14px 14px 18px}
+.pane{gap:14px}
+h3{font-size:16px;letter-spacing:.06em}
+.note{font-size:12px;line-height:1.55}
+
+.runner{border-radius:var(--r);background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,.012));transition:border-color .14s var(--ease),box-shadow .14s var(--ease)}
+.runner:hover{border-color:#3a4553}
+.runner.editing{box-shadow:0 0 0 3px rgba(245,180,49,.12)}
+.runner-h button,.scnbar button,.addrow button,.runner-btns button,.wbtn,#toolbox button,.rep-h button,.simbar button{
+  background:rgba(255,255,255,.05);border-radius:8px}
+.runner-h button:hover,.scnbar button:hover,.addrow button:hover,.runner-btns button:hover,#toolbox button:hover,.rep-h button:hover,.simbar button:hover{background:rgba(255,255,255,.09)}
+.row select,.row input,.scnbar select,.scnbar input,.opt .seg{background:rgba(255,255,255,.05);border-radius:8px}
+.row select:focus,.row input:focus,.scnbar select:focus,.scnbar input:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(91,157,255,.16)}
+.stats{gap:8px}
+.stat{background:rgba(255,255,255,.045);border:1px solid var(--line-soft);border-radius:8px;padding:7px 9px}
+.stat small{letter-spacing:.08em}
+.stat span{font-size:14px;font-weight:500}
+.layer{padding:4px 0;border-radius:6px}
+.layer:hover{background:rgba(255,255,255,.03)}
+table.src td{padding:6px 4px}
+
+/* tarjetas flotantes */
+#info,#toolbox{border-radius:var(--r-lg);box-shadow:var(--shadow-3);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+#info h4{font-size:19px}
+#info .x{width:28px;height:28px;border-radius:8px}
+#info .x:hover{background:rgba(255,255,255,.08);color:var(--text)}
+#help kbd{border-radius:5px}
+.tag3d{border-radius:7px;box-shadow:0 4px 14px rgba(0,0,0,.4)}
+#mini{padding:8px}
+#mini canvas{border-radius:8px}
+
+/* pantalla de carga */
+#loading{background:radial-gradient(ellipse at center,#161c24 0,#0A0D11 70%)}
+#loading b{font-size:30px;position:relative;padding-bottom:12px}
+#loading b::after{content:"";position:absolute;left:50%;bottom:0;width:44px;height:3px;margin-left:-22px;border-radius:3px;background:var(--accent);box-shadow:0 0 14px rgba(237,48,55,.7)}
+#loading .bar{height:4px;border-radius:4px}
+#loading .bar i{border-radius:4px;background:linear-gradient(90deg,#B01B22,var(--accent))}
+
+@media (max-width:900px){
+  .seg button,.topbtn,select.presets,.simbar button,.runner-btns button{min-height:40px}
+  #side{border-radius:var(--r-lg)}
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{transition-duration:.001ms!important;animation-duration:.001ms!important}
+}
+@media (prefers-contrast:more){
+  :root{--line:#4a5565;--dim:#c4ccd6;--faint:#98a2af}
+}
