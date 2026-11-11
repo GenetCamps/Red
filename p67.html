@@ -3033,6 +3033,7 @@ function renderReport(){
   document.querySelectorAll('#repView button').forEach(b=>b.classList.toggle('on',b.dataset.v===repView));
   if(repView==='yama'){ drawYamaReport($('#repCv'), SCN, over); $('#repTitle').textContent='Yamazumi · '+SCN.name; }
   else { drawReport($('#repCv'), SCN, over); $('#repTitle').textContent='Espagueti · '+SCN.name; }
+  if(window.__visor) window.__visor.render(repView, SCN, over);
 }
 function csvOf(S){
   const rows=[['Escenario','Runner','Tipo','Velocidad km/h','Paradas','Distancia ciclo m','Traslado s','Esperas s','Ciclo s','Ciclos/h','m/h']];
@@ -4874,6 +4875,7 @@ setTimeout(()=>{ try{ scInit(); }catch(e){ console.warn('escena',e); } },400);
   buildLayerUI(); syncRunners(); renderScenarioUI(); renderHelp(); try{ mkBuild(); sfBuild(); s5Build(); }catch(e){ console.error(e); } initDB(); invRefresh(); invInit(); opsInit();
   PRESETS.iso(); if(OPS) orbit.T.r*=.82; orbit.target.copy(orbit.T.target); orbit.r=orbit.T.r+120; orbit.th=orbit.T.th+.5; orbit.ph=orbit.T.ph;
   import('./motor/vida.js').then(m=>{ VIDA=m.init({THREE,scene,camera,renderer,OBJS,RT,D,PICK,G_ops,applyObj,id:NET_ID,orbit,state:()=>({playing,timeScale,tool,mode,target:orbit.T.target})}); window.__vida=VIDA; }).catch(e=>console.warn('Capa de vida no disponible:',e));
+  import('./motor/visor.js').then(m=>{ window.__visor=m.init({THREE,scene,D,OBJS,id:NET_ID,orbit,goOrbit,buildPath,posAt,yamaOf,statsOf,totals,yamaTotals,reportBounds,rectPts,stopName,stopKind,ELEMS,TYPES,TILE_IMG,fmtN,fmtMS,changed,NAV,navW,navCell,navCenter,navNearest}); if(window.__visor && !$('#report').hidden) renderReport(); }).catch(e=>console.warn('Visor de reporte no disponible:',e));
   requestAnimationFrame(loop);
   await Promise.all(tilePromises);
   netPost({type:'ready'});
