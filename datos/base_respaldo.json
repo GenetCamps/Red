@@ -1,7 +1,7 @@
 {
  "app": "red-daimay",
  "v": 1,
- "ts": "2026-11-11",
+ "ts": "2026-11-12",
  "docs": {
   "config/seed_mc_v1": {
    "at": "2026-10-14"
@@ -4947,6 +4947,516 @@
    "type": "Sistema digital",
    "updated": "2026-10-02T00:00:00Z",
    "zone": ""
+  },
+  "vp/r1/fotos/f-almacen-espuma-cajas": {
+   "asset": "b87b7a18c3d54ec63076956cbb5ea81f",
+   "at": 1792598441000,
+   "by": "",
+   "cap": "Almacén: cilindros negros envueltos (por confirmar si son espuma) y tarimas de cajas en el piso, junto a tarimas vacías amontonadas.",
+   "cat": "WIP / inventario",
+   "p": "ins",
+   "vs": "parras"
+  },
+  "vp/r1/fotos/f-almacen-jaulas": {
+   "asset": "48ed272b72c98571901cdbbdb9a41b7c",
+   "at": 1792598432000,
+   "by": "",
+   "cap": "Almacén: jaulas metálicas apiladas a 3 de alto junto al extintor 05 y a la carretilla eléctrica; contenedor con rollos en el pasillo. Revisar que no bloqueen el acceso al extintor.",
+   "cat": "Desorden / 5S",
+   "p": "wh",
+   "vs": "parras"
+  },
+  "vp/r1/fotos/f-almacen-rollos-piso": {
+   "asset": "33a3c738596df79adfff057c9d9c2bac",
+   "at": 1792598440000,
+   "by": "",
+   "cap": "Almacén: rollos de tela y vinil en el piso sobre tarimas, apilados fuera de rack, con jaulas metálicas apiladas a la derecha.",
+   "cat": "WIP / inventario",
+   "p": "wh",
+   "vs": "parras"
+  },
+  "vp/r1/fotos/f-bloque-costura": {
+   "asset": "17164787c7a8a547993b0b028f40d9e3",
+   "at": 1792598448000,
+   "by": "",
+   "cap": "Bloque de costura: delimitación naranja desgastada y marcas azules sueltas en el piso, cajas de cartón junto a las estaciones y ventiladores colgados de un pórtico. Línea por confirmar.",
+   "cat": "Desorden / 5S",
+   "p": null,
+   "vs": "parras"
+  },
+  "vp/r1/fotos/f-celula-preunion": {
+   "asset": "f714d6db249e91f16eb7244c9a043e01",
+   "at": 1792598444000,
+   "by": "",
+   "cap": "Célula de costura con estación rotulada ‘PREUNIÓN 1’ (máquina TYPICAL). Carretes grandes de hilo, bolsas de herramientas sobre la mesa y cartón en el piso. Línea por confirmar.",
+   "cat": "Desorden / 5S",
+   "p": null,
+   "vs": "parras"
+  },
+  "vp/r1/fotos/f-corte-dados-020-detalle": {
+   "asset": "4d5130b40d18ab235323d8b61b131ff5",
+   "at": 1792598431000,
+   "by": "",
+   "cap": "Detalle de KIT00020–KIT00022 y KIT00073: dados amontonados; el KIT00073 queda entre el KIT00021 y el KIT00022.",
+   "cat": "Desorden / 5S",
+   "p": "cutz",
+   "vs": "parras"
+  },
+  "vp/r1/fotos/f-corte-dados-020": {
+   "asset": "d62bc4602b6a038597fec7a4199744fc",
+   "at": 1792598430000,
+   "by": "",
+   "cap": "Rack de dados KIT00012–KIT00033 y KIT00068–KIT00073: dados apilados, dos etiquetas de kit por posición y bolsas y cartón en el piso del rack.",
+   "cat": "Desorden / 5S",
+   "p": "cutz",
+   "vs": "parras"
+  },
+  "vp/r1/fotos/f-corte-dados-046-detalle": {
+   "asset": "187d4ea5d824666043ee97c36e045589",
+   "at": 1792598429000,
+   "by": "",
+   "cap": "Detalle de KIT00046, 50, 54 y 58: separadores de cartón improvisados y dados con marcas escritas a mano.",
+   "cat": "Desorden / 5S",
+   "p": "cutz",
+   "vs": "parras"
+  },
+  "vp/r1/fotos/f-corte-dados-046": {
+   "asset": "b3e9559f1ef43b46d225a010e1bcad03",
+   "at": 1792598428000,
+   "by": "",
+   "cap": "Rack de dados KIT00046–KIT00112: algunas posiciones tienen separadores de cartón y otras tienen dados revueltos.",
+   "cat": "Desorden / 5S",
+   "p": "cutz",
+   "vs": "parras"
+  },
+  "vp/r1/fotos/f-corte-dados-101": {
+   "asset": "c27f2db12168904c28cb6134f08d7547",
+   "at": 1792598426000,
+   "by": "",
+   "cap": "Rack de dados de corte KIT00101–KIT00121: dados apilados y mezclados, sin separadores entre posiciones. Etiquetas de kit en el larguero, con ‘Comfort pad C1Y 16 mm’ y ‘Comfort pad T1XX 20 mm’.",
+   "cat": "Desorden / 5S",
+   "p": "cutz",
+   "vs": "parras"
+  },
+  "vp/r1/fotos/f-corte-dados-t1xx": {
+   "asset": "83bd5951bb0429cbbc4e44cc92b73e8f",
+   "at": 1792598427000,
+   "by": "",
+   "cap": "Dados T1XX en las posiciones KIT00102, KIT00106 y KIT00107: amontonados unos sobre otros, sin soporte ni orden.",
+   "cat": "Desorden / 5S",
+   "p": "cutz",
+   "vs": "parras"
+  },
+  "vp/r1/fotos/f-corte-mesa-tendido": {
+   "asset": "2e293a86ec5908aa034d9f162bc1833d",
+   "at": 1792598424000,
+   "by": "",
+   "cap": "Tendido de tela beige sobre mesa de corte con plancha de peso. La mesa está desgastada y marcada con medidas escritas a mano (no se ve mylar).",
+   "cat": "Equipo",
+   "p": "tend",
+   "vs": "parras"
+  },
+  "vp/r1/fotos/f-corte-mesa": {
+   "asset": "493f1f5b34536401e64709849c885914",
+   "at": 1792598425000,
+   "by": "",
+   "cap": "Mesa de corte con canastilla roja de material conforme debajo. Bordes de la mesa dañados; al fondo, rollos y jaulas de material junto al almacén.",
+   "cat": "Equipo",
+   "p": "tend",
+   "vs": "parras"
+  },
+  "vp/r1/fotos/f-corte-tab-c1y6": {
+   "asset": "de8323266554955fb339f6a1c849fb77",
+   "at": 1792598420000,
+   "by": "",
+   "cap": "Tablero de Corte, programa C1Y6, 14/10/26, turno 2, líder Abel. La meta acumulada llega a 10,503 pz; el real está casi vacío (solo la 1ª hora tiene un valor escrito, 1,260). Sin comentarios.",
+   "cat": "Tablero",
+   "p": "cutz",
+   "vs": "parras"
+  },
+  "vp/r1/fotos/f-corte-tab-c1yc": {
+   "asset": "7bcd7fea7fc442dd5c83e31f8e105b86",
+   "at": 1792598422000,
+   "by": "",
+   "cap": "Tablero de Corte, programa C1YC, fecha 19/08/26 (como se lee). Sin turno, operadores ni líder; solo la meta de 10,503 pz, sin real ni comentarios.",
+   "cat": "Tablero",
+   "p": "cutz",
+   "vs": "parras"
+  },
+  "vp/r1/fotos/f-corte-tab-confort": {
+   "asset": "9df6dc54f3bd4809bada1ccb4689e04f",
+   "at": 1792598421000,
+   "by": "",
+   "cap": "Tablero de Corte, programa Confort, 20/10/26, turno 1, líder Abel. La misma meta de 10,503 pz; solo hay dos valores sueltos en el real y un comentario corto.",
+   "cat": "Tablero",
+   "p": "cutz",
+   "vs": "parras"
+  },
+  "vp/r1/fotos/f-corte-tab-p758": {
+   "asset": "4927a5a7d2fb13b8e08f28d4b9505ac6",
+   "at": 1792598423000,
+   "by": "",
+   "cap": "Tablero de Corte, programa P758, turno 1, líder Abel. Solo la meta; encima lleva pegado un check list de operaciones y componentes del modelo que tapa varias horas del tablero.",
+   "cat": "Tablero",
+   "p": "cutz",
+   "vs": "parras"
+  },
+  "vp/r1/fotos/f-laminadora": {
+   "asset": "9f345deb2e0a82462ece793a4c796a1c",
+   "at": 1792598450000,
+   "by": "",
+   "cap": "Laminadora (flama): rollo de espuma a la entrada, cabina azul, tuberías de gas amarillas y manguera de aire en espiral roja.",
+   "cat": "Equipo",
+   "p": "lamA",
+   "vs": "parras"
+  },
+  "vp/r1/fotos/f-maquina-guia": {
+   "asset": "5daecdbf820f33aee84a261cb663466f",
+   "at": 1792598443000,
+   "by": "",
+   "cap": "Máquina de costura con guía y dobladillador metálicos sobre la mesa; se ve un tubito suelto junto a la guía. Línea por confirmar (la guía de unión de collar se reportó con problemas de calidad en L9).",
+   "cat": "Equipo",
+   "p": null,
+   "vs": "parras"
+  },
+  "vp/r1/fotos/f-nave-corte": {
+   "asset": "c9001bb0d848146ceb7b3733f0df7d07",
+   "at": 1792598447000,
+   "by": "",
+   "cap": "Nave de corte: mesas de tendido largas, prensas de corte al fondo y rollos de tela en el piso.",
+   "cat": "Equipo",
+   "p": "cutz",
+   "vs": "parras"
+  },
+  "vp/r1/fotos/f-retenedor-4100": {
+   "asset": "785a2892909f4502489d163207e23cf1",
+   "at": 1792598446000,
+   "by": "",
+   "cap": "Contenedor con 4,100 pz de retenedor de 30 mm junto a la cortadora de cinta. Retenedor y overlock son los más rápidos (~5 s): posible sobreproducción de WIP hacia el decorado.",
+   "cat": "WIP / inventario",
+   "p": null,
+   "vs": "parras"
+  },
+  "vp/r1/fotos/f-tablero-l5": {
+   "asset": "dea0169db35cbfb22ae9a583242d6ada",
+   "at": 1792598442000,
+   "by": "",
+   "cap": "Tablero de L5 (1‑oct, 39 operadores, programas D2UX / C121 / 31XX / C1YX, líder Jesús Ulises). La hora 6–7 no tiene real; el scrap acumulado repite el real; comentarios vacíos.",
+   "cat": "Tablero",
+   "p": "L5",
+   "vs": "parras"
+  },
+  "vp/r1/fotos/f-tableros-rivian": {
+   "asset": "a332b2e145ea590426325e4b04c823ee",
+   "at": 1792598445000,
+   "by": "",
+   "cap": "Tres tableros Rivian (OB, BUN, FRT) en L9. BUN está fechado 22/07/26 y sin real; OB y FRT, 10/9/26, con real solo hasta las 11:00. Comentarios vacíos.",
+   "cat": "Tablero",
+   "p": "L9",
+   "vs": "parras"
+  },
+  "vp/r1/fotos/f-tendido-operador": {
+   "asset": "8de631368773b6658740df32164894d6",
+   "at": 1792598449000,
+   "by": "",
+   "cap": "Tendido de tela beige sobre mesa de corte, con operador al fondo. Mesa con medidas escritas a mano y plancha de peso; rollos, jaulas y racks de material detrás.",
+   "cat": "Equipo",
+   "p": "tend",
+   "vs": "parras"
+  },
+  "vp/r1/notas/n-cut-1": {
+   "at": 1792598401000,
+   "by": "",
+   "p": "cutz",
+   "t": "Recorrido 21-oct. 11 máquinas de corte (dados) y solo 2 mesas de tendido. Scrap abajo de la mesa; sin mylar y piezas mal dimensionadas: no saben si cortan en mínimo, nominal o máximo. No hay forma de saber si los datos están bien medidos. Calidad y almacén pesan scrap y producción en kilos cada cierto tiempo; el tablero no se llena.",
+   "vs": "parras"
+  },
+  "vp/r1/notas/n-cut-2": {
+   "at": 1792598433000,
+   "by": "",
+   "p": "cutz",
+   "t": "Tableros de corte (14-oct, 20-oct, 19-ago y otro de agosto): los cuatro traen la misma meta (10,503 pz por día, 733–977 por hora) aunque son programas y fechas distintas, y el real casi no se captura (uno o dos valores sueltos). Hoy el tablero de corte no mide nada. Fotos en la pestaña Fotos.",
+   "vs": "parras"
+  },
+  "vp/r1/notas/n-cut-3": {
+   "at": 1792598434000,
+   "by": "",
+   "p": "cutz",
+   "t": "Dados de corte en racks de kits (KIT00012 a KIT00121): dados apilados y mezclados, separadores de cartón improvisados y dos kits por posición en algunos casos. Por medir: tiempo de búsqueda y cambio de dado en cada cambio de modelo (hipótesis: suma al faltante por cambio de material/mix).",
+   "vs": "parras"
+  },
+  "vp/r1/notas/n-cut-maq": {
+   "at": 1792598483000,
+   "by": "",
+   "p": "cutz",
+   "t": "Las 11 máquinas de corte son distintas: cada una corre programas diferentes. Todavía no hay el detalle por máquina (programa, dados, tiempos). Se abren con el + de la caja de Corte.",
+   "vs": "parras"
+  },
+  "vp/r1/notas/n-l1-1": {
+   "at": 1792598402000,
+   "by": "",
+   "p": "L1",
+   "t": "L1–L4 idénticas, todas GM T1XX. Retenedor + overlock ~5 s (los más rápidos) → pre-unión (1 abastece 2 cerrados) → cerrado → decorado (cuello de botella) → nudo (1 abastece 2 decorados) → inspección (1 mesa por 2 células). Pendiente confirmar: número de células por línea y takt del decorado.",
+   "vs": "parras"
+  },
+  "vp/r1/notas/n-l10-1": {
+   "at": 1792598409000,
+   "by": "",
+   "p": "L10",
+   "t": "Over y retenedor: el over va en medio por ser el más rápido y da a 2–3 pre-uniones, pero no se sigue el estándar ni el flujo. Cada decorador tiene su cerrador. Recibió 3 células T1XX-2 de L7: hay que pedir tiempos.",
+   "vs": "parras"
+  },
+  "vp/r1/notas/n-l2-tkt": {
+   "at": 1792598460000,
+   "by": "",
+   "p": "L2",
+   "t": "Estudio de tiempos 21‑oct (hoja 2‑4, T1XX trasero, 10 lecturas): cuello operación combinada 30.6 s contra takt 32.3 s con la demanda actual de la hoja (95%); con el takt guardado en la hoja (24.8 s) sería 123%. Nudo 25.4 s con 18% de variación. La hoja agrupa L2 a L4 y el plan sem. 43 pone T1XX trasero en L1 y L4: confirmar.",
+   "vs": "parras"
+  },
+  "vp/r1/notas/n-l4-1": {
+   "at": 1792598403000,
+   "by": "",
+   "p": "L4",
+   "t": "Ligera modificación por vinil: célula aparte de refilado, unión y decorado de panel cerrado. Llegan piezas semi hechas, ponen un solo retenedor y cierran.",
+   "vs": "parras"
+  },
+  "vp/r1/notas/n-l4-tkt": {
+   "at": 1792598461000,
+   "by": "",
+   "p": "L4",
+   "t": "Estudio de tiempos 21‑oct (T1XX/SUV): cuello decorado y refilado 32.3 s (2 operadores) contra takt 38.7 s: cumple al 84%. Variación alta en cerrado y decorado (hasta 15–16%).",
+   "vs": "parras"
+  },
+  "vp/r1/notas/n-l5-1": {
+   "at": 1792598404000,
+   "by": "",
+   "p": "L5",
+   "t": "Fallan por tardanza de materiales y máquinas que se descomponen mucho. Falta equipo de mantenimiento por movimiento a electrónicos: ~3 técnicos, ~5 min de tiempo de respuesta. Tablero 1-oct: 39 ops, hora 6–7 sin real.",
+   "vs": "parras"
+  },
+  "vp/r1/notas/n-l5-tkt": {
+   "at": 1792598462000,
+   "by": "",
+   "p": "L5",
+   "t": "Estudios de tiempos 21‑oct. C121: cuello decorado 115.1 s (1 operador) contra takt 74.3 s: 155%, capacidad 336 contra demanda de 521 por día. D2UX: en serie el cuello es cerrado 34.8 s contra takt 18.6 s (188%); si las operaciones duplicadas son paralelas, 15.2 s (82%): confirmar en piso. Las lecturas de overlock y retenedor flecha son idénticas en las dos hojas.",
+   "vs": "parras"
+  },
+  "vp/r1/notas/n-l6-1": {
+   "at": 1792598405000,
+   "by": "",
+   "p": "L6",
+   "t": "Corre D2UX y 31XX; todas las líneas se adaptan para correr. No cumple lo requerido. Batalla con el D2UC-2 y cambia mucho de modelo entre células.",
+   "vs": "parras"
+  },
+  "vp/r1/notas/n-l6-tkt": {
+   "at": 1792598463000,
+   "by": "",
+   "p": "L6",
+   "t": "Estudio de tiempos del 22‑sep (31XX KIT03227, 3 operaciones): cuello cerrado 33.0 s contra takt 24.8 s: 133%, capacidad 1,171 contra demanda de 1,562 por día. Estudio de hace un mes: repetirlo.",
+   "vs": "parras"
+  },
+  "vp/r1/notas/n-l7-1": {
+   "at": 1792598406000,
+   "by": "",
+   "p": "L7",
+   "t": "Canibalizada: mete todos los modelos, sin orden ni flujo, 'destrozada'. 3 células de T1XX-2 se fueron de L7 a L10.",
+   "vs": "parras"
+  },
+  "vp/r1/notas/n-l8-1": {
+   "at": 1792598407000,
+   "by": "",
+   "p": "L8",
+   "t": "Puro descansabrazos U725 y atrás D2UX. Máquinas automáticas, mucho mejores. Batalla con tela al inicio (falta de manejo básico); atrás no. Cada célula corre un programa diferente (hilos y demás).",
+   "vs": "parras"
+  },
+  "vp/r1/notas/n-l9-1": {
+   "at": 1792598408000,
+   "by": "",
+   "p": "L9",
+   "t": "Todo Rivian. 54 personas en 4 células. Retrasos de materia prima; lo que más impacta son herramentales para máquina y laminado. Guía en máquinas de unión de collar con problemas de calidad. Máquinas con fallas de un mes, faltan canastilla, pies de avance y dobladillador. Única línea con operaciones críticas por decorado (decorado recto semiautomático). Propuesta: carros con racks en vez de canastillas. Presión de aire insuficiente: decorativas con pie no tienen aire.",
+   "vs": "parras"
+  },
+  "vp/r1/notas/n-lam-1": {
+   "at": 1792598400000,
+   "by": "",
+   "p": "lamA",
+   "t": "Recorrido 21-oct. Rollo se rebobina tras laminar para evitar contaminación y se manda a corte o a almacén según demanda. 10–20 min por 100 yd. Con cambios de clima se apaga la flama y el laminado no pega; el gas se surte por nivel límite y por mantenimiento de llenado (hubo faltante). Planta: 'siempre es laminado el problema'.",
+   "vs": "parras"
+  },
+  "vp/r1/notas/n-lamab": {
+   "at": 1792598480000,
+   "by": "",
+   "p": "lamA",
+   "t": "Laminado A y B son dos máquinas en paralelo que atienden procesos distintos. Pendiente confirmar cuál es cuál: una pega solo el plástico (el adhesivo lo roza) y la otra mete el viníl y la piel. Nombradas A y B mientras se confirma.",
+   "vs": "parras"
+  },
+  "vp/r1/notas/n-patin": {
+   "at": 1792598471000,
+   "by": "",
+   "p": "wh",
+   "t": "Todos los traslados entre operaciones se hacen con patín (sin tugger). Cada viaje depende de una persona; el único montacargas cubre los racks altos. Marcado como patín en todas las flechas de traslado del mapa.",
+   "vs": "parras"
+  },
+  "vp/r1/notas/n-reb": {
+   "at": 1792598481000,
+   "by": "",
+   "p": "reb",
+   "t": "La rebobinadora es una máquina que recibe el rollo de ambas laminadoras. De ahí el rollo se manda a corte o a almacén según la demanda.",
+   "vs": "parras"
+  },
+  "vp/r1/notas/n-sh-1": {
+   "at": 1792598411000,
+   "by": "",
+   "p": "sh",
+   "t": "Recorrido 21-oct, embarques. La meta es contra programa semanal; cumplimiento muy bajo. Falta tracto-camión por mantenimiento, ~15 días, ya casi 3 semanas con tracto rentado. Hay material liberado y listo que no se embarca porque seleccionan un requerimiento que no es. Una sola rampa; ventanas de 1 h y 1.5 h entre unidades, pero llegan al mismo tiempo (ayer 4 juntas, de proveedores y de renta). Rampa pendiente en proceso. Área de embarques ocupada. Tiempos de carga y descarga en P7 por levantar.",
+   "vs": "parras"
+  },
+  "vp/r1/notas/n-sh-2": {
+   "at": 1792598464000,
+   "by": "",
+   "p": "sh",
+   "t": "Requerimiento semanal actualizado (21‑oct): WK39 80.6% (antes 67.3%, se capturó el lunes), WK40 89.7% (semana nueva), WK41 91.3% (antes 28.1%), WK42 98.0% (antes 76.3%; el viernes de 39,647 es idéntico al jueves: validar). Promedio WK25–42: 81.4% (antes 74.6%). Por día: lunes ~59%, martes ~72%, miércoles ~81%, jueves ~87%. WK43 en curso: 66% con lunes y martes.",
+   "vs": "parras"
+  },
+  "vp/r1/notas/n-tend": {
+   "at": 1792598482000,
+   "by": "",
+   "p": "tend",
+   "t": "Las mesas de tendido van antes de las 11 máquinas de corte: ahí se preparan las camas (layers) de tela o vinil. Son 2 mesas para las 11 máquinas.",
+   "vs": "parras"
+  },
+  "vp/r1/notas/n-wh-1": {
+   "at": 1792598410000,
+   "by": "",
+   "p": "wh",
+   "t": "Recorrido 21-oct, almacén. Mucho material en piso para agilizar surtido (lo pidió el programador); la nave de pintura se usa como almacén temporal; material de corte en área no designada. Sin rutas de flujo ni de surtimiento. 1 solo montacargas (debería tener 2), sin tugger; un equipo de hombre parado hasta nivel 4 y otro más pequeño a nivel 2; algunos racks son de 4 niveles (2 grandes sería perfecto). Faltan ~3 personas: hoy 2 en el primer turno y 2 en el segundo, y 3 runners/almacenistas hacen patin y hombre parado. Los almacenistas hacen de runner y de almacén; el montacargas también hace otras actividades. Falta personal para reacomodar high runners. A veces el montacargas se va al almacén temporal a surtir y se ocupa. Requisición pendiente de 11 personas, pero ya inició el proceso de electrónicos. Aumento de volumen de producción sin ajustar el organigrama. Difícil maniobrar.",
+   "vs": "parras"
+  },
+  "vp/r1/notas/n-wh-surte": {
+   "at": 1792598484000,
+   "by": "",
+   "p": "wh",
+   "t": "Warehouse surte a laminado y también directo a corte y a costura, por ahora por el exceso de trabajo y la falta de personal. Todo con patín.",
+   "vs": "parras"
+  },
+  "vp/r1/procParras/costz": {
+   "mov": "Patín"
+  },
+  "vp/r1/procParras/cutz": {
+   "mov": "Patín"
+  },
+  "vp/r1/procParras/ins": {
+   "mov": "Patín"
+  },
+  "vp/r1/procParras/insp": {
+   "mov": "Patín",
+   "src": "Estimado",
+   "wip": 116381
+  },
+  "vp/r1/procParras/L1": {
+   "mov": "Patín"
+  },
+  "vp/r1/procParras/L10": {
+   "mov": "Patín"
+  },
+  "vp/r1/procParras/L2": {
+   "ct": 30.6,
+   "mov": "Patín",
+   "src": "Cronometrado"
+  },
+  "vp/r1/procParras/L3": {
+   "ct": 30.6,
+   "mov": "Patín",
+   "src": "Cronometrado"
+  },
+  "vp/r1/procParras/L4": {
+   "ct": 32.3,
+   "mov": "Patín",
+   "src": "Cronometrado",
+   "val": "Confirmado"
+  },
+  "vp/r1/procParras/L5": {
+   "ct": 115.1,
+   "mov": "Patín",
+   "ops": 39,
+   "src": "Cronometrado",
+   "val": "Diferente"
+  },
+  "vp/r1/procParras/L6": {
+   "ct": 33,
+   "mov": "Patín",
+   "src": "Cronometrado",
+   "val": "Confirmado"
+  },
+  "vp/r1/procParras/L7": {
+   "mov": "Patín"
+  },
+  "vp/r1/procParras/L8": {
+   "mov": "Patín"
+  },
+  "vp/r1/procParras/L9": {
+   "mov": "Patín",
+   "ops": 54,
+   "src": "Estimado",
+   "val": "Diferente"
+  },
+  "vp/r1/procParras/lamA": {
+   "mov": "Patín"
+  },
+  "vp/r1/procParras/lamB": {
+   "mov": "Patín"
+  },
+  "vp/r1/procParras/reb": {
+   "mov": "Patín"
+  },
+  "vp/r1/procParras/sh": {
+   "mov": "Patín"
+  },
+  "vp/r1/procParras/tend": {
+   "mov": "Patín"
+  },
+  "vp/r1/procParras/wh": {
+   "mov": "Patín",
+   "ops": 2,
+   "src": "Estimado"
+  },
+  "vp/r1/tableros/t-l5-2026-10-01": {
+   "causas": "Hora 6–7 sin real capturado (243 pz de meta). Diferencia acumulada 285. De 7 a 11 h va en 96%. La columna de scrap repite el real acumulado (dato dudoso, no cargado). Comentarios vacíos. Líder: Jesús Ulises. Reportan tardanza de materiales y máquinas descompuestas.",
+   "cliente": "",
+   "corte": "11:00",
+   "fecha": "1-oct-2026",
+   "meta": 1384,
+   "ops": 39,
+   "prog": "L5 · D2UX / C121 / 31XX / C1YX",
+   "real": 1099,
+   "vs": "d2ux"
+  },
+  "vp/r1/tableros/t-l9-bun-2026-07-22": {
+   "causas": "Sin real capturado en ninguna hora. Fecha del tablero 22/07/26: desactualizado o sin llenar. Meta 602 pz acumulada al cierre.",
+   "cliente": "Rivian",
+   "fecha": "22/07/26",
+   "prog": "L9 · Rivian BUN",
+   "vs": "rivian"
+  },
+  "vp/r1/tableros/t-l9-frt-2026-09-10": {
+   "causas": "Hora 6–7: 16 reales contra 25 de meta (-9) y hora 7–8 con -3; después arriba de meta (+5 a +14). Sin comentarios.",
+   "cliente": "Rivian",
+   "corte": "11:00",
+   "fecha": "10/9/26",
+   "meta": 141,
+   "prog": "L9 · Rivian FRT",
+   "real": 154,
+   "vs": "rivian"
+  },
+  "vp/r1/tableros/t-l9-ob-2026-09-10": {
+   "causas": "Hora 6–7: 39 reales contra 52 de meta (-13); de 7 a 11 h arriba de meta (+14 a +22). Sin comentarios.",
+   "cliente": "Rivian",
+   "corte": "11:00",
+   "fecha": "10/9/26",
+   "meta": 301,
+   "prog": "L9 · Rivian OB",
+   "real": 318,
+   "vs": "rivian"
   },
   "vsm/vs_demo_fundas": {
    "avail": 55080,
