@@ -1,0 +1,251 @@
+<!doctype html><html lang="es"><head><meta charset="utf8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<script src="usuarios.js"></script><script src="acceso.js"></script>
+<title>Editor VSM · Red DAIMAY</title>
+<style>
+/* Red DAIMAY · Editor VSM: mapas de flujo de valor creados y editados por el usuario (cajas, flechas y símbolos), con fondo oscuro o blanco.
+   Todo se guarda en este navegador (localStorage 'rd_vsm_editor_v1'); «Exportar» e «Importar» pasan los mapas entre equipos. */
+:root{color-scheme:dark;--bg:#070b10;--panel:#0e161f;--panel2:#0b121a;--raise:#132030;--line:#1c2a38;--line2:#2a3d50;--fg:#e6eef5;--muted:#8a9cae;--dim:#5a6d80;--mat:#48c2ff;--info:#a48bff;--inv:#ffb321;--crit:#ff5a76;--ok:#3ddc97;--box:#101c29;--grid:#111b26}
+html[data-theme="light"]{color-scheme:light;--bg:#f3f6fa;--panel:#ffffff;--panel2:#f7f9fc;--raise:#e8eef5;--line:#d3dce6;--line2:#aebccb;--fg:#16202c;--muted:#4a5a6b;--dim:#7b8a99;--mat:#0b6fc2;--info:#6a4fd6;--inv:#b06a00;--crit:#d22c4d;--ok:#0d8a55;--box:#ffffff;--grid:#e6ecf3}
+*{box-sizing:border-box} html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;display:flex;flex-direction:column}
+header{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;padding:10px 14px;background:var(--panel);border-bottom:1px solid var(--line)}
+header h1{font-size:17px;margin:0 8px 0 0;white-space:nowrap}
+button,select,input,textarea{font:inherit;color:var(--fg)}
+.b{background:var(--panel2);border:1px solid var(--line2);border-radius:7px;padding:6px 10px;cursor:pointer;min-height:32px}
+.b:hover{border-color:var(--mat)} .b.on{background:var(--mat);border-color:var(--mat);color:#fff} .b.prim{background:var(--mat);border-color:var(--mat);color:#fff;font-weight:600}
+.b:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--mat);outline-offset:2px}
+.b[disabled]{opacity:.5;cursor:default}
+select,input,textarea{background:var(--panel2);border:1px solid var(--line2);border-radius:7px;padding:6px 8px;min-width:0}
+.sp{flex:1}
+main{flex:1;display:flex;min-height:0}
+#tools{width:176px;flex:none;background:var(--panel);border-right:1px solid var(--line);padding:10px;overflow:auto}
+#tools h2,#side h2{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:10px 0 6px}
+#tools h2:first-child{margin-top:0}
+#tools .b{width:100%;text-align:left;margin-bottom:5px;display:flex;gap:8px;align-items:center;font-size:13px}
+#tools .b svg{flex:none}
+#stage{flex:1;min-width:0;position:relative;overflow:hidden;background:var(--bg)}
+#map{width:100%;height:100%;display:block;touch-action:none;cursor:grab}
+#map.link{cursor:crosshair}
+#map text{fill:var(--fg);font-family:system-ui,"Segoe UI",sans-serif;pointer-events:none;user-select:none}
+#map .n{cursor:move} #map .e{cursor:pointer}
+#map .sel-ring{fill:none;stroke:var(--mat);stroke-width:2.5;stroke-dasharray:6 4}
+#hint{position:absolute;left:12px;bottom:10px;font-size:12px;color:var(--muted);background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:5px 9px;max-width:70%}
+#kpis{position:absolute;left:12px;top:10px;display:flex;gap:8px;flex-wrap:wrap;pointer-events:none}
+#kpis div{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-size:12px;color:var(--muted)}
+#kpis b{display:block;font-size:17px;color:var(--fg);font-variant-numeric:tabular-nums}
+#side{width:300px;flex:none;background:var(--panel);border-left:1px solid var(--line);padding:12px;overflow:auto}
+#side label{display:block;font-size:12px;color:var(--muted);margin:8px 0 3px}
+#side input,#side select,#side textarea{width:100%}
+#side textarea{resize:vertical}
+#side .g2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+#side .row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+#side p{color:var(--muted);font-size:12.5px;margin:6px 0}
+#toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:var(--raise);border:1px solid var(--line2);border-radius:9px;padding:9px 14px;font-size:13px;z-index:20}
+[hidden]{display:none!important}
+@media (max-width:900px){main{flex-direction:column}#tools{width:auto;display:flex;flex-wrap:wrap;gap:5px;border-right:0;border-bottom:1px solid var(--line)}#tools h2{display:none}#tools .b{width:auto;margin:0}#side{width:auto;max-height:42%;border-left:0;border-top:1px solid var(--line)}}
+</style></head><body>
+<header>
+  <a class="b" href="index.html" title="Volver a Red DAIMAY">← Red</a>
+  <h1>Editor VSM</h1>
+  <select id="pick" aria-label="Mapa"></select>
+  <button class="b prim" id="bNew">Nuevo</button>
+  <select id="from" aria-label="Crear a partir de un VSM existente"><option value="">Crear a partir de…</option><option value="vp">VSM Parras (costura)</option><option value="vx:rivian">VSM P4 · Rivian Door Panel</option><option value="vx:tesla">VSM P4 · Toldos</option></select>
+  <button class="b" id="bDup">Duplicar</button><button class="b" id="bDel">Eliminar</button>
+  <span class="sp"></span>
+  <button class="b" id="bUndo" title="Deshacer (Ctrl+Z)">↶ Deshacer</button>
+  <button class="b" id="bFit">Ajustar</button>
+  <button class="b" id="bTheme"></button>
+  <button class="b" id="bSvg" title="Descargar el dibujo">SVG</button>
+  <button class="b" id="bExp" title="Descargar todos los mapas en un archivo">Exportar</button>
+  <button class="b" id="bImp" title="Cargar mapas desde un archivo exportado">Importar</button><input type="file" id="fImp" accept=".json,application/json" hidden>
+</header>
+<main>
+  <nav id="tools" aria-label="Símbolos y flechas"></nav>
+  <div id="stage"><svg id="map" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Mapa de flujo de valor"></svg>
+    <div id="kpis"></div><div id="hint"></div></div>
+  <aside id="side" aria-label="Propiedades"></aside>
+</main>
+<div id="toast" hidden role="status"></div>
+<script>
+(()=>{
+const $=id=>document.getElementById(id), esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const RO=!!window.RD_RO, KEY='rd_vsm_editor_v1', uid=p=>p+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+const css=v=>getComputedStyle(document.documentElement).getPropertyValue('--'+v).trim();
+const fmt=(n,d=0)=>Number(n).toLocaleString('es-MX',{minimumFractionDigits:d,maximumFractionDigits:d});
+const num=v=>{const x=parseFloat(String(v??'').replace(',','.'));return isFinite(x)?x:null;};
+function toast(m){const t=$('toast');t.textContent=m;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>t.hidden=true,3200);}
+
+/* ---------- símbolos ---------- */
+const F={n1:['Nombre','text'],n2:['Detalle','text'],pl:['Planta / área','text'],ct:['C/T (s)','num'],co:['C/O (min)','num'],up:['Disponibilidad (%)','num'],ops:['Operadores','num'],tur:['Turnos','num'],lote:['Lote (pz)','num'],
+ scrap:['Defecto (%)','num'],qty:['Piezas','num'],dias:['Días de inventario','num'],freq:['Frecuencia','text'],max:['Máximo','text'],txt:['Texto','area'],flag:['Foco rojo / alerta','area'],res:['Descripción','area']};
+const TYPES={
+ proc:{name:'Proceso',w:170,h:128,f:['n1','n2','pl','ct','co','up','ops','tur','lote','scrap','flag','res'],def:{n1:'Proceso'}},
+ inv:{name:'Inventario',w:70,h:74,f:['n1','qty','dias','flag'],def:{n1:''}},
+ sup:{name:'Proveedor / cliente',w:160,h:96,f:['n1','n2','flag'],def:{n1:'Proveedor'}},
+ ctrl:{name:'Control de producción',w:190,h:76,f:['n1','n2'],def:{n1:'Control de producción',n2:'MRP'}},
+ truck:{name:'Camión / embarque',w:120,h:70,f:['n1','freq'],def:{n1:'Embarque'}},
+ super:{name:'Supermercado',w:70,h:84,f:['n1','qty','dias'],def:{n1:''}},
+ fifo:{name:'Carril FIFO',w:150,h:40,f:['n1','max','dias'],def:{n1:'FIFO'}},
+ kanban:{name:'Kanban',w:70,h:46,f:['n1'],def:{n1:'Kanban'}},
+ oper:{name:'Operador',w:50,h:56,f:['n1','ops'],def:{n1:''}},
+ kaizen:{name:'Foco rojo (kaizen)',w:170,h:96,f:['txt'],def:{txt:'Foco rojo'}},
+ note:{name:'Nota',w:190,h:80,f:['txt'],def:{txt:'Nota'}}};
+const EK={mat:['Flujo de material','var(--mat)'],push:['Empuje (push)','var(--fg)'],info:['Información manual','var(--info)'],einfo:['Información electrónica','var(--info)'],pull:['Retiro (pull)','var(--ok)'],ret:['Retrabajo / reversa','var(--crit)']};
+function wrap(t,max){const out=[];String(t||'').split('\n').forEach(par=>{let cur='';par.split(/\s+/).forEach(w=>{if((cur+' '+w).trim().length>max){if(cur)out.push(cur);cur=w;}else cur=(cur+' '+w).trim();});out.push(cur);});return out;}
+function size(n){const T=TYPES[n.t];let h=T.h;if(n.t==='proc'){const rows=['ct','co','up','ops','tur','lote','scrap'].filter(k=>n[k]!==undefined&&n[k]!=='').length;h=58+Math.max(1,rows)*18+8;}
+ if(n.t==='note'||n.t==='kaizen')h=Math.max(T.h,26+wrap(n.txt,n.t==='note'?26:20).length*17);return{w:T.w,h};}
+function sym(n){const{w,h}=size(n),o=[],fg='var(--fg)',mu='var(--muted)';const t=(x,y,s,a='')=>`<text x="${x}" y="${y}" ${a}>${esc(s)}</text>`;
+ if(n.t==='proc'){o.push(`<rect width="${w}" height="${h}" rx="8" fill="var(--box)" stroke="${n.flag?'var(--crit)':'var(--line2)'}" stroke-width="${n.flag?2.5:1.5}"/><rect width="${w}" height="46" rx="8" fill="var(--raise)"/><rect y="38" width="${w}" height="8" fill="var(--raise)"/>`);
+  o.push(t(w/2,20,(n.n1||'').slice(0,22),'text-anchor="middle" font-size="14" font-weight="700"'),t(w/2,37,((n.n2||n.pl||'')+'').slice(0,26),`text-anchor="middle" font-size="11.5" style="fill:${mu}"`));
+  let y=64;[['ct','C/T',' s'],['co','C/O',' min'],['up','Disp.',' %'],['ops','Operadores',''],['tur','Turnos',''],['lote','Lote',' pz'],['scrap','Defecto',' %']].forEach(([k,l,u])=>{if(n[k]===undefined||n[k]==='')return;
+   o.push(`<line x1="8" x2="${w-8}" y1="${y+5}" y2="${y+5}" stroke="var(--line)"/>`,t(10,y,l,`font-size="11.5" style="fill:${mu}"`),t(w-10,y,n[k]+u,'text-anchor="end" font-size="12.5" font-weight="600"'));y+=18;});
+  if(y===64)o.push(t(w/2,70,'sin datos',`text-anchor="middle" font-size="11.5" style="fill:var(--dim)"`));
+  if(n.flag)o.push(`<circle cx="${w-4}" cy="4" r="11" fill="var(--crit)"/><text x="${w-4}" y="9" text-anchor="middle" font-size="14" font-weight="800" style="fill:#fff">!</text>`);}
+ else if(n.t==='inv'){o.push(`<path d="M${w/2} 2 L${w-2} 50 H2 Z" fill="var(--box)" stroke="var(--inv)" stroke-width="2.5"/>`,t(w/2,41,'I','text-anchor="middle" font-size="20" font-weight="800" style="fill:var(--inv)"'));
+  const l=[n.qty!==undefined&&n.qty!==''?fmt(n.qty)+' pz':'',n.dias!==undefined&&n.dias!==''?n.dias+' días':''].filter(Boolean).join(' · ')||n.n1||'';o.push(t(w/2,66,l.slice(0,18),'text-anchor="middle" font-size="11.5" font-weight="600"'));
+  if(n.flag)o.push(`<circle cx="${w-6}" cy="8" r="9" fill="var(--crit)"/><text x="${w-6}" y="12.5" text-anchor="middle" font-size="12" font-weight="800" style="fill:#fff">!</text>`);}
+ else if(n.t==='sup'){o.push(`<path d="M2 ${h-2} V34 L${w*.25} 14 V34 L${w*.5} 14 V34 L${w*.75} 14 V34 H${w-2} V${h-2} Z" fill="var(--box)" stroke="${n.flag?'var(--crit)':'var(--line2)'}" stroke-width="2"/>`,t(w/2,60,(n.n1||'').slice(0,20),'text-anchor="middle" font-size="14" font-weight="700"'),t(w/2,78,(n.n2||'').slice(0,24),`text-anchor="middle" font-size="11.5" style="fill:${mu}"`));}
+ else if(n.t==='ctrl'){o.push(`<rect width="${w}" height="${h}" rx="4" fill="var(--box)" stroke="var(--info)" stroke-width="2"/>`,t(w/2,32,(n.n1||'').slice(0,24),'text-anchor="middle" font-size="14" font-weight="700"'),t(w/2,52,(n.n2||'').slice(0,28),`text-anchor="middle" font-size="12" style="fill:${mu}"`));}
+ else if(n.t==='truck'){o.push(`<rect x="2" y="8" width="${w*.62}" height="34" rx="3" fill="var(--box)" stroke="var(--mat)" stroke-width="2"/><path d="M${w*.62+2} 18 h${w*.2} l${w*.14} 12 v12 h-${w*.34} z" fill="var(--box)" stroke="var(--mat)" stroke-width="2"/><circle cx="${w*.24}" cy="46" r="7" fill="var(--mat)"/><circle cx="${w*.8}" cy="46" r="7" fill="var(--mat)"/>`,
+  t(w*.33,30,(n.freq||'').slice(0,10),'text-anchor="middle" font-size="11.5" font-weight="600"'),t(w/2,68,(n.n1||'').slice(0,18),'text-anchor="middle" font-size="12" font-weight="600"'));}
+ else if(n.t==='super'){o.push(`<path d="M${w-8} 4 H8 V60 H${w-8} M8 22.6 H${w-8} M8 41.3 H${w-8}" fill="none" stroke="var(--ok)" stroke-width="2.5"/>`);
+  const l=[n.qty!==undefined&&n.qty!==''?fmt(n.qty)+' pz':'',n.dias!==undefined&&n.dias!==''?n.dias+' d':''].filter(Boolean).join(' · ')||n.n1||'';o.push(t(w/2,78,l.slice(0,16),'text-anchor="middle" font-size="11.5" font-weight="600"'));}
+ else if(n.t==='fifo'){o.push(`<path d="M2 6 H${w-2} M2 ${h-6} H${w-2}" stroke="var(--ok)" stroke-width="2.5" fill="none"/>`,t(w/2,h/2+5,((n.n1||'FIFO')+(n.max?' · máx '+n.max:'')).slice(0,22),'text-anchor="middle" font-size="12.5" font-weight="700"'));}
+ else if(n.t==='kanban'){o.push(`<path d="M2 2 H${w-14} L${w-2} 14 V${h-2} H2 Z" fill="var(--box)" stroke="var(--ok)" stroke-width="2"/>`,t(w/2-3,h/2+5,(n.n1||'').slice(0,9),'text-anchor="middle" font-size="11.5" font-weight="600"'));}
+ else if(n.t==='oper'){o.push(`<circle cx="${w/2}" cy="14" r="9" fill="none" stroke="${fg}" stroke-width="2.5"/><path d="M8 40 A17 17 0 0 1 ${w-8} 40" fill="none" stroke="${fg}" stroke-width="2.5"/>`,t(w/2,54,(n.ops!==undefined&&n.ops!==''?n.ops:(n.n1||'')).toString().slice(0,8),'text-anchor="middle" font-size="12" font-weight="700"'));}
+ else if(n.t==='kaizen'){const cx=w/2,cy=h/2,pts=[];for(let i=0;i<24;i++){const a=i/24*Math.PI*2,r=i%2?.78:1;pts.push((cx+Math.cos(a)*cx*r).toFixed(1)+','+(cy+Math.sin(a)*cy*r).toFixed(1));}
+  o.push(`<polygon points="${pts.join(' ')}" fill="var(--box)" stroke="var(--crit)" stroke-width="2.5"/>`);const L=wrap(n.txt,20);L.forEach((s,i)=>o.push(t(cx,cy-(L.length-1)*8.5+i*17+4,s,'text-anchor="middle" font-size="12.5" font-weight="700" style="fill:var(--crit)"')));}
+ else if(n.t==='note'){o.push(`<rect width="${w}" height="${h}" rx="4" fill="var(--box)" stroke="var(--inv)" stroke-dasharray="5 4" stroke-width="1.5"/>`);wrap(n.txt,26).forEach((s,i)=>o.push(t(10,22+i*17,s,'font-size="12.5"')));}
+ return o.join('');}
+
+/* ---------- datos ---------- */
+let DB={cur:null,list:[]};try{const s=JSON.parse(localStorage.getItem(KEY)||'null');if(s&&Array.isArray(s.list))DB=s;}catch(e){}
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(DB));}catch(e){toast('No se pudo guardar en este navegador.');}};
+const blank=name=>({id:uid('v'),name:name||'VSM nuevo',dem:'',tur:'',hrs:'',nodes:[],edges:[]});
+let M=null,sel=null,mode=null,linkA=null,undo=[],vb={x:0,y:0,w:1600,h:900};
+const cur=()=>DB.list.find(v=>v.id===DB.cur)||null;
+const node=id=>M&&M.nodes.find(n=>n.id===id), edge=id=>M&&M.edges.find(e=>e.id===id);
+function snap(){if(!M)return;undo.push(JSON.stringify(M));if(undo.length>60)undo.shift();}
+function commit(){save();draw();panel();}
+function open(id,fit=true){DB.cur=id;M=cur();sel=null;mode=null;linkA=null;undo=[];save();pickFill();if(fit)fitView();draw();panel();}
+
+/* ---------- dibujo ---------- */
+const svg=$('map');
+function center(n){const s=size(n);return[n.x+s.w/2,n.y+s.h/2];}
+function clip(n,tx,ty){const s=size(n),[cx,cy]=center(n),dx=tx-cx,dy=ty-cy;if(!dx&&!dy)return[cx,cy];const k=Math.min(Math.abs(dx)?(s.w/2+6)/Math.abs(dx):1e9,Math.abs(dy)?(s.h/2+6)/Math.abs(dy):1e9);return[cx+dx*Math.min(1,k),cy+dy*Math.min(1,k)];}
+function edgePath(e){const a=node(e.a),b=node(e.b);if(!a||!b)return null;const ca=center(a),cb=center(b),p=clip(a,cb[0],cb[1]),q=clip(b,ca[0],ca[1]);
+ if(e.k==='einfo'){const mx=(p[0]+q[0])/2,my=(p[1]+q[1])/2,dx=q[0]-p[0],dy=q[1]-p[1],L=Math.hypot(dx,dy)||1,nx=-dy/L*12,ny=dx/L*12,ux=dx/L*10,uy=dy/L*10;return{d:`M${p[0]} ${p[1]} L${mx+ux+nx} ${my+uy+ny} L${mx-ux-nx} ${my-uy-ny} L${q[0]} ${q[1]}`,m:[mx,my]};}
+ return{d:`M${p[0]} ${p[1]} L${q[0]} ${q[1]}`,m:[(p[0]+q[0])/2,(p[1]+q[1])/2]};}
+function draw(){
+ if(!M){svg.innerHTML='';$('kpis').innerHTML='';$('hint').textContent='No hay mapas todavía. Usa «Nuevo» o «Crear a partir de…».';return;}
+ const o=[`<defs>${Object.keys(EK).map(k=>`<marker id="ah-${k}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="${k==='mat'||k==='push'?5:7}" markerHeight="${k==='mat'||k==='push'?5:7}" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="${EK[k][1]}"/></marker>`).join('')}
+  <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M40 0 H0 V40" fill="none" stroke="var(--grid)" stroke-width="1"/></pattern></defs><rect x="-20000" y="-20000" width="40000" height="40000" fill="url(#grid)" data-bg="1"/>`];
+ M.edges.forEach(e=>{const P=edgePath(e);if(!P)return;const c=EK[e.k]?EK[e.k][1]:'var(--fg)',on=sel&&sel.e===e.id,wd=e.k==='mat'?5:e.k==='push'?7:2.2;
+  o.push(`<g class="e" data-e="${e.id}"><path d="${P.d}" fill="none" stroke="transparent" stroke-width="18"/><path d="${P.d}" fill="none" stroke="${c}" stroke-width="${wd+(on?2:0)}" ${e.k==='push'?'stroke-dasharray="14 8"':e.k==='ret'||e.k==='pull'?'stroke-dasharray="8 6"':''} marker-end="url(#ah-${e.k})" stroke-linejoin="round"/>${e.lbl?`<rect x="${P.m[0]-e.lbl.length*3.6-6}" y="${P.m[1]-11}" width="${e.lbl.length*7.2+12}" height="20" rx="4" fill="var(--panel)" stroke="var(--line2)"/><text x="${P.m[0]}" y="${P.m[1]+4}" text-anchor="middle" font-size="12">${esc(e.lbl)}</text>`:''}${on?`<circle cx="${P.m[0]}" cy="${P.m[1]}" r="6" fill="var(--mat)"/>`:''}</g>`);});
+ M.nodes.forEach(n=>{const s=size(n),on=sel&&sel.n===n.id,la=linkA===n.id;
+  o.push(`<g class="n" data-n="${n.id}" transform="translate(${n.x} ${n.y})"><rect width="${s.w}" height="${s.h}" fill="transparent"/>${sym(n)}${on||la?`<rect class="sel-ring" x="-6" y="-6" width="${s.w+12}" height="${s.h+12}" rx="10"${la?' style="stroke:var(--ok)"':''}/>`:''}</g>`);});
+ svg.innerHTML=o.join('');applyVb();kpis();hint();}
+function applyVb(){svg.setAttribute('viewBox',`${vb.x} ${vb.y} ${vb.w} ${vb.h}`);}
+function fitView(){const r=svg.getBoundingClientRect(),a=Math.max(.2,r.width/Math.max(1,r.height));if(!M||!M.nodes.length){vb={x:0,y:0,w:900*a,h:900};return;}
+ let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;M.nodes.forEach(n=>{const s=size(n);x0=Math.min(x0,n.x);y0=Math.min(y0,n.y);x1=Math.max(x1,n.x+s.w);y1=Math.max(y1,n.y+s.h);});
+ let w=x1-x0+160,h=y1-y0+200;if(w/h<a)w=h*a;else h=w/a;vb={x:(x0+x1)/2-w/2,y:(y0+y1)/2-h/2,w,h};}
+function kpis(){const P=M.nodes.filter(n=>n.t==='proc'),ct=P.reduce((s,n)=>s+(num(n.ct)||0),0),d=num(M.dem),tk=d&&num(M.tur)&&num(M.hrs)?num(M.tur)*num(M.hrs)*3600/d:null;
+ let lt=0,miss=0;M.nodes.filter(n=>['inv','super','fifo'].includes(n.t)).forEach(n=>{const dd=num(n.dias)??(num(n.qty)!==null&&d?num(n.qty)/d:null);if(dd===null)miss++;else lt+=dd;});
+ const flags=M.nodes.filter(n=>n.flag||n.t==='kaizen').length,over=tk?P.filter(n=>num(n.ct)>tk).length:0;
+ $('kpis').innerHTML=`<div>Procesos<b>${P.length}</b></div><div>C/T acumulado<b>${ct?fmt(ct,1)+' s':'—'}</b></div><div>Lead time (inventarios)<b>${lt?fmt(lt,1)+' días':'—'}</b>${miss?miss+' sin dato':''}</div><div>Takt<b>${tk?fmt(tk,1)+' s':'—'}</b>${over?`<span style="color:var(--crit)">${over} sobre takt</span>`:''}</div><div>Focos rojos<b style="${flags?'color:var(--crit)':''}">${flags}</b></div>`;}
+function hint(){$('hint').textContent=RO?'Solo lectura: puedes ver, mover la vista y descargar.':mode?(linkA?'Ahora haz clic en la caja de destino. Esc cancela.':`Flecha «${EK[mode][0]}»: haz clic en la caja de origen.`):'Arrastra para mover · rueda para zoom · clic para editar · Supr borra · Ctrl+Z deshace';svg.classList.toggle('link',!!mode);
+ document.querySelectorAll('#tools [data-ek]').forEach(b=>b.classList.toggle('on',b.dataset.ek===mode));}
+
+/* ---------- paleta ---------- */
+function tools(){const ico=t=>{const n=Object.assign({t,x:0,y:0},TYPES[t].def),s=size(n),k=Math.min(26/s.w,22/s.h);return `<svg width="28" height="24" viewBox="0 0 28 24" aria-hidden="true"><g transform="translate(${(28-s.w*k)/2} ${(24-s.h*k)/2}) scale(${k})">${sym(n).replace(/<text[\s\S]*?<\/text>/g,'')}</g></svg>`;};
+ $('tools').innerHTML=RO?'<h2>Solo lectura</h2>':`<h2>Símbolos</h2>${Object.keys(TYPES).map(t=>`<button class="b" data-add="${t}">${ico(t)}${TYPES[t].name}</button>`).join('')}<h2>Flechas</h2>${Object.keys(EK).map(k=>`<button class="b" data-ek="${k}"><svg width="28" height="12" aria-hidden="true"><path d="M2 6 H22" stroke="${EK[k][1]}" stroke-width="${k==='mat'?4:k==='push'?5:2}" ${k==='push'?'stroke-dasharray="5 3"':k==='ret'||k==='pull'?'stroke-dasharray="4 3"':''}/><path d="M20 1 L27 6 L20 11z" fill="${EK[k][1]}"/></svg>${EK[k][0]}</button>`).join('')}`;}
+$('tools').addEventListener('click',e=>{const b=e.target.closest('button');if(!b||!M||RO)return;
+ if(b.dataset.add){snap();const t=b.dataset.add,n=Object.assign({id:uid('n'),t},TYPES[t].def),s=size(n);n.x=Math.round((vb.x+vb.w/2-s.w/2+(M.nodes.length%5)*24)/10)*10;n.y=Math.round((vb.y+vb.h/2-s.h/2+(M.nodes.length%5)*24)/10)*10;M.nodes.push(n);sel={n:n.id};mode=null;linkA=null;commit();}
+ else if(b.dataset.ek){mode=mode===b.dataset.ek?null:b.dataset.ek;linkA=null;draw();}});
+
+/* ---------- ratón: mover, enlazar, vista ---------- */
+const pt=e=>{const r=svg.getBoundingClientRect();return[vb.x+(e.clientX-r.left)/Math.max(1,r.width)*vb.w,vb.y+(e.clientY-r.top)/Math.max(1,r.height)*vb.h];};
+let drag=null;
+svg.addEventListener('pointerdown',e=>{if(!M)return;const g=e.target.closest('[data-n]'),p=pt(e);try{svg.setPointerCapture(e.pointerId);}catch(_){}
+ if(g&&!mode&&!RO){const n=node(g.dataset.n);drag={k:'n',n,ox:p[0]-n.x,oy:p[1]-n.y,moved:false,sx:e.clientX,sy:e.clientY};}
+ else drag={k:'pan',sx:e.clientX,sy:e.clientY,vx:vb.x,vy:vb.y,moved:false,t:e.target};});
+svg.addEventListener('pointermove',e=>{if(!drag)return;const d=Math.hypot(e.clientX-drag.sx,e.clientY-drag.sy);
+ if(drag.k==='n'){if(!drag.moved&&d<4)return;if(!drag.moved){snap();drag.moved=true;}const p=pt(e);drag.n.x=Math.round((p[0]-drag.ox)/10)*10;drag.n.y=Math.round((p[1]-drag.oy)/10)*10;draw();}
+ else{if(d>4)drag.moved=true;const r=svg.getBoundingClientRect();vb.x=drag.vx-(e.clientX-drag.sx)/r.width*vb.w;vb.y=drag.vy-(e.clientY-drag.sy)/r.height*vb.h;applyVb();}});
+svg.addEventListener('pointerup',e=>{const d=drag;drag=null;if(!d||!M)return;if(d.k==='n'&&d.moved){save();panel();return;}if(d.moved)return;
+ const t=d.k==='n'?svg.querySelector(`[data-n="${d.n.id}"]`):d.t,g=t&&t.closest('[data-n]'),ge=t&&t.closest('[data-e]');
+ if(mode&&!RO){if(!g){mode=null;linkA=null;draw();return;}if(!linkA){linkA=g.dataset.n;draw();return;}
+  if(linkA!==g.dataset.n){snap();const ed={id:uid('e'),a:linkA,b:g.dataset.n,k:mode,lbl:''};M.edges.push(ed);sel={e:ed.id};mode=null;}linkA=null;commit();return;}
+ sel=g?{n:g.dataset.n}:ge?{e:ge.dataset.e}:null;draw();panel();});
+svg.addEventListener('wheel',e=>{e.preventDefault();const r=svg.getBoundingClientRect(),f=Math.exp(e.deltaY*.0015),px=(e.clientX-r.left)/r.width,py=(e.clientY-r.top)/r.height,nw=Math.min(40000,Math.max(300,vb.w*f)),k=nw/vb.w;
+ vb={x:vb.x+px*vb.w*(1-k),y:vb.y+py*vb.h*(1-k),w:nw,h:vb.h*k};applyVb();},{passive:false});
+function delSel(){if(!sel||RO||!M)return;snap();if(sel.n){M.nodes=M.nodes.filter(n=>n.id!==sel.n);M.edges=M.edges.filter(e=>e.a!==sel.n&&e.b!==sel.n);}else M.edges=M.edges.filter(e=>e.id!==sel.e);sel=null;commit();}
+function doUndo(){if(!undo.length||!M)return;const i=DB.list.indexOf(M);DB.list[i]=M=JSON.parse(undo.pop());sel=null;commit();}
+addEventListener('keydown',e=>{const inField=/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName);
+ if(e.key==='Escape'){mode=null;linkA=null;sel=null;draw();panel();}
+ else if((e.key==='Delete'||e.key==='Backspace')&&!inField){e.preventDefault();delSel();}
+ else if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'&&!inField){e.preventDefault();doUndo();}});
+
+/* ---------- panel de propiedades ---------- */
+function field(k,v){const[l,ty]=F[k];return `<label for="f-${k}">${l}</label>${ty==='area'?`<textarea id="f-${k}" data-f="${k}" rows="${k==='res'?5:3}"${RO?' disabled':''}>${esc(v??'')}</textarea>`:`<input id="f-${k}" data-f="${k}" ${ty==='num'?'inputmode="decimal"':''} value="${esc(v??'')}"${RO?' disabled':''}>`}`;}
+function panel(){const s=$('side');if(!M){s.innerHTML='<h2>Editor VSM</h2><p>Crea un mapa con «Nuevo», o parte de uno existente con «Crear a partir de…». Lo que hagas se guarda en este navegador.</p>';return;}
+ const n=sel&&sel.n&&node(sel.n),e=sel&&sel.e&&edge(sel.e);
+ if(n){const T=TYPES[n.t];s.innerHTML=`<h2>${T.name}</h2>${T.f.map(k=>field(k,n[k])).join('')}${RO?'':`<label for="f-t">Cambiar símbolo</label><select id="f-t" data-f="t">${Object.keys(TYPES).map(t=>`<option value="${t}"${t===n.t?' selected':''}>${TYPES[t].name}</option>`).join('')}</select>
+  <div class="row"><button class="b" data-a="dup">Duplicar</button><button class="b" data-a="del">Eliminar</button></div>`}<p>Flechas que entran o salen: ${M.edges.filter(x=>x.a===n.id||x.b===n.id).length}. Para unirla con otra caja elige un tipo de flecha en la izquierda.</p>`;}
+ else if(e){const a=node(e.a),b=node(e.b),nm=x=>x?(x.n1||x.txt||TYPES[x.t].name):'?';s.innerHTML=`<h2>Flecha</h2><p>${esc(nm(a))} → ${esc(nm(b))}</p><label for="f-k">Tipo</label><select id="f-k" data-ef="k"${RO?' disabled':''}>${Object.keys(EK).map(k=>`<option value="${k}"${k===e.k?' selected':''}>${EK[k][0]}</option>`).join('')}</select>
+  <label for="f-lbl">Etiqueta (traslado, frecuencia, lote…)</label><input id="f-lbl" data-ef="lbl" value="${esc(e.lbl||'')}" maxlength="40"${RO?' disabled':''}>${RO?'':'<div class="row"><button class="b" data-a="flip">Invertir sentido</button><button class="b" data-a="del">Eliminar</button></div>'}`;}
+ else s.innerHTML=`<h2>Mapa</h2><label for="m-name">Nombre</label><input id="m-name" data-m="name" value="${esc(M.name)}" maxlength="60"${RO?' disabled':''}>
+  <div class="g2"><div><label for="m-dem">Demanda (pz/día)</label><input id="m-dem" data-m="dem" inputmode="decimal" value="${esc(M.dem??'')}"${RO?' disabled':''}></div><div><label for="m-tur">Turnos</label><input id="m-tur" data-m="tur" inputmode="decimal" value="${esc(M.tur??'')}"${RO?' disabled':''}></div></div>
+  <label for="m-hrs">Horas netas por turno</label><input id="m-hrs" data-m="hrs" inputmode="decimal" value="${esc(M.hrs??'')}"${RO?' disabled':''}>
+  <p>${M.nodes.length} símbolos · ${M.edges.length} flechas. El takt sale de la demanda, los turnos y las horas netas. El lead time suma los días de cada inventario, supermercado y FIFO (o piezas ÷ demanda).</p>
+  <p>Selecciona una caja o una flecha para editarla.</p>`;}
+$('side').addEventListener('change',e=>{const t=e.target;if(!M||RO)return;
+ if(t.dataset.m){M[t.dataset.m]=t.value.trim();save();pickFill();draw();return;}
+ const n=sel&&sel.n&&node(sel.n),ed=sel&&sel.e&&edge(sel.e);
+ if(n&&t.dataset.f){snap();const k=t.dataset.f;if(k==='t'){n.t=t.value;Object.keys(TYPES[n.t].def).forEach(d=>{if(n[d]===undefined)n[d]=TYPES[n.t].def[d];});commit();return;}
+  const v=t.value.trim();if(v==='')delete n[k];else n[k]=F[k][1]==='num'&&num(v)!==null?num(v):v;save();draw();}
+ else if(ed&&t.dataset.ef){snap();ed[t.dataset.ef]=t.value.trim();save();draw();}});
+$('side').addEventListener('click',e=>{const a=e.target.closest('button')?.dataset.a;if(!a||!M||RO)return;
+ if(a==='del')delSel();else if(a==='flip'){const ed=edge(sel.e);snap();[ed.a,ed.b]=[ed.b,ed.a];commit();}
+ else if(a==='dup'){const n=node(sel.n);snap();const c=JSON.parse(JSON.stringify(n));c.id=uid('n');c.x+=30;c.y+=30;M.nodes.push(c);sel={n:c.id};commit();}});
+
+/* ---------- mapas: nuevo, duplicar, eliminar, importar ---------- */
+function pickFill(){$('pick').innerHTML=DB.list.length?DB.list.map(v=>`<option value="${v.id}"${v.id===DB.cur?' selected':''}>${esc(v.name)}</option>`).join(''):'<option value="">Sin mapas</option>';
+ ['bNew','bDup','bDel','from','bImp','bUndo'].forEach(id=>{$(id).hidden=RO;});}
+$('pick').onchange=e=>{if(e.target.value)open(e.target.value);};
+function add(v){let nm=v.name,k=2;while(DB.list.some(x=>x.name===nm))nm=`${v.name} (${k++})`;v.name=nm;DB.list.push(v);open(v.id);}
+$('bNew').onclick=()=>{const nm=prompt('Nombre del VSM nuevo:','VSM nuevo');if(nm===null)return;const v=blank(nm.trim()||'VSM nuevo');
+ v.nodes.push({id:uid('n'),t:'sup',n1:'Proveedor',x:60,y:80},{id:uid('n'),t:'ctrl',n1:'Control de producción',n2:'MRP',x:620,y:60},{id:uid('n'),t:'sup',n1:'Cliente',x:1220,y:80});add(v);};
+$('bDup').onclick=()=>{if(!M)return;const c=JSON.parse(JSON.stringify(M));c.id=uid('v');c.name=M.name+' (copia)';add(c);};
+$('bDel').onclick=()=>{if(!M||!confirm(`¿Eliminar el VSM «${M.name}»? No se puede deshacer.`))return;DB.list=DB.list.filter(v=>v!==M);M=null;DB.cur=DB.list[0]?.id||null;save();pickFill();if(DB.cur)open(DB.cur);else{draw();panel();}};
+$('bUndo').onclick=doUndo;$('bFit').onclick=()=>{fitView();applyVb();};
+/* extrae un objeto literal «const NOMBRE=…» del código de una consola */
+function grab(src,name){const i=src.indexOf('const '+name+'=');if(i<0)return null;let j=i+name.length+7,d=0,q=null;const s=j;for(;j<src.length;j++){const c=src[j];if(q){if(c==='\\')j++;else if(c===q)q=null;continue;}if(c==='"'||c==="'"||c==='`'){q=c;continue;}if(c==='{'||c==='[')d++;else if(c==='}'||c===']'){d--;if(!d){j++;break;}}}return src.slice(s,j);}
+const ROWY=[330,520,710,900];
+function fromProcs(name,procs,edges,posOf){const v=blank(name),ids={};
+ procs.forEach(p=>{if(!p||p.k==='jct')return;const[x,y]=posOf(p),n={id:uid('n'),t:p.k==='ship'?'truck':p.k==='buy'||p.k==='start'?'sup':'proc',n1:(p.n&&p.n[0])||p.id,x:Math.round(x/10)*10,y:Math.round(y/10)*10};
+  if(p.n&&p.n[1])n.n2=p.n[1];if(p.pl)n.pl=p.pl;if(p.res)n.res=p.res;if(p.flag)n.flag=p.flag;const d=p.d||{};['ct','co','up','ops'].forEach(k=>{if(d[k]!==undefined&&d[k]!==null&&typeof d[k]!=='object')n[k]=d[k];});if(d.def!==undefined&&typeof d.def!=='object')n.scrap=d.def;
+  if(n.t!=='proc'){delete n.res;}ids[p.id]=n.id;v.nodes.push(n);});
+ if(edges.some(e=>e[0]==='mp')){const ys=v.nodes.map(n=>n.y),n={id:uid('n'),t:'sup',n1:'Proveedores',n2:'materia prima',x:Math.min(...v.nodes.map(n=>n.x))-240,y:Math.round((Math.min(...ys)+Math.max(...ys))/20)*10};ids.mp=n.id;v.nodes.push(n);}
+ const seen=new Set();edges.forEach(e=>{const a=ids[e[0]],b=ids[e[1]];if(!a||!b||a===b||seen.has(a+b))return;seen.add(a+b);v.edges.push({id:uid('e'),a,b,k:e[2]==='rw'||e[2]==='ret'?'ret':'mat',lbl:''});});return v;}
+$('from').onchange=async e=>{const k=e.target.value;e.target.value='';if(!k)return;
+ try{if(k==='vp'){const src=await(await fetch('vsm/parras.json')).json(),A=JSON.parse(grab(src,'ALLP')),V=JSON.parse(grab(src,'VIEWS')).oo;
+   add(fromProcs('VSM Parras (copia editable)',V.order.map(id=>Object.assign({},A[id],V.pos[id])),V.edges,p=>[(p.x??200)*1.05,120+(p.r??0)*175]));}
+  else{const st=k.split(':')[1],src=await(await fetch('vsm/consola.json')).json(),S=new Function('C','HEAD','return '+grab(src,'STREAMS'))(new Proxy({},{get:()=>''}),'')[st];if(!S)throw new Error('no encontré ese flujo');
+   const cols=[20,200,430,660,930,1170,1400,1630,1860,2090,2320];add(fromProcs(`VSM P4 · ${S.name} ${S.prod||''} (copia editable)`.replace(/\s+/g,' '),S.procs,S.edges,p=>[(cols[p.c]??(p.c||0)*230)*1.05,ROWY[p.r]??(330+190*(p.r||0))]));}
+  toast('Copia creada. La consola original no cambia.');}catch(err){toast('No se pudo copiar ese VSM: '+(err.message||err));}};
+$('bExp').onclick=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify({app:'red-daimay-vsm-editor',v:1,list:DB.list},null,1)],{type:'application/json'}));a.download='vsm_editor_'+new Date().toISOString().slice(0,10)+'.json';a.click();};
+$('bImp').onclick=()=>$('fImp').click();
+$('fImp').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;try{const j=JSON.parse(await f.text()),L=Array.isArray(j.list)?j.list:[];if(!L.length)throw 0;let n=0;L.forEach(v=>{if(!v||!Array.isArray(v.nodes)||!Array.isArray(v.edges))return;v.id=uid('v');v.name=String(v.name||'VSM importado');add(v);n++;});toast(n+' mapa(s) importado(s).');}catch(err){toast('Ese archivo no es una exportación del Editor VSM.');}};
+$('bSvg').onclick=()=>{if(!M)return;const c=svg.cloneNode(true);c.querySelectorAll('.sel-ring').forEach(x=>x.remove());const vars=['bg','panel','panel2','raise','line','line2','fg','muted','dim','mat','info','inv','crit','ok','box','grid'];
+ let s=new XMLSerializer().serializeToString(c);vars.forEach(v=>{s=s.split('var(--'+v+')').join(css(v));});s=s.replace('<defs>',`<style>text{fill:${css('fg')};font-family:Segoe UI,Arial,sans-serif}</style><rect x="${vb.x}" y="${vb.y}" width="${vb.w}" height="${vb.h}" fill="${css('bg')}"/><defs>`);
+ const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([s],{type:'image/svg+xml'}));a.download=(M.name||'vsm').replace(/[^\w\-]+/g,'_')+'.svg';a.click();};
+/* ---------- tema ---------- */
+let theme='dark';try{theme=localStorage.getItem('rd_vsm_editor_theme')||'dark';}catch(e){}
+function setTheme(t){theme=t==='light'?'light':'dark';document.documentElement.dataset.theme=theme;$('bTheme').textContent=theme==='dark'?'☀ Fondo blanco':'☾ Fondo oscuro';$('bTheme').setAttribute('aria-pressed',String(theme==='light'));try{localStorage.setItem('rd_vsm_editor_theme',theme);}catch(e){}}
+$('bTheme').onclick=()=>setTheme(theme==='dark'?'light':'dark');
+setTheme(theme);tools();pickFill();if(!cur()&&DB.list[0])DB.cur=DB.list[0].id;if(cur())open(DB.cur);else{draw();panel();}
+addEventListener('resize',()=>{if(M){const r=svg.getBoundingClientRect();vb.h=vb.w*r.height/Math.max(1,r.width);applyVb();}});
+window.__vsmEd={state:()=>({n:DB.list.length,cur:M?M.name:null,nodes:M?M.nodes.length:0,edges:M?M.edges.length:0,theme}),db:()=>DB};
+})();
+</script></body></html>
