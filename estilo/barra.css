@@ -1,0 +1,23 @@
+/* Red DAIMAY · barra superior del hub en una sola fila (12-nov-2026).
+   - Se quita el sello «DWG · Rev · gemelo · abrir solo» y el subtítulo «gemelos digitales».
+   - La búsqueda se angosta (se ensancha al escribir) y los botones se compactan.
+   - En pantallas angostas los botones quedan solo con su icono; el nombre sigue en el aviso al pasar el cursor.
+   Para regresar a la barra anterior basta con quitar el enlace a este archivo en index.html. */
+#bar{flex-wrap:nowrap;gap:8px;padding-left:10px;padding-right:10px;padding-top:calc(6px + env(safe-area-inset-top,0px));padding-bottom:6px}
+#bar .seal{display:none!important}
+.brand{gap:8px;padding-right:8px;margin-right:0;flex:none}
+.brand b{font-size:19px}
+.brand b span{display:none}
+.jumps{flex:none;padding:2px;gap:1px}
+.jumps button{padding:6px 9px;font-size:12px}
+.search{flex:0 1 210px;min-width:120px;max-width:210px;transition:flex-basis .2s ease,max-width .2s ease}
+.search:focus-within{flex-basis:340px;max-width:340px}
+.search input{padding-top:7px;padding-bottom:7px;text-overflow:ellipsis}
+.acts{gap:5px;margin-left:auto;flex:none;align-items:center}
+.acts .btn,#rdWho{padding:6px 9px;font-size:12px;min-height:0}
+#bar>*{min-width:0}
+@media (max-width:1760px){ #tourBtn .lab,#panelBtn .lab{display:none} }
+@media (max-width:1560px){ #rtBtn .lab,#lyBtn .lab{display:none} }
+@media (max-width:1380px){ #rivBtn .lab,#mcBtn .lab{display:none} .jumps .dot{display:none} }
+@media (max-width:1180px){ .brand b{display:none} }
+@media (max-width:900px){ #bar{flex-wrap:wrap} .search{flex:1 1 100%;max-width:none;order:3} .search:focus-within{flex-basis:100%;max-width:none} }

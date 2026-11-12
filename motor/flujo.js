@@ -48,6 +48,11 @@ export function create(api) {
   function ring(x, z, col, r = .85) { const g = new THREE.RingGeometry(r - .16, r, 36); g.rotateX(-Math.PI / 2); const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: .95, depthTest: false, depthWrite: false, side: THREE.DoubleSide })); m.position.set(x, .06, z); m.renderOrder = 61; return m; }
   function label() { const c = document.createElement('canvas'); c.width = 448; c.height = 128; const tex = new THREE.CanvasTexture(c); if (THREE.SRGBColorSpace) tex.colorSpace = THREE.SRGBColorSpace;
     const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false, depthWrite: false })); sp.scale.set(4.2, 1.2, 1); sp.renderOrder = 70; sp.userData = { c, tex, key: '' }; return sp; }
+  function chipLabel() { const c = document.createElement('canvas'); c.width = 128; c.height = 128; const tex = new THREE.CanvasTexture(c); if (THREE.SRGBColorSpace) tex.colorSpace = THREE.SRGBColorSpace;
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false, depthWrite: false })); sp.scale.set(.9, .9, 1); sp.renderOrder = 70; sp.userData = { c, tex, key: '' }; return sp; }
+  function paintChip(sp, txt, col) { const key = txt + '|' + col, u = sp.userData; if (u.key === key) return; u.key = key; const g = u.c.getContext('2d');
+    g.clearRect(0, 0, 128, 128); g.fillStyle = col; g.beginPath(); g.arc(64, 64, txt ? 58 : 30, 0, Math.PI * 2); g.fill(); g.strokeStyle = 'rgba(13,18,24,.85)'; g.lineWidth = 8; g.stroke();
+    if (txt) { g.fillStyle = col === '#FFB020' ? '#12181F' : '#ffffff'; g.font = `700 ${txt.length > 2 ? 46 : 60}px system-ui, Segoe UI, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(txt, 64, 68); } u.tex.needsUpdate = true; }
   function paint(sp, l1, l2, col) { const key = l1 + '|' + l2 + '|' + col, u = sp.userData; if (u.key === key) return; u.key = key; const g = u.c.getContext('2d'), W = u.c.width, H = u.c.height;
     g.clearRect(0, 0, W, H); g.fillStyle = 'rgba(13,18,24,.9)'; g.beginPath(); g.roundRect(2, 2, W - 4, H - 4, 16); g.fill(); g.fillStyle = col; g.beginPath(); g.roundRect(2, 2, 16, H - 4, [16, 0, 0, 16]); g.fill();
     g.fillStyle = '#e7ebef'; g.font = '600 34px system-ui, Segoe UI, sans-serif'; g.textBaseline = 'middle'; g.fillText(cut(l1, 24), 30, 42); g.fillStyle = col === '#7c8a97' ? '#a9b3bd' : col; g.font = '600 30px system-ui, Segoe UI, sans-serif'; g.fillText(cut(l2, 28), 30, 90); u.tex.needsUpdate = true; }
@@ -90,14 +95,14 @@ export function create(api) {
     const N = L.map(({ Y, o }) => { const h = V.drive('yz' + o.id, { oid: o.link.oid, x: o.link.x, z: o.link.z }), yaw = h.yaw, f = [Math.cos(-yaw), Math.sin(-yaw)], sd = [-f[1], f[0]];
       const n = { Y, o, h, x: h.x, z: h.z, yaw, f, sd, takt: +Y.takt || 0, q: 0, fly: 0, busy: false, rem: 0, dur: 0, bag: [], done: 0, tw: 0, ts: 0, nx: null, preds: 0, arr: 0, st: '' };
       n.wp = [n.x + sd[0] * .95, n.z + sd[1] * .95];
-      n.ring = ring(n.x, n.z, COL.idle); g.add(n.ring); n.sp = label(); n.sp.position.set(n.x, 2.75, n.z); g.add(n.sp);
+      n.ring = ring(n.x, n.z, COL.idle); g.add(n.ring); n.sp = label(); n.sp.position.set(n.x, 2.75, n.z); g.add(n.sp); n.dot = chipLabel(); n.dot.position.set(n.x, 2.35, n.z); g.add(n.dot);
       n.wip = new THREE.InstancedMesh(BOX, new THREE.MeshStandardMaterial({ color: '#e0a23a', roughness: .7 }), 24); n.wip.count = 0; n.wip.frustumCulled = false; g.add(n.wip);
       n.hand = new THREE.Mesh(BOX, new THREE.MeshStandardMaterial({ color: '#e0a23a', roughness: .7 })); n.hand.visible = false; g.add(n.hand); return n; });
     N.forEach(n => { n.nx = N.find(m => m.o.id === n.o.next && m !== n) || null; if (n.nx) n.nx.preds++; });
     N.forEach(n => { if (n.nx) g.add(arrow([n.x, n.z], [n.nx.x, n.nx.z], '#8fb7ff')); });
     const tk = N.map(n => n.takt).find(t => t > 0) || 0; N.forEach(n => { n.tk = n.takt || tk; n.arr = n.tk; });
-    SIM = { N, g, clock: 0, out: 0, speed: 10, feed: tk ? 'takt' : 'libre', tk, pause: false, F: [], ui: 0, miss: A.length - L.length };
-    V.ext(tick); openHud();
+    SIM = { N, g, labels: 'min', hov: null, pin: null, clock: 0, out: 0, speed: 10, feed: tk ? 'takt' : 'libre', tk, pause: false, F: [], ui: 0, miss: A.length - L.length };
+    S0hover(true); V.ext(tick); openHud();
     const xs = N.map(n => n.x), zs = N.map(n => n.z), cx = (Math.min(...xs) + Math.max(...xs)) / 2, cz = (Math.min(...zs) + Math.max(...zs)) / 2, ext = Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...zs) - Math.min(...zs));
     try { ctx.goOrbit(cx, cz, Math.max(16, ext * 1.5), ctx.orbit.T.th, .95); } catch (_) {}
     return '';
@@ -126,24 +131,33 @@ export function create(api) {
       // inventario frente a la estación
       const q = Math.min(24, n.dq); if (n.wip.userData.q !== q) { n.wip.userData.q = q; n.wip.count = q; for (let k = 0; k < q; k++) { const c = k % 2, r = (k >> 1) % 2, l = k >> 2; M4.makeTranslation(n.wp[0] + n.f[0] * c * .36 + n.sd[0] * r * .36, .17 + l * .34, n.wp[1] + n.f[1] * c * .36 + n.sd[1] * r * .36); n.wip.setMatrixAt(k, M4); } n.wip.instanceMatrix.needsUpdate = true; }
       const col = n === neck ? COL.neck : n.dq >= 2 ? COL.wip : n.busy ? COL.work : COL.idle; n.col = col; n.ring.material.color.set(col);
+      const full = S.labels === 'all' || n === neck || n === S.hov || n === S.pin; n.sp.visible = full; n.dot.visible = !full;
+      if (!full) { paintChip(n.dot, n.dq ? String(Math.min(999, n.dq)) : '', col); continue; }
       paint(n.sp, n.o.oper || short(n.o), n === neck ? `CUELLO · ${n.dq} en espera` : n.dq ? `${n.dq} en espera` : n.busy ? 'trabajando' : 'sin material', col);
     }
     S.ui += rdt; if (S.ui > .3) { S.ui = 0; hudBody(); }
   }
   const mmss = s => { const m = Math.floor(s / 60); return (m >= 60 ? Math.floor(m / 60) + ' h ' + String(m % 60).padStart(2, '0') + ' min' : m + ':' + String(Math.floor(s % 60)).padStart(2, '0')); };
+  /* pasar el cursor o tocar a una persona muestra su letrero completo */
+  const nearNode = e => { const S = SIM, p = S && ground(e); if (!p) return null; let best = null, bd = 2.2 * 2.2; for (const n of S.N) { const d = (n.x - p[0]) ** 2 + (n.z - p[1]) ** 2; if (d < bd) { bd = d; best = n; } } return best; };
+  const onHover = e => { if (SIM) SIM.hov = nearNode(e); };
+  let hd = null; const onHd = e => { hd = [e.clientX, e.clientY]; };
+  const onHu = e => { if (!SIM || !hd || Math.hypot(e.clientX - hd[0], e.clientY - hd[1]) > 6) return; const n = nearNode(e); SIM.pin = n && SIM.pin !== n ? n : null; };
+  function S0hover(on) { const c = cv(); if (!c) return; const f = on ? 'addEventListener' : 'removeEventListener'; c[f]('pointermove', onHover); c[f]('pointerdown', onHd, true); c[f]('pointerup', onHu, true); }
   let hudFull = false, hudWin = null;
   function openHud() { hudWin?.remove(); hud?.remove(); hud = document.createElement('div'); hud.id = 'vzFlow'; hud.setAttribute('role', 'region'); hud.setAttribute('aria-label', 'Flujo animado');
     hud.className = hudFull ? '' : 'compact';
     hud.innerHTML = `<h4><span>${SIM.N.length} personas animadas</span><span><button data-k="more" aria-expanded="${hudFull}">${hudFull ? 'Ocultar tabla' : 'Ver tabla y controles'}</button> <button data-k="back">Volver al reporte</button></span></h4>
       <div class="fl-ctl"><span>Velocidad</span>${[1, 10, 30, 60].map(v => `<button data-sp="${v}">×${v}</button>`).join('')}<i class="fl-sep"></i><button data-k="pause">Pausa</button><button data-k="reset">Reiniciar</button></div>
       <div class="fl-ctl"><span>Entrada de material</span><button data-fd="takt" title="Entra una pieza cada takt: se ve quién no alcanza la demanda">Al ritmo del takt</button><button data-fd="libre" title="La primera operación nunca se queda sin material: se ve el cuello propio de la línea">Sin límite</button></div>
+      <div class="fl-ctl"><span>Letreros</span><button data-lb="min" title="Solo un punto con las piezas en espera; el nombre aparece al pasar el cursor o al tocar a la persona">Discretos</button><button data-lb="all" title="Nombre y estado de todas las personas">Todos</button></div>
       <div class="fl-body"></div>`;
     hud.addEventListener('click', e => { const b = e.target.closest('button'); if (!b || !SIM) return;
-      if (b.dataset.sp) SIM.speed = +b.dataset.sp; else if (b.dataset.fd) { if (b.dataset.fd === 'takt' && !SIM.tk) return; SIM.feed = b.dataset.fd; } else if (b.dataset.k === 'pause') SIM.pause = !SIM.pause;
+      if (b.dataset.sp) SIM.speed = +b.dataset.sp; else if (b.dataset.lb) SIM.labels = b.dataset.lb; else if (b.dataset.fd) { if (b.dataset.fd === 'takt' && !SIM.tk) return; SIM.feed = b.dataset.fd; } else if (b.dataset.k === 'pause') SIM.pause = !SIM.pause;
       else if (b.dataset.k === 'more') { hudFull = !hudFull; hud.classList.toggle('compact', !hudFull); b.textContent = hudFull ? 'Ocultar tabla' : 'Ver tabla y controles'; b.setAttribute('aria-expanded', String(hudFull)); return; }
       else if (b.dataset.k === 'reset') { start(); return; } else if (b.dataset.k === 'back') { stop(); api.showReport(); return; } hudCtl(); });
     document.body.appendChild(hud); hudWin = win(hud, { title: 'Flujo animado', key: 'flujo' }); hudCtl(); hudBody(); }
-  function hudCtl() { if (!hud || !SIM) return; hud.querySelectorAll('[data-sp]').forEach(b => b.classList.toggle('on', +b.dataset.sp === SIM.speed)); hud.querySelectorAll('[data-fd]').forEach(b => { b.classList.toggle('on', b.dataset.fd === SIM.feed); if (b.dataset.fd === 'takt') b.disabled = !SIM.tk; });
+  function hudCtl() { if (!hud || !SIM) return; hud.querySelectorAll('[data-sp]').forEach(b => b.classList.toggle('on', +b.dataset.sp === SIM.speed)); hud.querySelectorAll('[data-lb]').forEach(b => b.classList.toggle('on', b.dataset.lb === SIM.labels)); hud.querySelectorAll('[data-fd]').forEach(b => { b.classList.toggle('on', b.dataset.fd === SIM.feed); if (b.dataset.fd === 'takt') b.disabled = !SIM.tk; });
     const p = hud.querySelector('[data-k=pause]'); p.textContent = SIM.pause ? 'Reanudar' : 'Pausa'; p.classList.toggle('on', SIM.pause); }
   function hudBody() { if (!hud || !SIM) return; const S = SIM, f1 = v => fmtN(v, 1);
     const rows = S.N.map(n => { const tot = n.tw + n.ts, av = n.done ? n.tw / n.done : 0, mean = (n.o.cycles || []).reduce((a, c) => a + (+c.t || 0), 0) / Math.max(1, (n.o.cycles || []).length);
@@ -151,7 +165,7 @@ export function create(api) {
     const rate = S.clock > 0 ? S.out / S.clock * 3600 : 0, req = S.tk ? 3600 / S.tk : 0;
     hud.querySelector('.fl-body').innerHTML = `<table><thead><tr><th>Persona</th><th>Ciclo</th><th>Ocupación</th><th>En espera</th><th>Hechas</th></tr></thead><tbody>${rows}</tbody></table>
       <div class="fl-sum">Tiempo simulado <b>${mmss(S.clock)}</b> · salida <b>${S.out}</b> pzs (${f1(rate)} pzs/h${req ? ` de ${f1(req)} requeridas` : ''})<br>${S.neck ? `Cuello de botella ahora: <b style="color:#ff7a70">${esc(who(S.neck.o))}</b>, ${S.neck.dq} piezas en espera` : 'Sin acumulación por ahora'}${S.miss ? `<br>${S.miss} persona(s) elegida(s) sin enlazar no entran en la animación.` : ''}</div>`; }
-  function stop() { if (!SIM) return; const V = vida(); V?.ext(null); V?.undriveAll(); SIM = null; hudWin?.remove(); hudWin = null; hud?.remove(); hud = null; clearG(); }
+  function stop() { if (!SIM) return; S0hover(false); const V = vida(); V?.ext(null); V?.undriveAll(); SIM = null; hudWin?.remove(); hudWin = null; hud?.remove(); hud = null; clearG(); }
 
   return { MAX, all, anim, byId, short, who, toggle, link, endLink, unlink, start, stop,
     state: () => SIM ? { running: true, clock: SIM.clock, out: SIM.out, speed: SIM.speed, feed: SIM.feed, neck: SIM.neck ? who(SIM.neck.o) : null, nodes: SIM.N.map(n => ({ name: n.o.name, q: n.q, done: n.done, busy: n.busy, next: n.nx?.o.name || null })) } : { running: false, linking: !!LK, anim: anim().length },
