@@ -5,6 +5,7 @@
 import { create as createOps } from './yamaops.js';
 import { create as createFlujo } from './flujo.js';
 import { init as initVentanas } from './ventanas.js';
+import { create as createRacks } from './racks.js';
 const NS = 'http://www.w3.org/2000/svg';
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const INK = { t1: '#e7ebef', t2: '#a9b3bd', t3: '#6c7783', grid: '#26303b', crit: '#ff5a4f' };
@@ -115,6 +116,7 @@ export function init(ctx) {
   let drag = null, skipClick = false;
   /* ---------- yamazumis de operaciones (tercera pestaña del reporte) ---------- */
   try { initVentanas({ scene }); } catch (e) { console.warn('Ventanas no disponibles:', e); }
+  let RK = null; try { if (ctx.RT && ctx.PICK && ctx.applyObj) RK = createRacks({ THREE, scene, OBJS: ctx.OBJS, RT: ctx.RT, PICK: ctx.PICK, applyObj: ctx.applyObj }); } catch (e) { console.warn('Racks móviles no disponibles:', e); }
   const FLU = createFlujo({ THREE, scene, ctx, esc, fmtN: ctx.fmtN, S: () => state.S, save: () => { try { ctx.changed('meta'); } catch (_) {} },
     hideReport: () => { document.querySelector('#report').hidden = true; }, showReport: () => { document.querySelector('#report').hidden = false; redraw(); } });
   const OPS = createOps({ flow: FLU, svg, side, esc, fmtN: ctx.fmtN, RO, S: () => state.S, save: () => { try { ctx.changed('meta'); } catch (_) {} }, redraw: refit => { if (refit) state.key = ''; redraw(); } });
@@ -316,7 +318,13 @@ export function init(ctx) {
         <p>${s.n} paradas · ${fmtN(s.len, 1)} m por circuito · ciclo ${fmtMS(y.perV)} por vuelta${y.sat !== null ? ' · carga ' + fmtN(y.sat * 100, 0) + '%' : ''}</p>
         <div>${ctx.ELEMS.filter(E => (y.e[E.k] || 0) > 0).map(E => `<button class="vz-el${state.el === E.k ? ' on' : ''}" data-el="${E.k}"><i style="background:${E.col}"></i>${esc(E.name)}<span>${fmtMS(y.e[E.k])}</span><span>${fmtN(y.e[E.k] / Math.max(1e-9, tot) * 100, 0)}%</span></button>`).join('')}</div>
         <button class="vz-go" data-go="1">Ver en 3D${state.el ? ' · ' + esc(ctx.ELEMS.find(E => E.k === state.el)?.name || '') : ''}</button>
-        <div class="vz-btns">${!RO() && state.view !== 'yama' ? '<button data-ed="start">Editar ruta</button>' : ''}<button data-cron="1">Cronometrar${(sel.cron?.laps?.length) ? ' (' + sel.cron.laps.length + ')' : ''}</button></div></div>`); }
+        <div class="vz-btns">${!RO() && state.view !== 'yama' ? '<button data-ed="start">Editar ruta</button>' : ''}<button data-cron="1">Cronometrar${(sel.cron?.laps?.length) ? ' (' + sel.cron.laps.length + ')' : ''}</button></div></div>`);
+      if (RK) { const L = Array.isArray(sel.racks) ? sel.racks : [], ST = sel.stops || [], opt = cur => ST.map((s, i) => `<option value="${i}"${+cur === i ? ' selected' : ''}>${i + 1} · ${esc(ctx.stopName(s, i))}</option>`).join('');
+        o.push(`<div class="vz-card" style="border-color:var(--line,#27323e)"><div class="hd"><b>Racks y carros que mueve</b><span>${L.length}</span></div>
+          ${L.map((k, i) => `<div style="display:grid;gap:4px;margin:6px 0;padding:6px;border:1px solid var(--line,#27323e);border-radius:6px"><div style="display:flex;gap:6px;align-items:center"><b style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(RK.name(k.oid))}</b>${RO() ? '' : `<button data-rkx="${i}" aria-label="Quitar ${esc(RK.name(k.oid))}">×</button>`}</div>
+            <label class="vz-chk" style="display:grid;gap:2px">Lo toma lleno en<select data-rka="${i}"${RO() ? ' disabled' : ''}>${opt(k.a)}</select></label><label class="vz-chk" style="display:grid;gap:2px">Lo entrega en<select data-rkb="${i}"${RO() ? ' disabled' : ''}>${opt(k.b)}</select></label></div>`).join('')}
+          <p>El runner engancha el rack en la primera parada y lo lleva todo el circuito: lleno hasta la entrega y vacío de regreso. Se ve al correr la simulación en 3D.</p>
+          ${RO() || ST.length < 2 ? '' : '<div class="vz-btns"><button data-rk="add">Enlazar rack o carro</button></div>'}</div>`); } }
     if (state.view === 'yama') {
       const T = ctx.yamaTotals(S);
       o.push(`<h5>Yamazumi · ${T.ref === 'ciclo' ? 'ciclo objetivo' : 'carga por hora'}</h5><div class="vz-leg">${ctx.ELEMS.map(E => `<span><i style="background:${E.col}"></i>${esc(E.name)}</span>`).join('')}</div>`);
@@ -348,6 +356,11 @@ export function init(ctx) {
     else if (b.dataset.ed === 'undo') undo();
     else if (b.dataset.sx) delStop(+b.dataset.sx);
     else if (b.dataset.cron) cronOpen(runnerById(state.sel));
+    else if (b.dataset.rk === 'add' && RK) { const r = runnerById(state.sel); if (!r) return; const rep = document.querySelector('#report'); rep.hidden = true;
+      RK.pick(obj => { const ST = r.stops || [], kind = i => ctx.stopKind ? ctx.stopKind(ST[i], i) : '', a = Math.max(0, ST.findIndex((s, i) => kind(i) === 'carga')), bi = ST.findIndex((s, i) => i !== a && kind(i) === 'descarga');
+        r.racks = (Array.isArray(r.racks) ? r.racks : []).filter(k => k.oid !== obj.id); r.racks.push({ oid: obj.id, a, b: bi >= 0 ? bi : (a + 1) % ST.length }); rep.hidden = false; commit(); },
+        msg => { rep.hidden = false; if (msg) alert(msg); redraw(); }); }
+    else if (b.dataset.rkx !== undefined) { const r = runnerById(state.sel); if (r && Array.isArray(r.racks)) { r.racks.splice(+b.dataset.rkx, 1); commit(); } }
     else if (b.dataset.rid) { if (state.edit) endEdit(); select(state.sel === b.dataset.rid ? null : b.dataset.rid); }
     else if (b.dataset.x) select(null);
     else if (b.dataset.el) { state.el = state.el === b.dataset.el ? null : b.dataset.el; redraw(); }
@@ -357,6 +370,7 @@ export function init(ctx) {
     if (state.view === 'ops') { OPS.sideChange(e); return; }
     const t = e.target, r = editR();
     if (t.dataset.snap) { state.snap = t.checked; return; }
+    if (t.dataset.rka !== undefined || t.dataset.rkb !== undefined) { const rr = runnerById(state.sel), k = rr?.racks?.[+(t.dataset.rka ?? t.dataset.rkb)]; if (k) { k[t.dataset.rka !== undefined ? 'a' : 'b'] = +t.value; commit(); } return; }
     if (!r) return;
     if (t.dataset.sk !== undefined) { pushUndo(r); r.stops[+t.dataset.sk].kind = t.value; commit(); }
     else if (t.dataset.sd !== undefined) { pushUndo(r); r.stops[+t.dataset.sd].dwell = Math.max(0, +t.value || 0); commit(); }
@@ -524,7 +538,7 @@ export function init(ctx) {
   }
 
   return {
-    ops: OPS, flow: FLU,
+    ops: OPS, flow: FLU, racks: RK,
     render(view, S, over) { state.view = opsMode ? 'ops' : view === 'yama' ? 'yama' : 'spag'; state.S = S; state.over = over || null; if (state.sel && !runnerById(state.sel)) { state.sel = null; state.el = null; }
       if (state.edit && (state.view !== 'spag' || !editR())) state.edit = null; if (cron && !runnerById(cron.rid)) cronClose(); else redraw(); },
     edit: { start: startEdit, end: endEdit, add: addStop, move: moveStop, del: delStop, undo, snap },

@@ -83,7 +83,8 @@ export function create(api) {
 
   /* ---------- simulación ---------- */
   let SIM = null, hud = null;
-  const BOX = new THREE.BoxGeometry(.32, .32, .32);
+  const BOX = new THREE.BoxGeometry(.32, .32, .32), CAP = 54, UNIT = new THREE.BoxGeometry(1, 1, 1).translate(0, .5, 0), DISC = new THREE.CircleGeometry(1, 40).rotateX(-Math.PI / 2);
+  const LVL = { ok: '#199e70', wip: '#FFB020', neck: '#ff5a4f' };
   const COL = { work: '#199e70', idle: '#7c8a97', wip: '#FFB020', neck: '#ff5a4f' };
   function draw(n) { if (!n.bag.length) { const c = (n.o.cycles || []).map(x => +x.t).filter(t => t > 0); if (!c.length) c.push(60);
       for (let i = c.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [c[i], c[j]] = [c[j], c[i]]; } n.bag = c; } return n.bag.pop(); }
@@ -96,7 +97,11 @@ export function create(api) {
       const n = { Y, o, h, x: h.x, z: h.z, yaw, f, sd, takt: +Y.takt || 0, q: 0, fly: 0, busy: false, rem: 0, dur: 0, bag: [], done: 0, tw: 0, ts: 0, nx: null, preds: 0, arr: 0, st: '' };
       n.wp = [n.x + sd[0] * .95, n.z + sd[1] * .95];
       n.ring = ring(n.x, n.z, COL.idle); g.add(n.ring); n.sp = label(); n.sp.position.set(n.x, 2.75, n.z); g.add(n.sp); n.dot = chipLabel(); n.dot.position.set(n.x, 2.35, n.z); g.add(n.dot);
-      n.wip = new THREE.InstancedMesh(BOX, new THREE.MeshStandardMaterial({ color: '#e0a23a', roughness: .7 }), 24); n.wip.count = 0; n.wip.frustumCulled = false; g.add(n.wip);
+      // acumulación: tarima que se llena (hasta 54 piezas, 3×3×6), columna de nivel y mancha roja bajo el cuello de botella
+      n.pal = new THREE.Mesh(UNIT, new THREE.MeshStandardMaterial({ color: '#8a6a43', roughness: .9 })); n.pal.scale.set(1.2, .12, 1.2); n.pal.position.set(n.wp[0], 0, n.wp[1]); n.pal.rotation.y = n.yaw; g.add(n.pal);
+      n.wip = new THREE.InstancedMesh(BOX, new THREE.MeshStandardMaterial({ color: '#e0a23a', roughness: .7 }), CAP); n.wip.count = 0; n.wip.frustumCulled = false; g.add(n.wip);
+      n.lvl = new THREE.Mesh(UNIT, new THREE.MeshBasicMaterial({ color: LVL.ok, transparent: true, opacity: .85, depthWrite: false })); n.lvl.scale.set(.18, .01, .18); n.lvl.position.set(n.wp[0] + n.sd[0] * .85, 0, n.wp[1] + n.sd[1] * .85); n.lvl.visible = false; g.add(n.lvl);
+      n.stain = new THREE.Mesh(DISC, new THREE.MeshBasicMaterial({ color: LVL.neck, transparent: true, opacity: .28, depthWrite: false })); n.stain.position.set(n.x, .05, n.z); n.stain.renderOrder = 59; n.stain.visible = false; g.add(n.stain);
       n.hand = new THREE.Mesh(BOX, new THREE.MeshStandardMaterial({ color: '#e0a23a', roughness: .7 })); n.hand.visible = false; g.add(n.hand); return n; });
     N.forEach(n => { n.nx = N.find(m => m.o.id === n.o.next && m !== n) || null; if (n.nx) n.nx.preds++; });
     N.forEach(n => { if (n.nx) g.add(arrow([n.x, n.z], [n.nx.x, n.nx.z], '#8fb7ff')); });
@@ -129,7 +134,11 @@ export function create(api) {
           s = { mode: 'walk', x, z, yaw, dist: D * e, carry: go }; if (go) { n.hand.visible = true; n.hand.position.set(x + ux * .38, 1.05, z + uz * .38); } } }
       n.h.set(s);
       // inventario frente a la estación
-      const q = Math.min(24, n.dq); if (n.wip.userData.q !== q) { n.wip.userData.q = q; n.wip.count = q; for (let k = 0; k < q; k++) { const c = k % 2, r = (k >> 1) % 2, l = k >> 2; M4.makeTranslation(n.wp[0] + n.f[0] * c * .36 + n.sd[0] * r * .36, .17 + l * .34, n.wp[1] + n.f[1] * c * .36 + n.sd[1] * r * .36); n.wip.setMatrixAt(k, M4); } n.wip.instanceMatrix.needsUpdate = true; }
+      const q = Math.min(CAP, n.dq); if (n.wip.userData.q !== q) { n.wip.userData.q = q; n.wip.count = q; const c0 = Math.cos(n.yaw), s0 = Math.sin(n.yaw);
+        for (let k = 0; k < q; k++) { const a = k % 3 - 1, b = Math.floor(k / 3) % 3 - 1, l = Math.floor(k / 9), lx = a * .37, lz = b * .37;
+          M4.makeTranslation(n.wp[0] + lx * c0 + lz * s0, .12 + .17 + l * .34, n.wp[1] - lx * s0 + lz * c0); n.wip.setMatrixAt(k, M4); } n.wip.instanceMatrix.needsUpdate = true; }
+      { const neckN = n === S.neck, h = Math.min(4, .15 + n.dq * .12); n.lvl.visible = n.dq > 0; n.lvl.scale.y = h; n.lvl.material.color.set(neckN ? LVL.neck : n.dq >= 2 ? LVL.wip : LVL.ok);
+        n.stain.visible = neckN; if (neckN) { const r = Math.min(5, 1.3 + n.dq * .08); n.stain.scale.set(r, 1, r); n.stain.material.opacity = .2 + .12 * Math.sin(S.clock * .8 / Math.max(1, S.speed / 10)); } }
       const col = n === neck ? COL.neck : n.dq >= 2 ? COL.wip : n.busy ? COL.work : COL.idle; n.col = col; n.ring.material.color.set(col);
       const full = S.labels === 'all' || n === neck || n === S.hov || n === S.pin; n.sp.visible = full; n.dot.visible = !full;
       if (!full) { paintChip(n.dot, n.dq ? String(Math.min(999, n.dq)) : '', col); continue; }
