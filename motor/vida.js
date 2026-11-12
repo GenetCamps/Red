@@ -80,11 +80,35 @@ export function init(TW){
   const hideOp=o=>{ for(const s of o.slots){ s.b.im.setMatrixAt(s.i,Z0); s.b.im.instanceMatrix.needsUpdate=true; } };
   function releaseRig(R){ const o=R.o; if(!o) return; R.g.visible=false; const k=TW.PICK.indexOf(R.hit); if(k>=0) TW.PICK.splice(k,1); R.o=null; BUSY.delete(o.id); if(OBJS.get(o.id)===o) TW.applyObj(o); }
   function assignRig(o,base,i){
-    let R=POOL.find(r=>!r.o); if(!R){ R=makeRig(); POOL.push(R); TW.G_ops.add(R.g); }
+    let R=POOL.find(r=>!r.o&&!r.drv); if(!R){ R=makeRig(); POOL.push(R); TW.G_ops.add(R.g); }
     R.o=o; R.base=base; R.seed=hash(i*1.37+base.x*.31+base.z*.17); R.shirt.color.set(base.col); R.g.visible=true; BUSY.set(o.id,R);
     const sl=o.slots[0]; R.hit.userData.info=sl.b.inf[sl.i]||null; if(R.hit.userData.info) TW.PICK.push(R.hit);
     hideOp(o);
   }
+
+  /* ------------------------------------------------------------------ Fase 5: operadores dirigidos por el flujo de yamazumis (motor/flujo.js)
+     Solo se animan los que el flujo pide (máximo 10). Si el punto enlazado es una figura del gemelo se usa esa; si no, se crea una figura ahí. */
+  const DRV=new Map(); let EXT=null;
+  function nearestOp(x,z,r){ let best=null, bd=r*r; for(const o of OBJS.values()){ if(o.kind!=='op'||!o.slots.length||o.del) continue; const dx=o.p[0]+o.off[0]-x, dz=o.p[1]+o.off[1]-z; if(dx*dx+dz*dz>bd+9) continue;
+      const b=opBase(o); if(!b) continue; const d=(b.x-x)**2+(b.z-z)**2; if(d<bd){ bd=d; best={id:o.id,x:b.x,z:b.z}; } } return best; }
+  function undrive(key){ const R=DRV.get(key); if(!R) return; DRV.delete(key); R.drv=null; if(R.o) releaseRig(R); else R.g.visible=false; }
+  function drive(key,spec){ undrive(key); let R=null, o=spec.oid!=null?OBJS.get(spec.oid):null, base=null;
+    if(o&&o.kind==='op'&&!o.del&&o.slots.length){ const B=BUSY.get(o.id); if(B){ if(B.drv) o=null; else releaseRig(B); } if(o) base=opBase(o); }
+    if(o&&base){ assignRig(o,base,DRV.size); R=BUSY.get(o.id); }
+    else { R=POOL.find(r=>!r.o&&!r.drv); if(!R){ R=makeRig(); POOL.push(R); TW.G_ops.add(R.g); }
+      R.base={x:spec.x,z:spec.z,y:0,yaw:spec.yaw||0,top:1.75,col:'#3fa0ff',seated:false}; R.seed=hash(spec.x*.31+spec.z*.17); R.shirt.color.set(R.base.col); R.g.visible=true; }
+    R.drv={s:{mode:'idle'}}; DRV.set(key,R); const b=R.base; return { x:b.x, z:b.z, yaw:b.yaw, set(s){ if(R.drv) R.drv.s=s; } }; }
+  function poseDrv(R,t){ const b=R.base, s=R.drv.s||{}, tt=t+R.seed*40, walk=s.mode==='walk', seated=b.seated&&!walk;
+    let x=s.x??b.x, z=s.z??b.z, yaw=s.yaw??b.yaw, lean=-.07, hl=0, hr=0, kl=0, kr=0, sl, sr, el, er, nod=.1;
+    if(walk){ const ph=(s.dist||0)*TAU/1.3, sw=Math.sin(ph)*.5; hl=sw; hr=-sw; kl=-Math.max(0,-Math.sin(ph+.6))*.7; kr=-Math.max(0,Math.sin(ph+.6))*.7; lean=-.04; nod=0;
+      if(s.carry){ sl=sr=.75; el=er=.9; } else { sl=.1-sw*.8; sr=.1+sw*.8; el=er=.3; } }
+    else if(s.mode==='work'){ sl=.95+.26*Math.sin(tt*2.1); sr=.95+.26*Math.sin(tt*2.1+Math.PI); el=.85+.32*Math.sin(tt*2.1+1.1); er=.85+.32*Math.sin(tt*2.1+Math.PI+1.1); nod=.12+.06*Math.sin(tt*.9); }
+    else { sl=sr=.08+.03*Math.sin(tt*.7); el=er=.2; lean=-.02; nod=.03; }
+    if(seated){ hl=hr=1.5; kl=kr=-1.5; lean-=.05; if(s.mode==='work'){ sl-=.25; sr-=.25; } }
+    R.g.position.set(x,b.y+(seated?b.top-1.32:0),z); R.g.rotation.y=yaw;
+    R.up.rotation.z=lean; R.up.rotation.y=0; R.head.rotation.z=-nod;
+    R.hip[0].h.rotation.z=hl; R.hip[1].h.rotation.z=hr; R.hip[0].k.rotation.z=kl; R.hip[1].k.rotation.z=kr;
+    R.arm[0].a.rotation.z=sl; R.arm[1].a.rotation.z=sr; R.arm[0].e.rotation.z=el; R.arm[1].e.rotation.z=er; }
 
   /* ------------------------------------------------------------------ máquinas con ciclo */
   const MACH=new Map();                                                       // o.id → overlay
@@ -135,9 +159,9 @@ export function init(TW){
     cam.getWorldDirection(_d); const k=_d.y<-.05 ? Math.min(60, cam.position.y/-_d.y) : 10; return [cam.position.x+_d.x*k, cam.position.z+_d.z*k]; }
   function reassign(){
     const st=TW.state(), cfg=MODES[mode], on = mode!=='off' && st.tool!=='move' && TW.G_ops.visible!==false;
-    if(!on){ [...BUSY.values()].forEach(releaseRig); [...MACH.keys()].forEach(releaseMach); return; }
+    if(!on){ [...BUSY.values()].filter(R=>!R.drv).forEach(releaseRig); [...MACH.keys()].forEach(releaseMach); return; }
     const [fx,fz]=focus(), r2=cfg.r*cfg.r, keep2=r2*1.3;
-    for(const R of [...BUSY.values()]){ const o=R.o, dx=R.base.x-fx, dz=R.base.z-fz; if(o.del || OBJS.get(o.id)!==o || dx*dx+dz*dz>keep2) releaseRig(R); }
+    for(const R of [...BUSY.values()]){ if(R.drv) continue; const o=R.o, dx=R.base.x-fx, dz=R.base.z-fz; if(o.del || OBJS.get(o.id)!==o || dx*dx+dz*dz>keep2) releaseRig(R); }
     if(BUSY.size<cfg.ops){ const cand=[];
       for(let i=0;i<OPS.length;i++){ const o=OPS[i]; if(o.del||BUSY.has(o.id)) continue; const dx=o.p[0]+o.off[0]-fx, dz=o.p[1]+o.off[1]-fz, d=dx*dx+dz*dz; if(d<r2) cand.push([d,o,i]); }
       cand.sort((a,b)=>a[0]-b[0]);
@@ -160,13 +184,15 @@ export function init(TW){
   /* ------------------------------------------------------------------ ciclo por cuadro, con freno si la máquina no da */
   let t=0, acc=0, slow=0, cap=1;
   function frame(dt){
-    const st=TW.state(); if(mode==='off'&&!BUSY.size&&!MACH.size){ if(st.playing!==false) forklifts(dt,st); return; }   // sin animación: solo mástil y carga de montacargas
+    const st=TW.state(); if(EXT){ try{ EXT(dt,st); }catch(e){ console.warn('Flujo:',e); EXT=null; } }
+    if(mode==='off'&&!BUSY.size&&!MACH.size&&!DRV.size){ if(st.playing!==false) forklifts(dt,st); return; }   // sin animación: solo mástil y carga de montacargas
     acc+=dt; if(scanAt<0||t-scanAt>3){ scan(); scanAt=t; }
     if(acc>.4){ acc=0; reassign(); }
     if(st.playing===false) return;
     t+=dt; slow = dt>.06 ? slow+dt : Math.max(0,slow-dt*.5);                  // menos de ~16 cuadros por segundo sostenido
     if(slow>3 && mode!=='off'){ slow=0; const c=MODES[mode]; if(c.ops>10){ c.ops=Math.round(c.ops*.6); c.mach=Math.max(2,Math.round(c.mach*.6)); c.r*=.8; note('Animación reducida para mantener fluidez'); } }
-    for(const R of BUSY.values()) pose(R,t);
+    for(const R of BUSY.values()) if(!R.drv) pose(R,t);
+    for(const R of DRV.values()) poseDrv(R,t);
     for(const X of MACH.values()) X.step(t);
     forklifts(dt,st);
   }
@@ -180,5 +206,5 @@ export function init(TW){
       const lab=q.querySelector('.seglabel'); d.innerHTML=(lab?'<span class="'+lab.className+'">Animación</span>':'')+'<button data-v="off" title="Sin animación de operadores ni máquinas">No</button><button data-v="zona" title="Anima lo que está cerca de donde miras">Zona</button><button data-v="alta" title="Más operadores y máquinas animados; pide más equipo">Alta</button>';
       q.insertAdjacentElement('afterend',d); d.addEventListener('click',e=>{ const b=e.target.closest('button'); if(b) setMode(b.dataset.v); }); noteEl=d; d.hidden=true; d.style.display='none'; setMode(mode); } }
   const lookAt=(x,z,r)=>{ const o=TW.orbit; if(!o) return; o.T.target.set(x,0,z); if(r) o.T.r=r; acc=1; };   // para pruebas y para recorridos
-  return { frame, setMode, lookAt, where:()=>({ops:[...BUSY.values()].slice(0,5).map(R=>[+R.base.x.toFixed(1),+R.base.z.toFixed(1),R.base.seated]),mach:[...MACH.values()].slice(0,3).map(X=>[+X.g.position.x.toFixed(1),+X.g.position.z.toFixed(1),X.kind])}), get mode(){ return mode; }, stats:()=>({ mode, ops:BUSY.size, mach:MACH.size, pool:POOL.length, total:OPS.length, kinds:[...MACH.values()].map(x=>x.kind) }) };
+  return { frame, setMode, lookAt, drive, undrive, undriveAll(){ [...DRV.keys()].forEach(undrive); }, nearestOp, ext(f){ EXT=f||null; }, driven:()=>DRV.size, where:()=>({ops:[...BUSY.values()].slice(0,5).map(R=>[+R.base.x.toFixed(1),+R.base.z.toFixed(1),R.base.seated]),mach:[...MACH.values()].slice(0,3).map(X=>[+X.g.position.x.toFixed(1),+X.g.position.z.toFixed(1),X.kind])}), get mode(){ return mode; }, stats:()=>({ mode, ops:BUSY.size, mach:MACH.size, pool:POOL.length, total:OPS.length, kinds:[...MACH.values()].map(x=>x.kind) }) };
 }
