@@ -4,6 +4,7 @@
    El <canvas id="repCv"> sigue existiendo, oculto, para "Descargar PNG". */
 import { create as createOps } from './yamaops.js';
 import { create as createFlujo } from './flujo.js';
+import { init as initVentanas } from './ventanas.js';
 const NS = 'http://www.w3.org/2000/svg';
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const INK = { t1: '#e7ebef', t2: '#a9b3bd', t3: '#6c7783', grid: '#26303b', crit: '#ff5a4f' };
@@ -113,6 +114,7 @@ export function init(ctx) {
   const world = e => { const r = main.getBoundingClientRect(), v = state.vb, { w, h } = size(); return [v.x + (e.clientX - r.left) / w * v.w, v.y + (e.clientY - r.top) / h * v.h]; };
   let drag = null, skipClick = false;
   /* ---------- yamazumis de operaciones (tercera pestaña del reporte) ---------- */
+  try { initVentanas({ scene }); } catch (e) { console.warn('Ventanas no disponibles:', e); }
   const FLU = createFlujo({ THREE, scene, ctx, esc, fmtN: ctx.fmtN, S: () => state.S, save: () => { try { ctx.changed('meta'); } catch (_) {} },
     hideReport: () => { document.querySelector('#report').hidden = true; }, showReport: () => { document.querySelector('#report').hidden = false; redraw(); } });
   const OPS = createOps({ flow: FLU, svg, side, esc, fmtN: ctx.fmtN, RO, S: () => state.S, save: () => { try { ctx.changed('meta'); } catch (_) {} }, redraw: refit => { if (refit) state.key = ''; redraw(); } });

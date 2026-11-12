@@ -78,10 +78,15 @@ export function init({ THREE, scene, renderer }) {
     }
   }
   const timer = setInterval(tick, 700);
-  // Sombras: recalcularlas cuesta más de la mitad del cuadro en gráficos integrados. Se recalculan 1 de cada 3 cuadros;
+  // Sombras: recalcularlas cuesta más de la mitad del cuadro en gráficos integrados. Con la vista quieta se recalculan 1 de cada 3 cuadros;
+  // mientras la luz se mueve (sigue a la cámara) se recalculan en todos, porque un mapa atrasado se veía como parpadeo en piezas finas;
   // entre medio se usa el mapa anterior (la sombra de un montacargas va, como mucho, dos cuadros atrás).
-  let fr = 0, shOn = !!renderer;
-  const sh = () => { if (shOn && renderer.shadowMap.enabled) { renderer.shadowMap.autoUpdate = false; if (fr++ % 3 === 0) renderer.shadowMap.needsUpdate = true; } requestAnimationFrame(sh); };
+  let fr = 0, shOn = !!renderer, sun = null, skey = '', hold = 0;
+  const sh = () => { if (shOn && renderer.shadowMap.enabled) { renderer.shadowMap.autoUpdate = false;
+      if (!sun) scene.traverse(o => { if (o.isDirectionalLight && o.castShadow) sun = o; });
+      let k = ''; if (sun) { const p = sun.position, t = sun.target.position, c = sun.shadow.camera; k = [p.x, p.y, p.z, t.x, t.y, t.z, c.left, c.right].map(v => v.toFixed(3)).join(','); }
+      if (k !== skey) { skey = k; hold = 3; }
+      if (hold > 0 || fr % 3 === 0) renderer.shadowMap.needsUpdate = true; if (hold > 0) hold--; fr++; } requestAnimationFrame(sh); };
   if (renderer) requestAnimationFrame(sh);
   return {
     tick, stats: () => [...G].map(([g, st]) => ({ capa: g.userData.key || g.name || '?', piezas: count(g), fundidas: st.merged ? st.n : 0 })),

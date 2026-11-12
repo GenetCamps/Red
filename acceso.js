@@ -57,7 +57,7 @@
   function gate(){
     css();
     var first=!list.length, g=document.createElement('div'); g.id='rdGate';
-    g.innerHTML='<form class="rdBox" autocomplete="on"><h1>Red <i>DAIMAY</i></h1>'
+    g.innerHTML='<form class="rdBox" autocomplete="on"><img src="estilo/logo_daimay.png" alt="DAIMAY" style="height:64px;width:auto;border-radius:8px;background:#fff;padding:4px;display:block;margin:0 0 10px" onerror="this.remove()"><h1>Red <i>DAIMAY</i></h1>'
       +(first?'<p>Primer uso: crea la cuenta del administrador. Al terminar se descarga <b>usuarios.js</b>; súbelo al repositorio para que el acceso quede activo para todos.</p>'
             +'<label for="rdNom">Nombre</label><input id="rdNom" required maxlength="60">'
           :'<p>Entra con tu número de empleado y tu contraseña.</p>')

@@ -18,10 +18,12 @@ const CSS = `
 #vzFlow th:first-child,#vzFlow td:first-child{text-align:left;white-space:normal}
 #vzFlow td i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px}
 #vzFlow tr.neck td{color:#ff7a70;font-weight:600}
+#vzFlow.compact .fl-ctl,#vzFlow.compact table{display:none} #vzFlow.compact{width:min(430px,calc(100vw - 28px))} #vzFlow.compact .fl-sum{margin-top:0}
 #vzFlow .fl-sum{margin-top:8px;color:var(--dim,#a9b3bd)} #vzFlow .fl-sum b{color:var(--ink,#e7ebef)}
 #vzLink{position:fixed;left:50%;top:14px;transform:translateX(-50%);z-index:60;background:rgba(13,18,24,.95);border:1px solid #FFB020;border-radius:10px;padding:10px 14px;color:#e7ebef;font:13px/1.4 system-ui,'Segoe UI',sans-serif;display:flex;gap:10px;align-items:center;flex-wrap:wrap;max-width:calc(100vw - 28px);box-shadow:0 10px 30px rgba(0,0,0,.45)}
 #vzLink b{color:#FFB020} #vzLink button{background:#1b232c;border:1px solid #27323e;border-radius:6px;color:inherit;font:inherit;padding:5px 9px;cursor:pointer;min-height:30px}
 `;
+import { win } from './ventanas.js';
 export const MAX = 10;
 export function create(api) {
   const { THREE, scene, ctx, esc, fmtN } = api;
@@ -129,15 +131,18 @@ export function create(api) {
     S.ui += rdt; if (S.ui > .3) { S.ui = 0; hudBody(); }
   }
   const mmss = s => { const m = Math.floor(s / 60); return (m >= 60 ? Math.floor(m / 60) + ' h ' + String(m % 60).padStart(2, '0') + ' min' : m + ':' + String(Math.floor(s % 60)).padStart(2, '0')); };
-  function openHud() { hud?.remove(); hud = document.createElement('div'); hud.id = 'vzFlow'; hud.setAttribute('role', 'region'); hud.setAttribute('aria-label', 'Flujo animado');
-    hud.innerHTML = `<h4><span>Flujo animado · ${SIM.N.length} personas</span><button data-k="back">Volver al reporte</button></h4>
+  let hudFull = false, hudWin = null;
+  function openHud() { hudWin?.remove(); hud?.remove(); hud = document.createElement('div'); hud.id = 'vzFlow'; hud.setAttribute('role', 'region'); hud.setAttribute('aria-label', 'Flujo animado');
+    hud.className = hudFull ? '' : 'compact';
+    hud.innerHTML = `<h4><span>${SIM.N.length} personas animadas</span><span><button data-k="more" aria-expanded="${hudFull}">${hudFull ? 'Ocultar tabla' : 'Ver tabla y controles'}</button> <button data-k="back">Volver al reporte</button></span></h4>
       <div class="fl-ctl"><span>Velocidad</span>${[1, 10, 30, 60].map(v => `<button data-sp="${v}">×${v}</button>`).join('')}<i class="fl-sep"></i><button data-k="pause">Pausa</button><button data-k="reset">Reiniciar</button></div>
       <div class="fl-ctl"><span>Entrada de material</span><button data-fd="takt" title="Entra una pieza cada takt: se ve quién no alcanza la demanda">Al ritmo del takt</button><button data-fd="libre" title="La primera operación nunca se queda sin material: se ve el cuello propio de la línea">Sin límite</button></div>
       <div class="fl-body"></div>`;
     hud.addEventListener('click', e => { const b = e.target.closest('button'); if (!b || !SIM) return;
       if (b.dataset.sp) SIM.speed = +b.dataset.sp; else if (b.dataset.fd) { if (b.dataset.fd === 'takt' && !SIM.tk) return; SIM.feed = b.dataset.fd; } else if (b.dataset.k === 'pause') SIM.pause = !SIM.pause;
+      else if (b.dataset.k === 'more') { hudFull = !hudFull; hud.classList.toggle('compact', !hudFull); b.textContent = hudFull ? 'Ocultar tabla' : 'Ver tabla y controles'; b.setAttribute('aria-expanded', String(hudFull)); return; }
       else if (b.dataset.k === 'reset') { start(); return; } else if (b.dataset.k === 'back') { stop(); api.showReport(); return; } hudCtl(); });
-    document.body.appendChild(hud); hudCtl(); hudBody(); }
+    document.body.appendChild(hud); hudWin = win(hud, { title: 'Flujo animado', key: 'flujo' }); hudCtl(); hudBody(); }
   function hudCtl() { if (!hud || !SIM) return; hud.querySelectorAll('[data-sp]').forEach(b => b.classList.toggle('on', +b.dataset.sp === SIM.speed)); hud.querySelectorAll('[data-fd]').forEach(b => { b.classList.toggle('on', b.dataset.fd === SIM.feed); if (b.dataset.fd === 'takt') b.disabled = !SIM.tk; });
     const p = hud.querySelector('[data-k=pause]'); p.textContent = SIM.pause ? 'Reanudar' : 'Pausa'; p.classList.toggle('on', SIM.pause); }
   function hudBody() { if (!hud || !SIM) return; const S = SIM, f1 = v => fmtN(v, 1);
@@ -146,7 +151,7 @@ export function create(api) {
     const rate = S.clock > 0 ? S.out / S.clock * 3600 : 0, req = S.tk ? 3600 / S.tk : 0;
     hud.querySelector('.fl-body').innerHTML = `<table><thead><tr><th>Persona</th><th>Ciclo</th><th>Ocupación</th><th>En espera</th><th>Hechas</th></tr></thead><tbody>${rows}</tbody></table>
       <div class="fl-sum">Tiempo simulado <b>${mmss(S.clock)}</b> · salida <b>${S.out}</b> pzs (${f1(rate)} pzs/h${req ? ` de ${f1(req)} requeridas` : ''})<br>${S.neck ? `Cuello de botella ahora: <b style="color:#ff7a70">${esc(who(S.neck.o))}</b>, ${S.neck.dq} piezas en espera` : 'Sin acumulación por ahora'}${S.miss ? `<br>${S.miss} persona(s) elegida(s) sin enlazar no entran en la animación.` : ''}</div>`; }
-  function stop() { if (!SIM) return; const V = vida(); V?.ext(null); V?.undriveAll(); SIM = null; hud?.remove(); hud = null; clearG(); }
+  function stop() { if (!SIM) return; const V = vida(); V?.ext(null); V?.undriveAll(); SIM = null; hudWin?.remove(); hudWin = null; hud?.remove(); hud = null; clearG(); }
 
   return { MAX, all, anim, byId, short, who, toggle, link, endLink, unlink, start, stop,
     state: () => SIM ? { running: true, clock: SIM.clock, out: SIM.out, speed: SIM.speed, feed: SIM.feed, neck: SIM.neck ? who(SIM.neck.o) : null, nodes: SIM.N.map(n => ({ name: n.o.name, q: n.q, done: n.done, busy: n.busy, next: n.nx?.o.name || null })) } : { running: false, linking: !!LK, anim: anim().length },
