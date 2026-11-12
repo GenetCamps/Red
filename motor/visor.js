@@ -2,6 +2,7 @@
    Sustituye la imagen fija del reporte por un dibujo en vectores con zoom y paneo.
    No cambia datos ni cálculos: usa las mismas funciones del motor (buildPath, yamaOf, statsOf...).
    El <canvas id="repCv"> sigue existiendo, oculto, para "Descargar PNG". */
+import { create as createOps } from './yamaops.js';
 const NS = 'http://www.w3.org/2000/svg';
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const INK = { t1: '#e7ebef', t2: '#a9b3bd', t3: '#6c7783', grid: '#26303b', crit: '#ff5a4f' };
@@ -110,6 +111,13 @@ export function init(ctx) {
   const RO = () => !!window.RD_RO;
   const world = e => { const r = main.getBoundingClientRect(), v = state.vb, { w, h } = size(); return [v.x + (e.clientX - r.left) / w * v.w, v.y + (e.clientY - r.top) / h * v.h]; };
   let drag = null, skipClick = false;
+  /* ---------- yamazumis de operaciones (tercera pestaña del reporte) ---------- */
+  const OPS = createOps({ svg, side, esc, fmtN: ctx.fmtN, RO, S: () => state.S, save: () => { try { ctx.changed('meta'); } catch (_) {} }, redraw: refit => { if (refit) state.key = ''; redraw(); } });
+  let opsMode = false; const rv = document.querySelector('#repView'), opsBtn = document.createElement('button');
+  opsBtn.dataset.v = 'ops'; opsBtn.textContent = 'Operaciones'; opsBtn.title = 'Yamazumis de operaciones por línea (plantilla Yamazumi v5)';
+  const markOps = () => { if (!rv) return; rv.querySelectorAll('button').forEach(b => b.classList.toggle('on', b === opsBtn)); const t = document.querySelector('#repTitle'); if (t) t.textContent = OPS.title(); };
+  if (rv) { rv.appendChild(opsBtn); rv.addEventListener('click', e => { const t = e.target.closest('button'); if (!t) return;
+    if (t === opsBtn) { e.stopPropagation(); opsMode = true; state.edit = null; state.view = 'ops'; markOps(); redraw(); } else opsMode = false; }, true); }
 
   /* ---------- vista: zoom y paneo sobre el viewBox ---------- */
   const size = () => { const r = main.getBoundingClientRect(); return { w: Math.max(50, r.width), h: Math.max(50, r.height) }; };
@@ -164,6 +172,7 @@ export function init(ctx) {
   svg.addEventListener('dblclick', e => { if (state.edit) return; const r = main.getBoundingClientRect(); zoomAt(e.clientX - r.left, e.clientY - r.top, 2); });
   svg.addEventListener('click', e => {
     if (skipClick || moved > 5) return;
+    if (state.view === 'ops') { OPS.click(e); return; }
     if (state.edit) { if (e.detail <= 1 && !e.target.closest('[data-stop]')) addStop(world(e)); return; }
     const t = e.target.closest('[data-r]');
     if (t) select(t.dataset.r, t.dataset.e || null); else if (state.sel) select(null);
@@ -187,7 +196,7 @@ export function init(ctx) {
     const u = b.w / 1600; c.querySelectorAll('.vz-k').forEach(g => g.setAttribute('transform', `translate(${g.dataset.x} ${g.dataset.y}) rotate(${g.dataset.a || 0}) scale(${u})`));
     const bg = document.createElementNS(NS, 'rect'); bg.setAttribute('x', b.x); bg.setAttribute('y', b.y); bg.setAttribute('width', b.w); bg.setAttribute('height', b.h); bg.setAttribute('fill', '#161b20'); c.insertBefore(bg, c.firstChild);
     const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(['<?xml version="1.0" encoding="UTF-8"?>\n' + new XMLSerializer().serializeToString(c)], { type: 'image/svg+xml' }));
-    a.download = `${state.view === 'yama' ? 'Yamazumi' : 'Espagueti'}_${ctx.id || 'planta'}_${String(state.S?.name || '').replace(/[^\w-]+/g, '_')}.svg`;
+    a.download = `${state.view === 'ops' ? 'Operaciones' : state.view === 'yama' ? 'Yamazumi' : 'Espagueti'}_${ctx.id || 'planta'}_${String(state.S?.name || '').replace(/[^\w-]+/g, '_')}.svg`;
     document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
   }
 
@@ -325,6 +334,7 @@ export function init(ctx) {
     side.innerHTML = o.join('');
   }
   side.addEventListener('click', e => {
+    if (state.view === 'ops') { OPS.sideClick(e); return; }
     const row = e.target.closest('.vz-stop');
     if (row && state.edit && !e.target.closest('select,input,button')) { const i = +row.dataset.si; state.edit.sel = state.edit.sel === i ? -1 : i; redraw(); return; }
     const b = e.target.closest('button'); if (!b) return;
@@ -339,6 +349,7 @@ export function init(ctx) {
     else if (b.dataset.go) show3D(runnerById(state.sel), state.el);
   });
   side.addEventListener('change', e => {
+    if (state.view === 'ops') { OPS.sideChange(e); return; }
     const t = e.target, r = editR();
     if (t.dataset.snap) { state.snap = t.checked; return; }
     if (!r) return;
@@ -458,12 +469,13 @@ export function init(ctx) {
 
   function redraw() {
     if (!state.S) return;
-    const box = state.view === 'yama' ? drawYama(state.S, state.over) : drawSpag(state.S, state.over);
-    svg.classList.toggle('sel', !!state.sel && state.view !== 'yama'); svg.classList.toggle('edit', !!state.edit);
+    if (state.view === 'ops') state.metres = false;
+    const box = state.view === 'ops' ? OPS.draw() : state.view === 'yama' ? drawYama(state.S, state.over) : drawSpag(state.S, state.over);
+    svg.classList.toggle('sel', !!state.sel && state.view === 'spag'); svg.classList.toggle('edit', !!state.edit);
     const key = state.view + '|' + [box.x, box.y, box.w, box.h].map(v => Math.round(v)).join(',');
     state.box = box;
     if (key !== state.key || !state.vb) { state.key = key; state.home = fitTo(box); state.vb = { ...state.home }; }
-    applyView(); drawSide();
+    applyView(); if (state.view === 'ops') { OPS.drawSide(); markOps(); } else drawSide();
   }
 
   /* ---------- resaltado en 3D ---------- */
@@ -507,8 +519,9 @@ export function init(ctx) {
   }
 
   return {
-    render(view, S, over) { state.view = view === 'yama' ? 'yama' : 'spag'; state.S = S; state.over = over || null; if (state.sel && !runnerById(state.sel)) { state.sel = null; state.el = null; }
-      if (state.edit && (state.view === 'yama' || !editR())) state.edit = null; if (cron && !runnerById(cron.rid)) cronClose(); else redraw(); },
+    ops: OPS,
+    render(view, S, over) { state.view = opsMode ? 'ops' : view === 'yama' ? 'yama' : 'spag'; state.S = S; state.over = over || null; if (state.sel && !runnerById(state.sel)) { state.sel = null; state.el = null; }
+      if (state.edit && (state.view !== 'spag' || !editR())) state.edit = null; if (cron && !runnerById(cron.rid)) cronClose(); else redraw(); },
     edit: { start: startEdit, end: endEdit, add: addStop, move: moveStop, del: delStop, undo, snap },
     cron: { open: id => cronOpen(runnerById(id)), tap: k => cronTap(k), lap: () => cronLap(), apply: () => cronApply(), importCsv: t => cronImport(t), close: () => cronClose(), laps: () => cron ? cron.laps : null },
     select, show3D: (id, el) => show3D(runnerById(id), el || null), clear3D, fit,
