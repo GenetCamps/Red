@@ -6,6 +6,7 @@ import { create as createOps } from './yamaops.js';
 import { create as createFlujo } from './flujo.js';
 import { init as initVentanas } from './ventanas.js';
 import { create as createRacks } from './racks.js';
+import { create as createAnalisis } from './analisis.js';
 const NS = 'http://www.w3.org/2000/svg';
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const INK = { t1: '#e7ebef', t2: '#a9b3bd', t3: '#6c7783', grid: '#26303b', crit: '#ff5a4f' };
@@ -117,9 +118,11 @@ export function init(ctx) {
   /* ---------- yamazumis de operaciones (tercera pestaña del reporte) ---------- */
   try { initVentanas({ scene }); } catch (e) { console.warn('Ventanas no disponibles:', e); }
   let RK = null; try { if (ctx.RT && ctx.PICK && ctx.applyObj) RK = createRacks({ THREE, scene, OBJS: ctx.OBJS, RT: ctx.RT, PICK: ctx.PICK, applyObj: ctx.applyObj }); } catch (e) { console.warn('Racks móviles no disponibles:', e); }
-  const FLU = createFlujo({ THREE, scene, ctx, esc, fmtN: ctx.fmtN, S: () => state.S, save: () => { try { ctx.changed('meta'); } catch (_) {} },
+  let ANA = null;
+  const FLU = createFlujo({ ana: () => ANA, THREE, scene, ctx, esc, fmtN: ctx.fmtN, S: () => state.S, save: () => { try { ctx.changed('meta'); } catch (_) {} },
     hideReport: () => { document.querySelector('#report').hidden = true; }, showReport: () => { document.querySelector('#report').hidden = false; redraw(); } });
-  const OPS = createOps({ flow: FLU, svg, side, esc, fmtN: ctx.fmtN, RO, S: () => state.S, save: () => { try { ctx.changed('meta'); } catch (_) {} }, redraw: refit => { if (refit) state.key = ''; redraw(); } });
+  const OPS = createOps({ ana: () => ANA, flow: FLU, svg, side, esc, fmtN: ctx.fmtN, RO, S: () => state.S, save: () => { try { ctx.changed('meta'); } catch (_) {} }, redraw: refit => { if (refit) state.key = ''; redraw(); } });
+  try { ANA = createAnalisis({ esc, fmtN: ctx.fmtN, flow: FLU, yz: () => OPS.current(), S: () => state.S, save: () => { try { ctx.changed('meta'); } catch (_) {} } }); } catch (e) { console.warn('Análisis de turno no disponible:', e); }
   let opsMode = false; const rv = document.querySelector('#repView'), opsBtn = document.createElement('button');
   opsBtn.dataset.v = 'ops'; opsBtn.textContent = 'Operaciones'; opsBtn.title = 'Yamazumis de operaciones por línea (plantilla Yamazumi v5)';
   const markOps = () => { if (!rv) return; rv.querySelectorAll('button').forEach(b => b.classList.toggle('on', b === opsBtn)); const t = document.querySelector('#repTitle'); if (t) t.textContent = OPS.title(); };
@@ -538,7 +541,7 @@ export function init(ctx) {
   }
 
   return {
-    ops: OPS, flow: FLU, racks: RK,
+    ops: OPS, flow: FLU, racks: RK, get analisis() { return ANA; },
     render(view, S, over) { state.view = opsMode ? 'ops' : view === 'yama' ? 'yama' : 'spag'; state.S = S; state.over = over || null; if (state.sel && !runnerById(state.sel)) { state.sel = null; state.el = null; }
       if (state.edit && (state.view !== 'spag' || !editR())) state.edit = null; if (cron && !runnerById(cron.rid)) cronClose(); else redraw(); },
     edit: { start: startEdit, end: endEdit, add: addStop, move: moveStop, del: delStop, undo, snap },

@@ -150,7 +150,7 @@ export function create(api) {
         o.push(`<div class="vz-card" style="border-color:var(--line,#27323e)"><div class="hd"><b>Animación en 3D</b><span>${A.length} de ${flow.MAX}</span></div><p>Elige con ▶ hasta ${flow.MAX} personas, de uno o varios yamazumis. A cada una dile dónde está (clic en el gemelo), si camina y a quién le entrega.</p>
           ${A.map(x => `<div class="vz-row" data-go="${esc(x.o.id)}" style="grid-template-columns:1fr auto 24px;cursor:pointer"><span><b>${esc(nm(x.o))}</b><small>${esc(x.o.oper ? flow.short(x.o) + ' · ' : '')}${x.o.link ? 'enlazada' : '<span style="color:#FFB020">sin enlazar</span>'}${x.o.walk ? ' · camina' : ''} → ${esc(nx(x.o))}</small></span><em></em><button data-anx="${esc(x.o.id)}" aria-label="Quitar de la animación">×</button></div>`).join('')}
           ${st.fmsg ? `<p style="color:#FFB020">${esc(st.fmsg)}</p>` : ''}
-          <div class="vz-btns">${ro || !A.length ? '' : `<button data-y="flink">${miss.length ? `Enlazar en 3D (${miss.length})` : 'Volver a enlazar'}</button>`}<button class="prim" data-y="fgo"${A.length ? '' : ' disabled'}>Animar en 3D</button></div></div>`); }
+          <div class="vz-btns">${ro || !A.length ? '' : `<button data-y="flink">${miss.length ? `Enlazar en 3D (${miss.length})` : 'Volver a enlazar'}</button>`}<button class="prim" data-y="fgo"${A.length ? '' : ' disabled'}>Animar en 3D</button></div><div class="vz-btns"><button data-y="fana" title="Proyectar a un turno de 8 o 12 horas con paros, demanda y costo por minuto">Análisis de turno${A.length ? '' : ' (todo el yamazumi)'}</button></div></div>`); }
       const sel = Y.ops.find(x => x.id === st.osel);
       if (sel) { const s = statOf(sel);
         o.push(`<div class="vz-card"><div class="hd"><b>${esc(sel.name)}</b><button data-y="osx" aria-label="Quitar selección">×</button></div><p>Promedio ${f1(s.mean)} s · mín ${f1(s.min)} · máx ${f1(s.max)} · CV ${fmtN(s.cv * 100, 0)}% · ${s.n} ciclos</p>
@@ -183,6 +183,7 @@ export function create(api) {
     if (y === 'msgx') { st.msg = []; api.redraw(); return; }
     if (y === 'osx') { st.osel = null; api.redraw(); return; }
     if (flow) {
+      if (y === 'fana') { api.ana?.()?.open(flow.anim().length ? 'anim' : 'yz'); return; }
       if (y === 'fgo') { st.fmsg = flow.start() || ''; if (st.fmsg) api.redraw(); return; }
       if (y === 'flink') { const A = flow.anim(), m = A.filter(x => !x.o.link); flow.link((m.length ? m : A).map(x => x.o.id)); return; }
       if (y === 'flink1' && st.osel) { flow.link([st.osel]); return; }
@@ -214,5 +215,5 @@ export function create(api) {
     if (t.dataset.ct !== undefined) { const v = num(t.value); if (v > 0) sel.cycles[+t.dataset.ct].t = +v.toFixed(1); save(); api.redraw(); }
     else if (t.dataset.cc !== undefined) { sel.cycles[+t.dataset.cc].cat = t.value; save(); api.redraw(); }
   }
-  return { draw, drawSide, click, sideClick, sideChange, importFile, title: () => 'Operaciones · ' + (cur()?.name || 'sin yamazumi'), state: () => ({ n: list().length, cur: cur()?.name || null, ops: cur()?.ops.length || 0, msg: st.msg }) };
+  return { current: cur, draw, drawSide, click, sideClick, sideChange, importFile, title: () => 'Operaciones · ' + (cur()?.name || 'sin yamazumi'), state: () => ({ n: list().length, cur: cur()?.name || null, ops: cur()?.ops.length || 0, msg: st.msg }) };
 }
