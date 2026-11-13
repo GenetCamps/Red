@@ -30,7 +30,7 @@ const CSS = `
 export const parosEn = (paros, H) => (paros || []).reduce((s, p) => s + Math.max(0, Math.min((+p.ini || 0) + (+p.dur || 0), H * 60) - Math.max(0, +p.ini || 0)), 0);
 export const PAROS12 = [{ n: 'Arranque / junta', ini: 0, dur: 15 }, { n: 'Descanso', ini: 180, dur: 15 }, { n: 'Comida', ini: 360, dur: 30 }, { n: 'Descanso', ini: 540, dur: 15 }];
 const CATN = { va: 'Proceso (VA)', insp: 'Inspección', mov: 'Movimiento', esp: 'Espera', rew: 'Retrabajo', aju: 'Ajuste / setup', cd: 'Carga / descarga', otro: 'Sin categoría' };
-const COLS = { va: '#199e70', insp: '#3987e5', mov: '#d95926', esp: '#d55181', rew: '#e5484d', aju: '#9085e9', cd: '#c98500', otro: '#7c8a97', starve: '#FFB020', paro: '#4a5562' };
+const COLS = { down: '#8e44ad', va: '#199e70', insp: '#3987e5', mov: '#d95926', esp: '#d55181', rew: '#e5484d', aju: '#9085e9', cd: '#c98500', otro: '#7c8a97', starve: '#FFB020', paro: '#4a5562' };
 
 /* ---------- motor ---------- */
 export function simulate(nodes, cfg) {
@@ -39,32 +39,39 @@ export function simulate(nodes, cfg) {
   let net = 0; for (let t = 0; t < H; t++) if (!PA[t]) net++;
   const D = cfg.dem > 0 ? cfg.dem : 0, gap = D ? net / D : 0, reps = Math.max(1, Math.min(50, cfg.reps | 0)), nh = Math.ceil(H / 3600);
   const idx = new Map(nodes.map((n, i) => [n.id, i])), nx = nodes.map(n => idx.has(n.next) && n.next !== n.id ? idx.get(n.next) : -1), preds = nodes.map((_, i) => nx.filter(j => j === i).length);
-  const agg = nodes.map(() => ({ cat: {}, starve: 0, paro: 0, done: 0, qsum: 0, qmax: 0, sh: new Array(nh).fill(0), qh: new Array(nh).fill(0) })), outs = [];
+  const expo = m => -Math.log(1 - Math.random()) * m;
+  const agg = nodes.map(() => ({ cat: {}, starve: 0, paro: 0, down: 0, nfail: 0, scrap: 0, done: 0, qsum: 0, qmax: 0, sh: new Array(nh).fill(0), qh: new Array(nh).fill(0) })), outs = [];
   for (let r = 0; r < reps; r++) {
-    const S = nodes.map(n => ({ q: 0, busy: false, rem: 0, cat: 'va', bag: [], arr: 0 })); let out = 0;
+    const S = nodes.map(n => { const f = n.fail || {}; return { q: 0, busy: false, rem: 0, cat: 'va', bag: [], arr: 0, mtbf: +f.mtbf > 0 ? f.mtbf * 60 : 0, mttr: +f.mttr > 0 ? f.mttr * 60 : 0, sc: +f.scrap > 0 ? f.scrap / 100 : 0, nf: 0, dn: 0 }; });
+    S.forEach(s => { if (s.mtbf && s.mttr) s.nf = expo(s.mtbf); }); let out = 0;
     const draw = (i) => { const s = S[i]; if (!s.bag.length) { const c = nodes[i].cycles.filter(x => +x.t > 0).map(x => ({ t: +x.t, cat: x.cat || 'va' })); if (!c.length) c.push({ t: 60, cat: 'va' });
         for (let k = c.length - 1; k > 0; k--) { const j = Math.floor(Math.random() * (k + 1)); [c[k], c[j]] = [c[j], c[k]]; } s.bag = c; } return s.bag.pop(); };
     for (let t = 0; t < H; t++) { const paro = inParo(t), hr = Math.floor(t / 3600);
       for (let i = 0; i < nodes.length; i++) { const s = S[i], A = agg[i];
         if (paro) { A.paro++; continue; }
         if (!preds[i]) { if (gap) { s.arr += 1; while (s.arr >= gap) { s.arr -= gap; s.q++; } } else if (s.q < 1) s.q = 1; }
+        if (s.dn > 0) { s.dn -= 1; A.down++; A.qsum += s.q; if (s.q > A.qmax) A.qmax = s.q; A.qh[hr] = Math.max(A.qh[hr], s.q); continue; }
+        if (s.mtbf && s.mttr) { s.nf -= 1; if (s.nf <= 0) { s.dn = Math.max(1, Math.round(expo(s.mttr))); s.nf = expo(s.mtbf); A.nfail++; A.down++; s.dn -= 1; continue; } }
         if (!s.busy && s.q > 0) { s.q--; const c = draw(i); s.rem = c.t; s.cat = c.cat; s.busy = true; }
-        if (s.busy) { A.cat[s.cat] = (A.cat[s.cat] || 0) + 1; s.rem -= 1; if (s.rem <= 0) { s.busy = false; A.done++; if (nx[i] >= 0) S[nx[i]].q++; else out++; } }
+        if (s.busy) { A.cat[s.cat] = (A.cat[s.cat] || 0) + 1; s.rem -= 1; if (s.rem <= 0) { s.busy = false; A.done++; if (s.sc && Math.random() < s.sc) A.scrap++; else if (nx[i] >= 0) S[nx[i]].q++; else out++; } }
         else { A.starve++; A.sh[hr]++; }
         A.qsum += s.q; if (s.q > A.qmax) A.qmax = s.q; A.qh[hr] = Math.max(A.qh[hr], s.q); } }
     outs.push(out);
   }
   const k = 1 / reps, per = nodes.map((n, i) => { const A = agg[i], cat = {}; Object.keys(A.cat).forEach(c => cat[c] = A.cat[c] * k / 60);
-    const work = Object.values(cat).reduce((a, b) => a + b, 0), starve = A.starve * k / 60, paro = A.paro * k / 60, rew = cat.rew || 0;
-    return { id: n.id, name: n.name, oper: n.oper, short: n.short, cat, work, starve, paro, rew, lost: starve + rew, done: A.done * k, qavg: A.qsum / Math.max(1, (H - (A.paro / reps))) * k, qmax: A.qmax,
+    const work = Object.values(cat).reduce((a, b) => a + b, 0), starve = A.starve * k / 60, paro = A.paro * k / 60, rew = cat.rew || 0, down = A.down * k / 60, done = A.done * k, scrap = A.scrap * k;
+    const ts = n.cycles.map(x => +x.t).filter(t => t > 0), ideal = ts.length ? Math.min(...ts) : 0, mean = ts.length ? ts.reduce((a, b) => a + b, 0) / ts.length : 0, avail = H / 60 - paro, run = avail - down;
+    const oA = avail > 0 ? run / avail : null, oR = run > 0 && ideal ? Math.min(1, ideal * done / 60 / run) : null, oQ = done > 0 ? (done - scrap) / done : null;
+    return { id: n.id, name: n.name, oper: n.oper, short: n.short, cat, work, starve, paro, rew, down, nfail: A.nfail * k, scrap, ideal, mean, oA, oR, oQ, oee: oA != null && oR != null && oQ != null ? oA * oR * oQ : null, lost: starve + rew + down, done: A.done * k, qavg: A.qsum / Math.max(1, (H - (A.paro / reps))) * k, qmax: A.qmax,
       sh: A.sh.map((v, h) => { const len = Math.min(3600, H - h * 3600), pz = P.reduce((a, p) => a + Math.max(0, Math.min(p[1], (h + 1) * 3600) - Math.max(p[0], h * 3600)), 0); return len - pz > 0 ? v * k / (len - pz) : 0; }), qh: A.qh, next: nx[i] >= 0 ? nodes[nx[i]].oper || nodes[nx[i]].short : null }; });
   const mean = outs.reduce((a, b) => a + b, 0) / outs.length, tail = per.filter((_, i) => nx[i] < 0);
-  return { H: cfg.H, net: net / 60, paroMin: (H - net) / 60, dem: D, reps, out: { mean, min: Math.min(...outs), max: Math.max(...outs) }, per, nh, paros: cfg.paros || [], sinks: tail.length };
+  const neckIdeal = Math.max(0, ...per.map(p => p.ideal)), lineOee = neckIdeal && net ? Math.min(1, mean * neckIdeal / net) : null;
+  return { lineOee, neckIdeal, H: cfg.H, net: net / 60, paroMin: (H - net) / 60, dem: D, reps, out: { mean, min: Math.min(...outs), max: Math.max(...outs) }, per, nh, paros: cfg.paros || [], sinks: tail.length };
 }
 
 /* ---------- vista ---------- */
 export function create(api) {
-  const { esc, fmtN } = api; let el = null, w = null, last = null, cmpOn = false;
+  const { esc, fmtN } = api; let el = null, w = null, last = null, cmpOn = false, failOn = false;
   const st = document.createElement('style'); st.textContent = CSS; document.head.appendChild(st);
   const f0 = v => fmtN(v, 0), f1 = v => fmtN(v, 1), money = v => '$' + fmtN(v, 0);
   const hhmm = m => { m = Math.round(m); return Math.floor(m / 60) + ':' + String(m % 60).padStart(2, '0'); };
@@ -93,12 +100,21 @@ export function create(api) {
       <h4>Paros planeados · ${f0(parosMin)} min · tiempo neto ${hhmm(a.H * 60 - parosMin)} h</h4>
       <div class="an-paros">${a.paros.map((p, i) => `<div class="an-paro"><input data-p="n" data-i="${i}" value="${esc(p.n)}" aria-label="Nombre del paro ${i + 1}"><label style="display:flex;gap:4px;align-items:center">inicia<input data-p="ini" data-i="${i}" value="${hhmm(p.ini)}" aria-label="Hora de inicio del paro ${i + 1} (h:mm desde el arranque)" style="width:64px"></label><label style="display:flex;gap:4px;align-items:center">min<input data-p="dur" data-i="${i}" type="number" min="0" value="${p.dur}" aria-label="Duración en minutos del paro ${i + 1}" style="width:64px"></label><button data-x="${i}" aria-label="Quitar paro ${i + 1}">×</button></div>`).join('')}</div>
       <div class="an-row"><button data-k="addp">Agregar paro</button><button data-k="base">Regresar a base 12 h</button><span class="an-note">La hora de inicio cuenta desde el arranque del turno (0:00).</span></div>
+      <div class="an-row"><button data-k="fail" aria-pressed="${failOn}">${failOn ? 'Ocultar paros no planeados y scrap' : 'Paros no planeados y scrap'}</button><span class="an-note">Fallas de máquina o de proceso que ocurren al azar, y el % de piezas que salen mal en cada estación.</span></div>
+      ${failOn ? failForm(P) : ''}
       <div class="an-row"><button data-k="cmp" aria-pressed="${cmpOn}">${cmpOn ? 'Quitar comparación' : 'Comparar con un cambio'}</button><span class="an-note">Prueba qué pasa si quitas a alguien, bajas un ciclo, eliminas el retrabajo o cambias a quién entrega.</span></div>
       ${cmpOn ? cmpForm(P) : ''}
       <div class="an-row"><button class="prim" data-k="run">Correr análisis</button><span class="an-note">${esc(P.label)}${!Y?.takt && !dem ? ' · <span class="an-warn">sin demanda: la primera estación nunca se queda sin material</span>' : ''}</span></div>
       <div class="an-res"></div>`;
     if (last) results(last);
   }
+  function failOf(id) { const a = cfgOf(); a.fail = a.fail || {}; return a.fail[id] || {}; }
+  function failForm(P) { const nm = o => o.oper || api.flow.short(o);
+    return `<h4>Paros no planeados y scrap por persona</h4><div style="overflow-x:auto"><table><thead><tr><th>Persona</th><th>Falla cada (min de operación)</th><th>Dura en promedio (min)</th><th>Scrap (%)</th></tr></thead><tbody>${P.list.map(({ o }) => { const f = failOf(o.id);
+      return `<tr><td>${esc(nm(o))}<br><small style="color:#a9b3bd">${esc(api.flow.short(o))}</small></td><td><input type="number" min="0" step="1" data-f="mtbf" data-id="${esc(o.id)}" value="${f.mtbf ?? ''}" placeholder="ej. 240" style="width:110px" aria-label="Cada cuántos minutos falla ${esc(nm(o))}"></td>
+        <td><input type="number" min="0" step="0.5" data-f="mttr" data-id="${esc(o.id)}" value="${f.mttr ?? ''}" placeholder="ej. 12" style="width:100px" aria-label="Cuánto dura cada falla de ${esc(nm(o))}"></td>
+        <td><input type="number" min="0" max="100" step="0.1" data-f="scrap" data-id="${esc(o.id)}" value="${f.scrap ?? ''}" placeholder="ej. 2.5" style="width:90px" aria-label="Porcentaje de scrap de ${esc(nm(o))}"></td></tr>`; }).join('')}</tbody></table></div>
+      <p class="an-note">Las fallas llegan al azar con ese promedio; mientras dura una, la persona no trabaja y el material se le acumula. El scrap sale de la línea y no llega a la siguiente estación. Puedes tomar los datos del Centro OEE (paros capturados y scrap de Plex).</p>`; }
   function chgOf(id) { const a = cfgOf(); a.chg = a.chg || {}; return a.chg[id] || { on: true, pct: 100, norew: false, next: null }; }
   function cmpForm(P) { const ids = P.list.map(x => x.o.id), nm = o => o.oper || api.flow.short(o);
     return `<h4>Escenario con cambio</h4><div style="overflow-x:auto"><table><thead><tr><th>Persona</th><th>Se queda</th><th>Ciclo (% del medido)</th><th>Sin retrabajo</th><th>Entrega a</th></tr></thead><tbody>${P.list.map(({ o }) => { const c = chgOf(o.id);
@@ -116,6 +132,8 @@ export function create(api) {
   function readTime(v) { const m = String(v).trim().match(/^(\d+)(?::(\d{1,2}))?$/); return m ? (+m[1]) * 60 + (+(m[2] || 0)) : null; }
   function onChange(e) { const t = e.target, a = cfgOf(), P = people();
     if (t.dataset.a === 'scope') { el.dataset.scope = t.value; last = null; form(); return; }
+    if (t.dataset.f && t.dataset.id) { a.fail = a.fail || {}; const f = a.fail[t.dataset.id] = { ...failOf(t.dataset.id) }, v = t.value === '' ? undefined : Math.max(0, +t.value); if (v === undefined) delete f[t.dataset.f]; else f[t.dataset.f] = t.dataset.f === 'scrap' ? Math.min(100, v) : v; api.save(); return; }
+    if (t.dataset.vb) { a.vbox = a.vbox || {}; if (t.value) a.vbox[t.dataset.vb] = t.value; else delete a.vbox[t.dataset.vb]; api.save(); return; }
     if (t.dataset.c) { a.chg = a.chg || {}; const id = t.dataset.id, c = a.chg[id] = { ...chgOf(id) }; if (t.dataset.c === 'on' || t.dataset.c === 'norew') c[t.dataset.c] = t.checked; else if (t.dataset.c === 'pct') c.pct = Math.max(10, Math.min(300, +t.value || 100)); else c.next = t.value || null; api.save(); return; }
     if (t.dataset.a === 'turno') { a.turno = t.value || undefined; const tu = api.turnos?.()?.list().find(x => x.id === t.value);
       if (tu) { a.H = tu.H; a.paros = tu.paros.map(p => ({ ...p })); if (P.Y && tu.dem?.[P.Y.id] > 0) P.Y.dem = tu.dem[P.Y.id]; } api.save(); last = null; form(); return; }
@@ -130,12 +148,14 @@ export function create(api) {
     else if (b.dataset.k === 'run') { const r = el.querySelector('.an-res'); if (r) r.innerHTML = '<p class="an-note">Calculando…</p>'; b.disabled = true; setTimeout(() => { try { run(); } finally { b.disabled = false; } }, 30); }
     else if (b.dataset.k === 'close') close();
     else if (b.dataset.k === 'cmp') { cmpOn = !cmpOn; form(); }
+    else if (b.dataset.k === 'fail') { failOn = !failOn; form(); }
+    else if (b.dataset.k === 'tovsm') toVsm();
     else if (b.dataset.k === 'cmpreset') { a.chg = {}; api.save(); form(); }
     else if (b.dataset.k === 'pdf') printReport();
     else if (b.dataset.k === 'csv') csv(); }
   function run() { const a = cfgOf(), P = people(); if (!P.list.length) { toastIn('No hay personas para analizar.'); return; }
     const Y = P.Y, dem = Y?.dem > 0 ? Y.dem : (Y?.takt > 0 ? null : 0);
-    const nodes = P.list.map(({ o }) => ({ id: o.id, name: o.name, oper: o.oper, short: api.flow.short(o), next: o.next, cycles: o.cycles || [] }));
+    const nodes = P.list.map(({ o }) => ({ id: o.id, name: o.name, oper: o.oper, short: api.flow.short(o), next: o.next, cycles: o.cycles || [], fail: (a.fail || {})[o.id] || null }));
     let D = Y?.dem > 0 ? Y.dem : 0, src = 'capturada'; if (!D && Y?.takt > 0) { const net = a.H * 60 - parosEn(a.paros, a.H); D = Math.floor(net * 60 / Y.takt); src = 'calculada con el takt de ' + f1(Y.takt) + ' s'; }
     const t0 = performance.now(); const R = simulate(nodes, { H: a.H, paros: a.paros, dem: D, reps: a.reps }); R.ms = performance.now() - t0; R.demSrc = D ? src : 'sin demanda'; R.costo = a.costo; R.yz = Y?.name || ''; R.scope = P.label; R.at = new Date();
     const tu = a.turno && api.turnos?.()?.list().find(x => x.id === a.turno); R.turno = tu ? `${tu.n}${tu.trip ? ' · tripulación ' + tu.trip : ''} · inicio ${tu.ini}` : ''; R.plant = tu && Y ? tu.plant?.[Y.id] : null; R.used = nodes.length;
@@ -153,7 +173,7 @@ export function create(api) {
     per.forEach((p, i) => { const y = 34 + i * rowH; let x = lw;
       o.push(`<text x="${lw - 8}" y="${y + 13}" fill="${tx}" font-size="12.5" font-weight="600" text-anchor="end">${esc((p.oper || p.short || p.name).slice(0, 24))}</text><text x="${lw - 8}" y="${y + 25}" fill="${mu}" font-size="10.5" text-anchor="end">${esc((p.short || '').slice(0, 28))}</text>`);
       const seg = (v, c, t) => { if (v <= 0) return; const w = v / H * pw; o.push(`<rect x="${x}" y="${y + 3}" width="${Math.max(.5, w)}" height="${rowH - 9}" fill="${c}"><title>${esc(t)}: ${f1(v)} min</title></rect>`); x += w; };
-      keys.forEach(k => seg(p.cat[k] || 0, COLS[k], CATN[k])); seg(p.starve, COLS.starve, 'Esperando material'); seg(p.paro, COLS.paro, 'Paros planeados');
+      keys.forEach(k => seg(p.cat[k] || 0, COLS[k], CATN[k])); seg(p.starve, COLS.starve, 'Esperando material'); seg(p.down || 0, COLS.down, 'Paros no planeados'); seg(p.paro, COLS.paro, 'Paros planeados');
       o.push(`<text x="${lw + pw + 8}" y="${y + 17}" fill="${p.starve > H * .2 ? '#e5484d' : tx}" font-size="12" font-weight="600">${f0(p.lost)} min</text>`); });
     o.push(`<text x="${lw}" y="18" fill="${mu}" font-size="11.5">Cómo se reparten los minutos del horizonte de cada operador (no es línea de tiempo) · a la derecha, minutos perdidos (espera de material + retrabajo)</text></svg>`); return o.join(''); }
   function heatSvg(R, light) { const per = R.per, nh = R.nh, cw = Math.min(64, 760 / nh), lw = 190, W = lw + nh * cw + 20, rowH = 26, Hh = 34 + per.length * rowH + 30, tx = light ? '#16202c' : '#e7ebef', mu = light ? '#4a5a6b' : '#a9b3bd';
@@ -162,7 +182,7 @@ export function create(api) {
     per.forEach((p, i) => { const y = 30 + i * rowH; o.push(`<text x="${lw - 8}" y="${y + 16}" fill="${tx}" font-size="12" text-anchor="end">${esc((p.oper || p.short || p.name).slice(0, 24))}</text>`);
       p.sh.forEach((v, h) => o.push(`<rect x="${lw + h * cw + 1}" y="${y + 2}" width="${cw - 2}" height="${rowH - 4}" rx="3" fill="${col(v)}"><title>${esc(p.oper || p.name)} · hora ${h}–${h + 1}: ${f0(v * 100)}% esperando material</title></rect>${v > .1 ? `<text x="${lw + h * cw + cw / 2}" y="${y + 17}" fill="#12181F" font-size="10.5" font-weight="700" text-anchor="middle">${f0(v * 100)}</text>` : ''}`)); });
     o.push(`<text x="${lw}" y="${Hh - 8}" fill="${mu}" font-size="11">% del tiempo trabajable de cada hora en que la persona estuvo esperando material (más oscuro = más espera)</text></svg>`); return o.join(''); }
-  function legend() { return `<div class="an-row" style="font-size:12px;color:#a9b3bd">${['va', 'insp', 'rew', 'cd', 'mov', 'aju', 'otro'].map(k => `<span><i style="display:inline-block;width:11px;height:11px;border-radius:2px;background:${COLS[k]};margin-right:5px;vertical-align:-1px"></i>${CATN[k]}</span>`).join('')}<span><i style="display:inline-block;width:11px;height:11px;border-radius:2px;background:${COLS.starve};margin-right:5px;vertical-align:-1px"></i>Esperando material</span><span><i style="display:inline-block;width:11px;height:11px;border-radius:2px;background:${COLS.paro};margin-right:5px;vertical-align:-1px"></i>Paros planeados</span></div>`; }
+  function legend() { return `<div class="an-row" style="font-size:12px;color:#a9b3bd">${['va', 'insp', 'rew', 'cd', 'mov', 'aju', 'otro'].map(k => `<span><i style="display:inline-block;width:11px;height:11px;border-radius:2px;background:${COLS[k]};margin-right:5px;vertical-align:-1px"></i>${CATN[k]}</span>`).join('')}<span><i style="display:inline-block;width:11px;height:11px;border-radius:2px;background:${COLS.starve};margin-right:5px;vertical-align:-1px"></i>Esperando material</span><span><i style="display:inline-block;width:11px;height:11px;border-radius:2px;background:${COLS.down};margin-right:5px;vertical-align:-1px"></i>Paros no planeados</span><span><i style="display:inline-block;width:11px;height:11px;border-radius:2px;background:${COLS.paro};margin-right:5px;vertical-align:-1px"></i>Paros planeados</span></div>`; }
 
   function summary(R) { const lost = R.per.reduce((a, p) => a + p.lost, 0), starve = R.per.reduce((a, p) => a + p.starve, 0), rew = R.per.reduce((a, p) => a + p.rew, 0), falt = R.dem ? Math.max(0, R.dem - R.out.mean) : null;
     const neck = R.per.slice().sort((a, b) => b.qmax - a.qmax || (b.work - a.work))[0], waitTop = R.per.slice().sort((a, b) => b.starve - a.starve);
@@ -178,20 +198,44 @@ export function create(api) {
         <div class="an-kpi bad"><b>${f0(s.rew)} min</b><span>en retrabajo${s.costRew !== null ? ' · ' + money(s.costRew) : ''}</span></div>
         <div class="an-kpi bad"><b>${s.cost !== null ? money(s.cost) : f0(s.lost) + ' min'}</b><span>${s.cost !== null ? 'costo de ' + f0(s.lost) + ' min perdidos a $' + fmtN(R.costo, 2) + '/min' : 'captura el costo por minuto para verlo en pesos'}</span></div>
       </div>
+      ${R.per.some(p => p.down > 0 || p.scrap > 0) || R.lineOee != null ? `<div class="an-kpis"><div class="an-kpi ${R.lineOee != null && R.lineOee < .65 ? 'bad' : 'ok'}"><b>${R.lineOee == null ? '—' : f1(R.lineOee * 100) + '%'}</b><span>OEE teórico de la línea (salida × ciclo ideal del cuello ÷ tiempo neto)</span></div>
+        <div class="an-kpi bad"><b>${f0(R.per.reduce((a, p) => a + p.down, 0))} min</b><span>en paros no planeados · ${f1(R.per.reduce((a, p) => a + p.nfail, 0))} fallas</span></div><div class="an-kpi bad"><b>${f0(R.per.reduce((a, p) => a + p.scrap, 0))} pzs</b><span>scrap en las estaciones</span></div></div>` : ''}
       <p class="an-note">Cuello de botella: <b>${esc(s.neck.oper || s.neck.short || s.neck.name)}</b> (cola máxima ${f0(s.neck.qmax)} piezas). Quien más espera material: <b>${esc(s.waitTop[0].oper || s.waitTop[0].short)}</b> con ${f0(s.waitTop[0].starve)} min.</p>
       ${R.B ? cmpBlock(R) : ''}
       <h4>Minutos por operador${R.B ? ' · como está' : ''}</h4>${barsSvg(R)}${R.B ? `<h4>Minutos por operador · con el cambio</h4>${barsSvg(R.B)}` : ''}${legend()}
       <h4>¿Cuándo esperan más? · espera de material por hora</h4>${heatSvg(R)}
       <h4>Detalle por operador</h4>${table(R)}
+      ${vsmBlock(R)}
       <div class="an-row"><button class="prim" data-k="pdf">Descargar reporte (PDF)</button><button data-k="csv">Descargar para Excel (CSV)</button><span class="an-note">El PDF se guarda desde la ventana de impresión: elige «Guardar como PDF».</span></div>`; }
   function cmpRows(R) { const A = summary(R), B = summary(R.B), c = R.costo > 0, d = (x, y, better) => { const v = y - x; if (Math.abs(v) < .5) return '<span style="color:#a9b3bd">igual</span>'; const good = better === 'up' ? v > 0 : v < 0; return `<b style="color:${good ? '#3ddc97' : '#ff6b62'}">${v > 0 ? '+' : ''}${f0(v)}</b>`; };
     return [['Personas', R.per.length, R.B.per.length, null], ['Piezas producidas', R.out.mean, R.B.out.mean, 'up'], ['Faltante (pzs)', A.falt ?? 0, B.falt ?? 0, 'down'], ['Min esperando material', A.starve, B.starve, 'down'], ['Min en retrabajo', A.rew, B.rew, 'down'], ['Min perdidos', A.lost, B.lost, 'down']]
       .concat(c ? [['Costo de minutos perdidos ($)', A.cost, B.cost, 'down']] : [])
       .map(([n, x, y, b]) => ({ n, x, y, d: b ? d(x, y, b) : (y - x ? (y - x > 0 ? '+' : '') + f0(y - x) : 'igual'), money: /\$/.test(n) })).concat([{ n: 'Cuello de botella', x: A.neck.oper || A.neck.short, y: B.neck.oper || B.neck.short, d: '', txt: true }]); }
   function cmpBlock(R) { return `<h4>Comparación · como está contra el cambio</h4><p class="an-note">Cambio: <b>${esc(R.chg)}</b></p><div style="overflow-x:auto"><table><thead><tr><th>Indicador</th><th>Como está</th><th>Con el cambio</th><th>Diferencia</th></tr></thead><tbody>${cmpRows(R).map(r => `<tr><td>${esc(r.n)}</td><td>${r.txt ? esc(r.x) : (r.money ? money(r.x) : f0(r.x))}</td><td>${r.txt ? esc(r.y) : (r.money ? money(r.y) : f0(r.y))}</td><td>${r.d}</td></tr>`).join('')}</tbody></table></div>`; }
+  let VB = null;
+  function grab(src, name) { const i = src.indexOf('const ' + name + '='); if (i < 0) return null; let j = i + name.length + 7, d = 0, q = null; const s = j; for (; j < src.length; j++) { const c = src[j]; if (q) { if (c === '\\') j++; else if (c === q) q = null; continue; } if (c === '"' || c === "'" || c === '`') { q = c; continue; } if (c === '{' || c === '[') d++; else if (c === '}' || c === ']') { d--; if (!d) { j++; break; } } } return src.slice(s, j); }
+  async function vsmBoxes() { if (VB) return VB; const out = [];
+    try { const src = await (await fetch('vsm/consola.json')).json(), S = new Function('C', 'HEAD', 'return ' + grab(src, 'STREAMS'))(new Proxy({}, { get: () => '' }), '');
+      Object.entries(S).forEach(([k, st]) => (st.procs || []).forEach(p => out.push({ key: `vx|${k}|${p.id}`, path: `vx/r2/${st.col}/${p.id}`, g: `P4 · ${st.name} ${st.prod || ''}`.trim(), n: (p.n || []).join(' ') }))); } catch (e) { console.warn('cajas P4', e); }
+    try { const src = await (await fetch('vsm/parras.json')).json(), A = JSON.parse(grab(src, 'ALLP')); Object.entries(A).forEach(([id, p]) => { if (p.k !== 'jct') out.push({ key: `vp|*|${id}`, path: `vp/r1/procParras/${id}`, g: 'Parras', n: (p.n || []).join(' ') }); }); } catch (e) { console.warn('cajas Parras', e); }
+    VB = out; return out; }
+  function vsmBlock(R) { const a = cfgOf(), vb = a.vbox || {};
+    setTimeout(() => vsmBoxes().then(L => { el?.querySelectorAll('[data-vb]').forEach(sel => { const g = {}; L.forEach(x => (g[x.g] = g[x.g] || []).push(x)); sel.innerHTML = '<option value="">Sin caja</option>' + Object.entries(g).map(([k, xs]) => `<optgroup label="${esc(k)}">${xs.map(x => `<option value="${esc(x.key)}"${vb[sel.dataset.vb] === x.key ? ' selected' : ''}>${esc(x.n)}</option>`).join('')}</optgroup>`).join(''); }); }), 0);
+    return `<h4>Mandar al VSM</h4><p class="an-note">Elige la caja del VSM de cada persona. Si varias van a la misma caja, la caja recibe el ciclo del cuello, el número de personas, la cola total, la disponibilidad y el scrap del grupo.</p>
+      <div style="overflow-x:auto"><table><thead><tr><th>Persona</th><th>Caja del VSM</th></tr></thead><tbody>${R.per.map(p => `<tr><td>${esc(p.oper || p.short || p.name)}</td><td><select data-vb="${esc(p.id)}" aria-label="Caja del VSM de ${esc(p.oper || p.name)}"><option value="">${vb[p.id] ? esc(vb[p.id]) : 'Sin caja'}</option></select></td></tr>`).join('')}</tbody></table></div>
+      <div class="an-row"><button data-k="tovsm">Mandar al VSM</button><span class="an-note">Escribe C/T, operadores, WIP, disponibilidad y defecto en la «Captura en gemba» de cada caja (fuente: cronometrado, por el análisis de turno).</span></div>`; }
+  async function toVsm() { if (!last) return; const a = cfgOf(), vb = a.vbox || {}, L = await vsmBoxes(), groups = {};
+    last.per.forEach(p => { const k = vb[p.id]; if (!k) return; (groups[k] = groups[k] || []).push(p); });
+    const keys = Object.keys(groups); if (!keys.length) { alert('Elige primero la caja del VSM de al menos una persona.'); return; }
+    let db = null; try { db = await window.claude?.use?.('db'); } catch (_) {} if (!db) { alert('Para escribir en el VSM abre esta planta desde la Red DAIMAY (no el archivo suelto).'); return; }
+    let ok = 0; for (const k of keys) { const box = L.find(x => x.key === k); if (!box) continue; const ps = groups[k], done = ps.reduce((s, p) => s + p.done, 0), scrap = ps.reduce((s, p) => s + p.scrap, 0), avail = ps.reduce((s, p) => s + (last.H * 60 - p.paro), 0), down = ps.reduce((s, p) => s + p.down, 0);
+      const body = { ct: +Math.max(...ps.map(p => p.mean)).toFixed(1), src: 'Cronometrado', ops: ps.length, wip: Math.round(ps.reduce((s, p) => s + p.qavg, 0)), up: avail > 0 ? +((avail - down) / avail * 100).toFixed(1) : undefined, def: done > 0 ? +(scrap / done * 100).toFixed(2) : undefined, by: 'txt:Análisis de turno', at: Date.now() };
+      Object.keys(body).forEach(x => body[x] === undefined && delete body[x]);
+      try { const ref = db.doc('~/' + box.path), cur = await ref.get(); await ref.set(Object.assign({}, cur.exists ? cur.data() : {}, body)); ok++; } catch (e) { console.warn('VSM', e); } }
+    alert(`${ok} caja(s) del VSM actualizadas con el análisis. Ábrelas en la Consola VSM para verlas.`); }
   function table(R) { const c = R.costo > 0;
-    return `<div style="overflow-x:auto"><table><thead><tr><th>Operador</th><th>Piezas</th><th>Trabajando</th><th>Esperando material</th><th>Retrabajo</th><th>Paros</th><th>Perdido</th>${c ? '<th>Costo perdido</th>' : ''}<th>Cola prom.</th><th>Cola máx.</th><th>Entrega a</th></tr></thead><tbody>${R.per.map(p => {
-      const avail = R.H * 60 - p.paro; return `<tr><td>${esc(p.oper || p.short || p.name)}<br><small style="color:#a9b3bd">${esc(p.short || '')}</small></td><td>${f0(p.done)}</td><td>${f0(p.work)} min · ${f0(p.work / Math.max(1, avail) * 100)}%</td><td>${f0(p.starve)} min · ${f0(p.starve / Math.max(1, avail) * 100)}%</td><td>${f0(p.rew)} min</td><td>${f0(p.paro)} min</td><td><b>${f0(p.lost)} min</b></td>${c ? `<td>${money(p.lost * R.costo)}</td>` : ''}<td>${f1(p.qavg)}</td><td>${f0(p.qmax)}</td><td>${esc(p.next || 'salida')}</td></tr>`; }).join('')}</tbody></table></div>`; }
+    return `<div style="overflow-x:auto"><table><thead><tr><th>Operador</th><th>Piezas</th><th>Trabajando</th><th>Esperando material</th><th>Retrabajo</th><th>Paros</th><th>Fallas</th><th>Scrap</th><th>Perdido</th>${c ? '<th>Costo perdido</th>' : ''}<th>Cola prom.</th><th>Cola máx.</th><th>OEE</th><th>Entrega a</th></tr></thead><tbody>${R.per.map(p => {
+      const avail = R.H * 60 - p.paro; return `<tr><td>${esc(p.oper || p.short || p.name)}<br><small style="color:#a9b3bd">${esc(p.short || '')}</small></td><td>${f0(p.done)}</td><td>${f0(p.work)} min · ${f0(p.work / Math.max(1, avail) * 100)}%</td><td>${f0(p.starve)} min · ${f0(p.starve / Math.max(1, avail) * 100)}%</td><td>${f0(p.rew)} min</td><td>${f0(p.paro)} min</td><td>${p.down ? f0(p.down) + ' min' : '—'}</td><td>${p.scrap ? f1(p.scrap) + ' pz' : '—'}</td><td><b>${f0(p.lost)} min</b></td>${c ? `<td>${money(p.lost * R.costo)}</td>` : ''}<td>${f1(p.qavg)}</td><td>${f0(p.qmax)}</td><td title="Disp. ${p.oA == null ? '—' : f0(p.oA * 100)}% · Rend. ${p.oR == null ? '—' : f0(p.oR * 100)}% · Cal. ${p.oQ == null ? '—' : f0(p.oQ * 100)}% · ciclo ideal ${f1(p.ideal)} s (el mejor medido)">${p.oee == null ? '—' : f0(p.oee * 100) + '%'}</td><td>${esc(p.next || 'salida')}</td></tr>`; }).join('')}</tbody></table></div>`; }
 
   /* ---------- descargas ---------- */
   function printReport() { if (!last) return; const R = last, s = summary(R), tbl = table(R).replace(/<small style="color:#a9b3bd">/g, '<small style="color:#4a5a6b">');

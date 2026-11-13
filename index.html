@@ -807,7 +807,7 @@ addEventListener('message', async e=>{
   if(m.type==='picked'){ onPicked(f.id,m.x,m.z); return; }
   if(m.type==='pin'){ openDrawer('opex'); renderOpex(m.id); return; }
   if(m.type==='db'){
-    const mp=p=>'pl/'+f.id+'/'+p;
+    const mp=p=>p.startsWith('~/')?p.slice(2):'pl/'+f.id+'/'+p;
     try{
       if(m.op==='avail') return reply({cmd:'dbres',rid:m.rid,ok:true,val:!!DB});
       if(!DB) throw {code:'unavailable'};
