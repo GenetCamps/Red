@@ -146,6 +146,7 @@ export function create(api) {
         <p>${esc([Y.programa, Y.linea, Y.fecha, Y.analista].filter(Boolean).join(' · '))}${Y.src ? '<br>Origen: ' + esc(Y.src) : ''}</p></div>`);
       o.push(`<div class="vz-tot">${ops.length} operaciones · suma ${f1(sum)} s${takt ? `<br>${fmtN(sum / takt, 2)} operadores teóricos · balance ${ops.length ? fmtN(sum / (ops.length * takt) * 100, 0) : 0}%` : ''}${sum ? `<br>Valor agregado ${fmtN(va / sum * 100, 0)}%` : ''}${over ? `<br><span style="color:#ff5a4f">${over} sobre takt</span>` : ''}${risk ? `<br><span style="color:#FFB020">${risk} con máximo sobre takt</span>` : ''}</div>`);
       o.push(`<div class="vz-leg">${CATS.filter(C => S.some(s => s.by[C.k])).map(C => `<span><i style="background:${C.col}"></i>${esc(C.name)}</span>`).join('')}<span><i style="background:#8d98a5;opacity:.5"></i>Variación (máx − media)</span></div>`);
+      if (api.turnos?.()) { const tk = +Y.takt || 0, sm = Y.ops.filter(x => x.on !== false).reduce((t, x) => t + statOf(x).mean, 0); o.push(api.turnos().card(Y, tk ? sm / tk : 0)); }
       if (flow) { const A = flow.anim(), miss = A.filter(x => !x.o.link), nm = q => q.oper || flow.short(q), nx = q => { const t = flow.byId(q.next); return t && t.o.anim ? nm(t.o) : 'salida'; };
         o.push(`<div class="vz-card" style="border-color:var(--line,#27323e)"><div class="hd"><b>Animación en 3D</b><span>${A.length} de ${flow.MAX}</span></div><p>Elige con ▶ hasta ${flow.MAX} personas, de uno o varios yamazumis. A cada una dile dónde está (clic en el gemelo), si camina y a quién le entrega.</p>
           ${A.map(x => `<div class="vz-row" data-go="${esc(x.o.id)}" style="grid-template-columns:1fr auto 24px;cursor:pointer"><span><b>${esc(nm(x.o))}</b><small>${esc(x.o.oper ? flow.short(x.o) + ' · ' : '')}${x.o.link ? 'enlazada' : '<span style="color:#FFB020">sin enlazar</span>'}${x.o.walk ? ' · camina' : ''} → ${esc(nx(x.o))}</small></span><em></em><button data-anx="${esc(x.o.id)}" aria-label="Quitar de la animación">×</button></div>`).join('')}
@@ -182,6 +183,7 @@ export function create(api) {
     if (y === 'imp') { side.querySelector('input[type=file]').click(); return; }
     if (y === 'msgx') { st.msg = []; api.redraw(); return; }
     if (y === 'osx') { st.osel = null; api.redraw(); return; }
+    if (api.turnos?.()?.cardClick(b)) return;
     if (flow) {
       if (y === 'fana') { api.ana?.()?.open(flow.anim().length ? 'anim' : 'yz'); return; }
       if (y === 'fgo') { st.fmsg = flow.start() || ''; if (st.fmsg) api.redraw(); return; }
@@ -204,6 +206,7 @@ export function create(api) {
   function sideChange(e) {
     const t = e.target, Y = cur();
     if (t.type === 'file') { const f = t.files?.[0]; t.value = ''; if (f) importFile(f); return; }
+    if (t.dataset.tu && api.turnos?.()?.cardChange(t)) { api.redraw(); return; }
     if (t.dataset.y === 'pick') { st.cur = t.value; st.osel = null; api.redraw(true); return; }
     if (t.dataset.y === 'sort') { st.sort = t.checked; api.redraw(); return; }
     if (!Y || RO()) return;

@@ -27,6 +27,7 @@ const CSS = `
 #anaWin th{color:#a9b3bd;font-weight:600} #anaWin .an-note{font-size:12px;color:#a9b3bd;margin:6px 0 0}
 #anaWin .an-warn{color:#FFB020}
 `;
+export const parosEn = (paros, H) => (paros || []).reduce((s, p) => s + Math.max(0, Math.min((+p.ini || 0) + (+p.dur || 0), H * 60) - Math.max(0, +p.ini || 0)), 0);
 export const PAROS12 = [{ n: 'Arranque / junta', ini: 0, dur: 15 }, { n: 'Descanso', ini: 180, dur: 15 }, { n: 'Comida', ini: 360, dur: 30 }, { n: 'Descanso', ini: 540, dur: 15 }];
 const CATN = { va: 'Proceso (VA)', insp: 'Inspección', mov: 'Movimiento', esp: 'Espera', rew: 'Retrabajo', aju: 'Ajuste / setup', cd: 'Carga / descarga', otro: 'Sin categoría' };
 const COLS = { va: '#199e70', insp: '#3987e5', mov: '#d95926', esp: '#d55181', rew: '#e5484d', aju: '#9085e9', cd: '#c98500', otro: '#7c8a97', starve: '#FFB020', paro: '#4a5562' };
@@ -63,7 +64,7 @@ export function simulate(nodes, cfg) {
 
 /* ---------- vista ---------- */
 export function create(api) {
-  const { esc, fmtN } = api; let el = null, w = null, last = null;
+  const { esc, fmtN } = api; let el = null, w = null, last = null, cmpOn = false;
   const st = document.createElement('style'); st.textContent = CSS; document.head.appendChild(st);
   const f0 = v => fmtN(v, 0), f1 = v => fmtN(v, 1), money = v => '$' + fmtN(v, 0);
   const hhmm = m => { m = Math.round(m); return Math.floor(m / 60) + ':' + String(m % 60).padStart(2, '0'); };
@@ -78,11 +79,12 @@ export function create(api) {
     return { label: `Personas elegidas con ▶ (${A.length})`, Y: A[0].Y, list: A }; }
   function form() {
     const a = cfgOf(), P = people(), Y = P.Y, A = api.flow.anim(), y = api.yz(), dem = Y ? (Y.dem ?? '') : '', ro = !!window.RD_RO;
-    const parosMin = a.paros.reduce((s, p) => s + (+p.dur || 0), 0);
+    const parosMin = parosEn(a.paros, a.H);
     el.querySelector('.an-body')?.remove(); const b = document.createElement('div'); b.className = 'an-body'; el.appendChild(b);
     b.innerHTML = `<div style="display:flex;gap:10px;align-items:center"><h3 style="flex:1">Análisis de turno${Y ? ' · ' + esc(Y.name) : ''}</h3><button data-k="close">Cerrar</button></div>
       <div class="an-grid">
         <label>Personas<select data-a="scope">${A.length ? `<option value="anim"${el.dataset.scope !== 'yz' ? ' selected' : ''}>Elegidas con ▶ (${A.length})</option>` : ''}${y ? `<option value="yz"${el.dataset.scope === 'yz' || !A.length ? ' selected' : ''}>Todo «${esc(y.name)}» (${y.ops.filter(o => o.on !== false).length})</option>` : ''}</select></label>
+        ${api.turnos?.()?.list().length ? `<label>Turno<select data-a="turno"><option value="">Personalizado</option>${api.turnos().list().map(t => `<option value="${esc(t.id)}"${a.turno === t.id ? ' selected' : ''}>${esc(t.n)}${t.trip ? ' · trip. ' + esc(t.trip) : ''} · ${t.H} h</option>`).join('')}</select></label>` : ''}
         <label>Horizonte (horas)<input data-a="H" type="number" min="1" max="72" step="0.5" value="${a.H}"></label>
         <label>Demanda de la línea (piezas en el horizonte)<input data-a="dem" type="number" min="0" step="1" value="${esc(dem)}" placeholder="captúrala"></label>
         <label>Costo por minuto (MXN)<input data-a="costo" type="number" min="0" step="0.01" value="${esc(a.costo ?? '')}" placeholder="captúralo"></label>
@@ -91,14 +93,34 @@ export function create(api) {
       <h4>Paros planeados · ${f0(parosMin)} min · tiempo neto ${hhmm(a.H * 60 - parosMin)} h</h4>
       <div class="an-paros">${a.paros.map((p, i) => `<div class="an-paro"><input data-p="n" data-i="${i}" value="${esc(p.n)}" aria-label="Nombre del paro ${i + 1}"><label style="display:flex;gap:4px;align-items:center">inicia<input data-p="ini" data-i="${i}" value="${hhmm(p.ini)}" aria-label="Hora de inicio del paro ${i + 1} (h:mm desde el arranque)" style="width:64px"></label><label style="display:flex;gap:4px;align-items:center">min<input data-p="dur" data-i="${i}" type="number" min="0" value="${p.dur}" aria-label="Duración en minutos del paro ${i + 1}" style="width:64px"></label><button data-x="${i}" aria-label="Quitar paro ${i + 1}">×</button></div>`).join('')}</div>
       <div class="an-row"><button data-k="addp">Agregar paro</button><button data-k="base">Regresar a base 12 h</button><span class="an-note">La hora de inicio cuenta desde el arranque del turno (0:00).</span></div>
+      <div class="an-row"><button data-k="cmp" aria-pressed="${cmpOn}">${cmpOn ? 'Quitar comparación' : 'Comparar con un cambio'}</button><span class="an-note">Prueba qué pasa si quitas a alguien, bajas un ciclo, eliminas el retrabajo o cambias a quién entrega.</span></div>
+      ${cmpOn ? cmpForm(P) : ''}
       <div class="an-row"><button class="prim" data-k="run">Correr análisis</button><span class="an-note">${esc(P.label)}${!Y?.takt && !dem ? ' · <span class="an-warn">sin demanda: la primera estación nunca se queda sin material</span>' : ''}</span></div>
       <div class="an-res"></div>`;
     if (last) results(last);
   }
+  function chgOf(id) { const a = cfgOf(); a.chg = a.chg || {}; return a.chg[id] || { on: true, pct: 100, norew: false, next: null }; }
+  function cmpForm(P) { const ids = P.list.map(x => x.o.id), nm = o => o.oper || api.flow.short(o);
+    return `<h4>Escenario con cambio</h4><div style="overflow-x:auto"><table><thead><tr><th>Persona</th><th>Se queda</th><th>Ciclo (% del medido)</th><th>Sin retrabajo</th><th>Entrega a</th></tr></thead><tbody>${P.list.map(({ o }) => { const c = chgOf(o.id);
+      return `<tr><td>${esc(nm(o))}<br><small style="color:#a9b3bd">${esc(api.flow.short(o))}</small></td><td><input type="checkbox" data-c="on" data-id="${esc(o.id)}"${c.on !== false ? ' checked' : ''} aria-label="${esc(nm(o))} se queda en el escenario"></td>
+        <td><input type="number" min="10" max="300" step="5" data-c="pct" data-id="${esc(o.id)}" value="${c.pct ?? 100}" style="width:80px" aria-label="Ciclo de ${esc(nm(o))} en porcentaje del medido"></td>
+        <td><input type="checkbox" data-c="norew" data-id="${esc(o.id)}"${c.norew ? ' checked' : ''} aria-label="Quitar el retrabajo de ${esc(nm(o))}"></td>
+        <td><select data-c="next" data-id="${esc(o.id)}" aria-label="A quién entrega ${esc(nm(o))} en el escenario"><option value="">Como está (${esc((P.list.find(x => x.o.id === o.next)?.o && nm(P.list.find(x => x.o.id === o.next).o)) || 'salida')})</option><option value="__out"${c.next === '__out' ? ' selected' : ''}>Salida de la línea</option>${P.list.filter(x => x.o.id !== o.id).map(x => `<option value="${esc(x.o.id)}"${c.next === x.o.id ? ' selected' : ''}>${esc(nm(x.o))}</option>`).join('')}</select></td></tr>`; }).join('')}</tbody></table></div>
+      <div class="an-row"><button data-k="cmpreset">Quitar todos los cambios</button><span class="an-note">Si quitas a una persona, quien le entregaba ahora entrega a quien seguía después de ella.</span></div>`; }
+  function nodesB(nodes) { const a = cfgOf(), ch = a.chg || {}, C = id => ch[id] || {}, keep = new Set(nodes.filter(n => C(n.id).on !== false).map(n => n.id)), byId = new Map(nodes.map(n => [n.id, n]));
+    const nextOf = n => { const c = C(n.id); return c.next === '__out' ? null : c.next ? c.next : n.next; };
+    const follow = id => { const seen = new Set(); while (id && !keep.has(id) && byId.has(id) && !seen.has(id)) { seen.add(id); id = nextOf(byId.get(id)); } return id && keep.has(id) ? id : null; };
+    return nodes.filter(n => keep.has(n.id)).map(n => { const c = C(n.id), k = (+c.pct > 0 ? +c.pct : 100) / 100; let cy = n.cycles.map(x => ({ t: +x.t * k, cat: x.cat }));
+      if (c.norew) { const ok = cy.filter(x => x.cat !== 'rew'), m = ok.length ? ok.reduce((s, x) => s + x.t, 0) / ok.length : null; if (m) cy = cy.map(x => x.cat === 'rew' ? { t: m, cat: 'va' } : x); }
+      return { ...n, cycles: cy, next: follow(nextOf(n)) }; }); }
   function readTime(v) { const m = String(v).trim().match(/^(\d+)(?::(\d{1,2}))?$/); return m ? (+m[1]) * 60 + (+(m[2] || 0)) : null; }
   function onChange(e) { const t = e.target, a = cfgOf(), P = people();
     if (t.dataset.a === 'scope') { el.dataset.scope = t.value; last = null; form(); return; }
+    if (t.dataset.c) { a.chg = a.chg || {}; const id = t.dataset.id, c = a.chg[id] = { ...chgOf(id) }; if (t.dataset.c === 'on' || t.dataset.c === 'norew') c[t.dataset.c] = t.checked; else if (t.dataset.c === 'pct') c.pct = Math.max(10, Math.min(300, +t.value || 100)); else c.next = t.value || null; api.save(); return; }
+    if (t.dataset.a === 'turno') { a.turno = t.value || undefined; const tu = api.turnos?.()?.list().find(x => x.id === t.value);
+      if (tu) { a.H = tu.H; a.paros = tu.paros.map(p => ({ ...p })); if (P.Y && tu.dem?.[P.Y.id] > 0) P.Y.dem = tu.dem[P.Y.id]; } api.save(); last = null; form(); return; }
     if (t.dataset.a === 'dem') { if (P.Y) { const v = +t.value; P.Y.dem = v > 0 ? Math.round(v) : undefined; api.save(); } return; }
+    if (t.dataset.a === 'H' || (t.dataset.p)) a.turno = undefined;
     if (t.dataset.a) { const v = +t.value; if (t.dataset.a === 'costo') a.costo = v >= 0 && t.value !== '' ? v : undefined; else if (v > 0) a[t.dataset.a] = v; api.save(); if (t.dataset.a === 'H') form(); return; }
     if (t.dataset.p) { const p = a.paros[+t.dataset.i]; if (!p) return; if (t.dataset.p === 'n') p.n = t.value.trim() || 'Paro'; else if (t.dataset.p === 'ini') { const m = readTime(t.value); if (m !== null) p.ini = m; } else p.dur = Math.max(0, +t.value || 0); api.save(); form(); } }
   function onClick(e) { const b = e.target.closest('button'); if (!b) return; const a = cfgOf();
@@ -107,14 +129,21 @@ export function create(api) {
     else if (b.dataset.k === 'base') { a.H = 12; a.paros = PAROS12.map(p => ({ ...p })); api.save(); form(); }
     else if (b.dataset.k === 'run') { const r = el.querySelector('.an-res'); if (r) r.innerHTML = '<p class="an-note">Calculando…</p>'; b.disabled = true; setTimeout(() => { try { run(); } finally { b.disabled = false; } }, 30); }
     else if (b.dataset.k === 'close') close();
+    else if (b.dataset.k === 'cmp') { cmpOn = !cmpOn; form(); }
+    else if (b.dataset.k === 'cmpreset') { a.chg = {}; api.save(); form(); }
     else if (b.dataset.k === 'pdf') printReport();
     else if (b.dataset.k === 'csv') csv(); }
   function run() { const a = cfgOf(), P = people(); if (!P.list.length) { toastIn('No hay personas para analizar.'); return; }
     const Y = P.Y, dem = Y?.dem > 0 ? Y.dem : (Y?.takt > 0 ? null : 0);
     const nodes = P.list.map(({ o }) => ({ id: o.id, name: o.name, oper: o.oper, short: api.flow.short(o), next: o.next, cycles: o.cycles || [] }));
-    let D = Y?.dem > 0 ? Y.dem : 0, src = 'capturada'; if (!D && Y?.takt > 0) { const net = a.H * 60 - a.paros.reduce((s, p) => s + (+p.dur || 0), 0); D = Math.floor(net * 60 / Y.takt); src = 'calculada con el takt de ' + f1(Y.takt) + ' s'; }
+    let D = Y?.dem > 0 ? Y.dem : 0, src = 'capturada'; if (!D && Y?.takt > 0) { const net = a.H * 60 - parosEn(a.paros, a.H); D = Math.floor(net * 60 / Y.takt); src = 'calculada con el takt de ' + f1(Y.takt) + ' s'; }
     const t0 = performance.now(); const R = simulate(nodes, { H: a.H, paros: a.paros, dem: D, reps: a.reps }); R.ms = performance.now() - t0; R.demSrc = D ? src : 'sin demanda'; R.costo = a.costo; R.yz = Y?.name || ''; R.scope = P.label; R.at = new Date();
+    const tu = a.turno && api.turnos?.()?.list().find(x => x.id === a.turno); R.turno = tu ? `${tu.n}${tu.trip ? ' · tripulación ' + tu.trip : ''} · inicio ${tu.ini}` : ''; R.plant = tu && Y ? tu.plant?.[Y.id] : null; R.used = nodes.length;
+    if (cmpOn) { const NB = nodesB(nodes); if (NB.length) { const RB = simulate(NB, { H: a.H, paros: a.paros, dem: D, reps: a.reps }); RB.costo = a.costo; RB.dem = D; R.B = RB; R.chg = describe(nodes); } }
     last = R; results(R); }
+  function describe(nodes) { const a = cfgOf(), ch = a.chg || {}, nm = id => { const n = nodes.find(x => x.id === id); return n ? (n.oper || n.short) : id; }, out = [];
+    nodes.forEach(n => { const c = ch[n.id]; if (!c) return; if (c.on === false) out.push('sin ' + nm(n.id)); if (+c.pct && +c.pct !== 100) out.push(nm(n.id) + ' al ' + c.pct + '% del ciclo'); if (c.norew) out.push(nm(n.id) + ' sin retrabajo'); if (c.next) out.push(nm(n.id) + ' entrega a ' + (c.next === '__out' ? 'la salida' : nm(c.next))); });
+    return out.length ? out.join(' · ') : 'sin cambios (misma configuración)'; }
   function toastIn(m) { const r = el.querySelector('.an-res'); if (r) r.innerHTML = `<p class="an-warn">${esc(m)}</p>`; }
 
   /* ---------- gráficas (SVG) ---------- */
@@ -139,7 +168,8 @@ export function create(api) {
     const neck = R.per.slice().sort((a, b) => b.qmax - a.qmax || (b.work - a.work))[0], waitTop = R.per.slice().sort((a, b) => b.starve - a.starve);
     return { lost, starve, rew, falt, neck, waitTop, cost: R.costo > 0 ? lost * R.costo : null, costStarve: R.costo > 0 ? starve * R.costo : null, costRew: R.costo > 0 ? rew * R.costo : null }; }
   function results(R) { const r = el.querySelector('.an-res'); if (!r) return; const s = summary(R);
-    r.innerHTML = `<h4>Resultado · ${f1(R.H)} h · tiempo neto ${hhmm(R.net)} h · ${R.reps} repeticiones</h4>
+    r.innerHTML = `<h4>Resultado · ${R.turno ? esc(R.turno) + ' · ' : ''}${f1(R.H)} h · tiempo neto ${hhmm(R.net)} h · ${R.reps} repeticiones</h4>
+      ${R.plant != null ? `<p class="an-note">Plantilla del turno: <b>${R.plant}</b> personas · el análisis usa ${R.used}${R.plant < R.used ? ' · <span class="an-warn">faltan ' + (R.used - R.plant) + ' personas en la plantilla para cubrir estas operaciones</span>' : ''}</p>` : ''}
       <div class="an-kpis">
         <div class="an-kpi ${R.dem && R.out.mean < R.dem ? 'bad' : 'ok'}"><b>${f0(R.out.mean)} pzs</b><span>producidas (rango ${f0(R.out.min)}–${f0(R.out.max)})${R.sinks > 1 ? ' · suma de ' + R.sinks + ' salidas' : ''}</span></div>
         <div class="an-kpi"><b>${R.dem ? f0(R.dem) + ' pzs' : '—'}</b><span>demanda (${esc(R.demSrc)})</span></div>
@@ -149,10 +179,16 @@ export function create(api) {
         <div class="an-kpi bad"><b>${s.cost !== null ? money(s.cost) : f0(s.lost) + ' min'}</b><span>${s.cost !== null ? 'costo de ' + f0(s.lost) + ' min perdidos a $' + fmtN(R.costo, 2) + '/min' : 'captura el costo por minuto para verlo en pesos'}</span></div>
       </div>
       <p class="an-note">Cuello de botella: <b>${esc(s.neck.oper || s.neck.short || s.neck.name)}</b> (cola máxima ${f0(s.neck.qmax)} piezas). Quien más espera material: <b>${esc(s.waitTop[0].oper || s.waitTop[0].short)}</b> con ${f0(s.waitTop[0].starve)} min.</p>
-      <h4>Minutos por operador</h4>${barsSvg(R)}${legend()}
+      ${R.B ? cmpBlock(R) : ''}
+      <h4>Minutos por operador${R.B ? ' · como está' : ''}</h4>${barsSvg(R)}${R.B ? `<h4>Minutos por operador · con el cambio</h4>${barsSvg(R.B)}` : ''}${legend()}
       <h4>¿Cuándo esperan más? · espera de material por hora</h4>${heatSvg(R)}
       <h4>Detalle por operador</h4>${table(R)}
       <div class="an-row"><button class="prim" data-k="pdf">Descargar reporte (PDF)</button><button data-k="csv">Descargar para Excel (CSV)</button><span class="an-note">El PDF se guarda desde la ventana de impresión: elige «Guardar como PDF».</span></div>`; }
+  function cmpRows(R) { const A = summary(R), B = summary(R.B), c = R.costo > 0, d = (x, y, better) => { const v = y - x; if (Math.abs(v) < .5) return '<span style="color:#a9b3bd">igual</span>'; const good = better === 'up' ? v > 0 : v < 0; return `<b style="color:${good ? '#3ddc97' : '#ff6b62'}">${v > 0 ? '+' : ''}${f0(v)}</b>`; };
+    return [['Personas', R.per.length, R.B.per.length, null], ['Piezas producidas', R.out.mean, R.B.out.mean, 'up'], ['Faltante (pzs)', A.falt ?? 0, B.falt ?? 0, 'down'], ['Min esperando material', A.starve, B.starve, 'down'], ['Min en retrabajo', A.rew, B.rew, 'down'], ['Min perdidos', A.lost, B.lost, 'down']]
+      .concat(c ? [['Costo de minutos perdidos ($)', A.cost, B.cost, 'down']] : [])
+      .map(([n, x, y, b]) => ({ n, x, y, d: b ? d(x, y, b) : (y - x ? (y - x > 0 ? '+' : '') + f0(y - x) : 'igual'), money: /\$/.test(n) })).concat([{ n: 'Cuello de botella', x: A.neck.oper || A.neck.short, y: B.neck.oper || B.neck.short, d: '', txt: true }]); }
+  function cmpBlock(R) { return `<h4>Comparación · como está contra el cambio</h4><p class="an-note">Cambio: <b>${esc(R.chg)}</b></p><div style="overflow-x:auto"><table><thead><tr><th>Indicador</th><th>Como está</th><th>Con el cambio</th><th>Diferencia</th></tr></thead><tbody>${cmpRows(R).map(r => `<tr><td>${esc(r.n)}</td><td>${r.txt ? esc(r.x) : (r.money ? money(r.x) : f0(r.x))}</td><td>${r.txt ? esc(r.y) : (r.money ? money(r.y) : f0(r.y))}</td><td>${r.d}</td></tr>`).join('')}</tbody></table></div>`; }
   function table(R) { const c = R.costo > 0;
     return `<div style="overflow-x:auto"><table><thead><tr><th>Operador</th><th>Piezas</th><th>Trabajando</th><th>Esperando material</th><th>Retrabajo</th><th>Paros</th><th>Perdido</th>${c ? '<th>Costo perdido</th>' : ''}<th>Cola prom.</th><th>Cola máx.</th><th>Entrega a</th></tr></thead><tbody>${R.per.map(p => {
       const avail = R.H * 60 - p.paro; return `<tr><td>${esc(p.oper || p.short || p.name)}<br><small style="color:#a9b3bd">${esc(p.short || '')}</small></td><td>${f0(p.done)}</td><td>${f0(p.work)} min · ${f0(p.work / Math.max(1, avail) * 100)}%</td><td>${f0(p.starve)} min · ${f0(p.starve / Math.max(1, avail) * 100)}%</td><td>${f0(p.rew)} min</td><td>${f0(p.paro)} min</td><td><b>${f0(p.lost)} min</b></td>${c ? `<td>${money(p.lost * R.costo)}</td>` : ''}<td>${f1(p.qavg)}</td><td>${f0(p.qmax)}</td><td>${esc(p.next || 'salida')}</td></tr>`; }).join('')}</tbody></table></div>`; }
@@ -162,17 +198,19 @@ export function create(api) {
     const html = `<!doctype html><html lang="es"><head><meta charset="utf8"><title>Análisis de turno · ${esc(R.yz)}</title><style>body{font:13px/1.45 'Segoe UI',system-ui,sans-serif;color:#16202c;margin:24px} h1{font-size:20px;margin:0} h2{font-size:14px;margin:18px 0 6px;text-transform:uppercase;letter-spacing:.05em;color:#4a5a6b}
       .k{display:grid;grid-template-columns:repeat(3,1fr);gap:8px} .k div{border:1px solid #d3dce6;border-radius:8px;padding:8px 10px} .k b{display:block;font-size:18px} table{width:100%;border-collapse:collapse;font-size:12px} th,td{padding:4px 6px;border-bottom:1px solid #e3e8ee;text-align:right} th:first-child,td:first-child{text-align:left} svg{width:100%;height:auto;border:1px solid #d3dce6;border-radius:8px}
       .head{display:flex;gap:14px;align-items:center;margin-bottom:10px} .head img{height:46px} @media print{body{margin:10mm} h2{break-after:avoid} svg,table{break-inside:avoid}}</style></head><body>
-      <div class="head"><img src="${location.href.replace(/[^/]*$/, '')}estilo/logo_daimay.png" alt="DAIMAY"><div><h1>Análisis de turno · ${esc(R.yz)}</h1><div>${esc(R.scope)} · horizonte ${f1(R.H)} h · tiempo neto ${hhmm(R.net)} h · ${R.reps} repeticiones · ${R.at.toLocaleString('es-MX')}</div></div></div>
+      <div class="head"><img src="${location.href.replace(/[^/]*$/, '')}estilo/logo_daimay.png" alt="DAIMAY"><div><h1>Análisis de turno · ${esc(R.yz)}</h1><div>${R.turno ? esc(R.turno) + ' · ' : ''}${esc(R.scope)} · horizonte ${f1(R.H)} h · tiempo neto ${hhmm(R.net)} h · ${R.reps} repeticiones · ${R.at.toLocaleString('es-MX')}</div></div></div>
       <h2>Paros planeados</h2><div>${R.paros.map(p => `${esc(p.n)} ${hhmm(p.ini)} (${f0(p.dur)} min)`).join(' · ') || 'Sin paros'}</div>
       <h2>Resultados</h2><div class="k"><div><b>${f0(R.out.mean)} pzs</b>producidas (rango ${f0(R.out.min)}–${f0(R.out.max)})</div><div><b>${R.dem ? f0(R.dem) + ' pzs' : '—'}</b>demanda (${esc(R.demSrc)})</div><div><b>${s.falt === null ? '—' : f0(s.falt) + ' pzs'}</b>faltante</div>
       <div><b>${f0(s.starve)} min</b>esperando material${s.costStarve !== null ? ' · ' + money(s.costStarve) : ''}</div><div><b>${f0(s.rew)} min</b>retrabajo${s.costRew !== null ? ' · ' + money(s.costRew) : ''}</div><div><b>${s.cost !== null ? money(s.cost) : f0(s.lost) + ' min'}</b>${s.cost !== null ? 'costo de minutos perdidos a $' + fmtN(R.costo, 2) + '/min' : 'minutos perdidos'}</div></div>
       <p>Cuello de botella: <b>${esc(s.neck.oper || s.neck.short)}</b> (cola máxima ${f0(s.neck.qmax)} pzs). Quien más espera material: <b>${esc(s.waitTop[0].oper || s.waitTop[0].short)}</b> (${f0(s.waitTop[0].starve)} min).</p>
-      <h2>Minutos por operador</h2>${barsSvg(R, true)}<p style="font-size:11.5px;color:#4a5a6b">Verde VA · azul inspección · rojo retrabajo · ámbar esperando material · gris paros planeados.</p>
+      ${R.B ? `<h2>Comparación · como está contra el cambio</h2><p>Cambio: <b>${esc(R.chg)}</b></p><table><thead><tr><th>Indicador</th><th>Como está</th><th>Con el cambio</th><th>Diferencia</th></tr></thead><tbody>${cmpRows(R).map(r => `<tr><td>${esc(r.n)}</td><td>${r.txt ? esc(r.x) : (r.money ? money(r.x) : f0(r.x))}</td><td>${r.txt ? esc(r.y) : (r.money ? money(r.y) : f0(r.y))}</td><td>${r.d}</td></tr>`).join('')}</tbody></table>` : ''}
+      <h2>Minutos por operador${R.B ? ' · como está' : ''}</h2>${barsSvg(R, true)}${R.B ? `<h2>Minutos por operador · con el cambio</h2>${barsSvg(R.B, true)}` : ''}<p style="font-size:11.5px;color:#4a5a6b">Verde VA · azul inspección · rojo retrabajo · ámbar esperando material · gris paros planeados.</p>
       <h2>Espera de material por hora</h2>${heatSvg(R, true)}<h2>Detalle por operador</h2>${tbl}
       <p style="font-size:11px;color:#7b8a99">Simulación con los ciclos medidos en la plantilla Yamazumi v5, repetidos en orden aleatorio. Red DAIMAY.</p><script>setTimeout(()=>print(),400)<\/script></body></html>`;
     const wn = window.open('', '_blank'); if (!wn) { toastIn('El navegador bloqueó la ventana del reporte. Permite ventanas emergentes para este sitio.'); results(last); return; } wn.document.open(); wn.document.write(html); wn.document.close(); }
   function csv() { if (!last) return; const R = last, q = v => '"' + String(v ?? '').replace(/"/g, '""') + '"', n = v => (Math.round(v * 10) / 10).toString(), rows = [['Operador', 'Operación', 'Piezas', 'Min trabajando', 'Min esperando material', 'Min retrabajo', 'Min paros', 'Min perdidos', 'Costo perdido', 'Cola promedio', 'Cola máxima', 'Entrega a']];
     R.per.forEach(p => rows.push([p.oper || '', p.short || p.name, n(p.done), n(p.work), n(p.starve), n(p.rew), n(p.paro), n(p.lost), R.costo > 0 ? n(p.lost * R.costo) : '', n(p.qavg), n(p.qmax), p.next || 'salida']));
+    if (R.B) { rows.push([]); rows.push(['Comparación', 'Como está', 'Con el cambio']); rows.push(['Cambio', R.chg]); cmpRows(R).forEach(r => rows.push([r.n, r.txt ? r.x : n(r.x ?? 0), r.txt ? r.y : n(r.y ?? 0)])); }
     rows.push([]); rows.push(['Horizonte (h)', n(R.H)], ['Tiempo neto (min)', n(R.net)], ['Demanda', R.dem || ''], ['Producidas (promedio)', n(R.out.mean)], ['Rango', R.out.min + '–' + R.out.max], ['Costo por minuto', R.costo ?? '']);
     const blob = new Blob(['﻿' + rows.map(r => r.map(q).join(',')).join('\r\n')], { type: 'text/csv;charset=utf-8' }), a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `analisis_turno_${(R.yz || 'linea').replace(/[^\w\-]+/g, '_')}.csv`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); }
 

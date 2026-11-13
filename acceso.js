@@ -108,7 +108,7 @@
     css(); var host=document.querySelector('#bar .acts'), w=document.createElement('div'); w.id='rdChip';
     if(!host) return;                                        // gemelo abierto solo: la sesión se maneja desde la página de la red
     w.innerHTML='<button class="btn rdBtn sec" id="rdWho" aria-haspopup="true" aria-expanded="false" title="Sesión">'+esc(me.nombre.split(' ')[0])+'</button><div id="rdMenu" hidden><small>'+esc(me.nombre)+' · No. '+esc(me.n)+'</small>'
-      +(me.rol==='admin'?'<button data-a="adm">Usuarios</button>':'')+'<button data-a="out">Cerrar sesión</button></div>';
+      +(me.rol==='admin'?'<button data-a="adm">Usuarios</button>':'')+(me.rol!=='lector'?'<button data-bk="pub" title="Descarga un archivo solo con lo que cambiaste, para publicarlo para todos">Publicar mis datos</button>':'')+'<button data-a="out">Cerrar sesión</button></div>';
     host.appendChild(w);
     var m=w.querySelector('#rdMenu'), b=w.querySelector('#rdWho');
     b.addEventListener('click',function(){m.hidden=!m.hidden;b.setAttribute('aria-expanded',String(!m.hidden));});
