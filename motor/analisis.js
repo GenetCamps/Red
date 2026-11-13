@@ -71,7 +71,7 @@ export function simulate(nodes, cfg) {
 
 /* ---------- vista ---------- */
 export function create(api) {
-  const { esc, fmtN } = api; let el = null, w = null, last = null, cmpOn = false, failOn = false;
+  const { esc, fmtN } = api; let el = null, w = null, last = null, cmpOn = false, failOn = false, balOn = false;
   const st = document.createElement('style'); st.textContent = CSS; document.head.appendChild(st);
   const f0 = v => fmtN(v, 0), f1 = v => fmtN(v, 1), money = v => '$' + fmtN(v, 0);
   const hhmm = m => { m = Math.round(m); return Math.floor(m / 60) + ':' + String(m % 60).padStart(2, '0'); };
@@ -102,12 +102,52 @@ export function create(api) {
       <div class="an-row"><button data-k="addp">Agregar paro</button><button data-k="base">Regresar a base 12 h</button><span class="an-note">La hora de inicio cuenta desde el arranque del turno (0:00).</span></div>
       <div class="an-row"><button data-k="fail" aria-pressed="${failOn}">${failOn ? 'Ocultar paros no planeados y scrap' : 'Paros no planeados y scrap'}</button><span class="an-note">Fallas de máquina o de proceso que ocurren al azar, y el % de piezas que salen mal en cada estación.</span></div>
       ${failOn ? failForm(P) : ''}
+      <div class="an-row"><button data-k="bal" aria-pressed="${balOn}">${balOn ? 'Ocultar balanceo' : 'Balanceo automático'}</button><span class="an-note">Propone cómo agrupar las operaciones en estaciones contra el takt, con menos personas.</span>${balOn ? `<label style="display:flex;gap:6px;align-items:center">Llenar hasta<input data-a="balPct" type="number" min="60" max="100" step="1" value="${cfgOf().balPct || 95}" style="width:70px">% del takt</label>` : ''}</div>
+      ${balOn ? `<div class="an-bal">${balPane()}</div>` : ''}
       <div class="an-row"><button data-k="cmp" aria-pressed="${cmpOn}">${cmpOn ? 'Quitar comparación' : 'Comparar con un cambio'}</button><span class="an-note">Prueba qué pasa si quitas a alguien, bajas un ciclo, eliminas el retrabajo o cambias a quién entrega.</span></div>
       ${cmpOn ? cmpForm(P) : ''}
       <div class="an-row"><button class="prim" data-k="run">Correr análisis</button><span class="an-note">${esc(P.label)}${!Y?.takt && !dem ? ' · <span class="an-warn">sin demanda: la primera estación nunca se queda sin material</span>' : ''}</span></div>
       <div class="an-res"></div>`;
     if (last) results(last);
   }
+
+  /* ---------- balanceo automático: agrupa operaciones en estaciones contra el takt ---------- */
+  const meanOf = o => { const c = (o.cycles || []).map(x => +x.t).filter(t => t > 0); return c.length ? c.reduce((a, b) => a + b, 0) / c.length : 0; };
+  function balTakt(Y) { const a = cfgOf(); if (+Y?.takt > 0) return { t: +Y.takt, src: 'takt del yamazumi' }; const D = +Y?.dem || 0; if (D) { const net = a.H * 60 - parosEn(a.paros, a.H); return { t: net * 60 / D, src: 'tiempo neto ÷ demanda' }; } return null; }
+  function balance(Y, takt, pct) { const lim = takt * pct / 100, ops = Y.ops.filter(o => o.on !== false), st = []; let cur = null;
+    ops.forEach(o => { const t = meanOf(o); if (!t) return;
+      if (t > lim) { if (cur) { st.push(cur); cur = null; } st.push({ ops: [o], t, p: Math.ceil(t / lim) }); return; }
+      if (cur && cur.t + t <= lim) { cur.ops.push(o); cur.t += t; } else { if (cur) st.push(cur); cur = { ops: [o], t, p: 1 }; } });
+    if (cur) st.push(cur); return st; }
+  function balCycles(s) { const n = Math.max(1, ...s.ops.map(o => (o.cycles || []).length)), out = [];
+    for (let k = 0; k < n; k++) { let t = 0, best = null; s.ops.forEach(o => { const c = (o.cycles || []).filter(x => +x.t > 0); if (!c.length) return; const x = c[k % c.length]; t += +x.t; if (!best || +x.t > +best.t) best = x; }); if (t > 0) out.push({ t: +(t / s.p).toFixed(1), cat: best?.cat || 'va' }); }
+    return out; }
+  function balPane() { const Y = api.yz(), a = cfgOf(), T = balTakt(Y), pct = a.balPct || 95;
+    if (!Y) return '<p class="an-note">Importa un yamazumi para proponer un balanceo.</p>';
+    if (!T) return '<p class="an-warn">Para balancear hace falta el takt del yamazumi o la demanda de la línea.</p>';
+    const st = balance(Y, T.t, pct), ops = Y.ops.filter(o => o.on !== false), sum = ops.reduce((s, o) => s + meanOf(o), 0), pers = st.reduce((s, x) => s + x.p, 0), teo = sum / T.t, bal = pers ? sum / (pers * T.t) : 0;
+    const W = 980, H = 260, px = 50, pw = W - px - 20, ph = H - 70, top = Math.max(T.t * 1.25, ...st.map(s => s.t / s.p * 1.1)), Yv = v => 20 + ph - v / top * ph, bw = Math.min(70, pw / Math.max(1, st.length) * .7);
+    let svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Estaciones propuestas contra takt"><rect width="${W}" height="${H}" fill="#111921" rx="8"/>`;
+    st.forEach((s, i) => { const cx = px + pw / st.length * (i + .5), v = s.t / s.p, c = v > T.t ? '#e5484d' : v > T.t * pct / 100 ? '#FFB020' : '#199e70';
+      svg += `<rect x="${cx - bw / 2}" y="${Yv(v)}" width="${bw}" height="${Yv(0) - Yv(v)}" fill="${c}"><title>Estación ${i + 1}: ${s.ops.map(o => o.oper || o.name).join(' + ')} · ${f1(s.t)} s${s.p > 1 ? ' ÷ ' + s.p + ' personas' : ''}</title></rect><text x="${cx}" y="${Yv(v) - 6}" text-anchor="middle" font-size="12" fill="#e7ebef">${f0(v / T.t * 100)}%</text><text x="${cx}" y="${H - 30}" text-anchor="middle" font-size="12" fill="#a9b3bd">E${i + 1}${s.p > 1 ? ' ×' + s.p : ''}</text>`; });
+    svg += `<line x1="${px}" x2="${W - 20}" y1="${Yv(T.t)}" y2="${Yv(T.t)}" stroke="#ff5a4f" stroke-width="2" stroke-dasharray="7 4"/><text x="${W - 24}" y="${Yv(T.t) - 6}" text-anchor="end" font-size="12" fill="#e7ebef">Takt ${f1(T.t)} s</text></svg>`;
+    BALST = { st, T, pct, Y };
+    return `<div class="an-kpis"><div class="an-kpi"><b>${ops.length} → ${pers}</b><span>personas: hoy (una por operación) → propuesta</span></div><div class="an-kpi"><b>${f1(teo)}</b><span>operadores teóricos (suma ÷ takt)</span></div><div class="an-kpi ${bal >= .85 ? 'ok' : ''}"><b>${f0(bal * 100)}%</b><span>balance de la propuesta</span></div><div class="an-kpi"><b>${f1(T.t)} s</b><span>takt (${esc(T.src)}) · llenado a ${pct}%</span></div></div>
+      ${svg}<div style="overflow-x:auto"><table><thead><tr><th>Estación</th><th>Operaciones (en orden)</th><th>Tiempo</th><th>Personas</th><th>% del takt</th></tr></thead><tbody>${st.map((s, i) => `<tr><td>E${i + 1}</td><td style="text-align:left;white-space:normal">${s.ops.map(o => esc(o.oper ? `${api.flow.short(o)} (${o.oper})` : o.name)).join(' + ')}</td><td>${f1(s.t)} s</td><td>${s.p}</td><td>${f0(s.t / s.p / T.t * 100)}%</td></tr>`).join('')}</tbody></table></div>
+      <p class="an-note">Regla: respeta el orden de las operaciones y junta las que caben juntas sin pasar del ${pct}% del takt; una operación que sola pasa del takt se reparte entre varias personas en paralelo. Es una propuesta para revisar en piso (ergonomía, herramienta, habilidades), no una orden.</p>
+      <div class="an-row"><button class="prim" data-k="balsim">Simular propuesta contra la actual</button><button data-k="balyz"${window.RD_RO ? ' hidden' : ''}>Crear yamazumi con la propuesta</button></div>`; }
+  let BALST = null;
+  function balSim() { if (!BALST) return; const a = cfgOf(), { st, T, Y } = BALST, ops = Y.ops.filter(o => o.on !== false);
+    const nA = ops.map((o, i) => ({ id: o.id, name: o.name, oper: o.oper, short: api.flow.short(o), next: ops[i + 1]?.id || null, cycles: o.cycles || [], fail: (a.fail || {})[o.id] || null }));
+    const nB = st.map((s, i) => ({ id: 'E' + (i + 1), name: 'Estación ' + (i + 1), oper: `E${i + 1}${s.p > 1 ? ' ×' + s.p : ''}`, short: s.ops.map(o => o.oper || api.flow.short(o)).join(' + ').slice(0, 40), next: i < st.length - 1 ? 'E' + (i + 2) : null, cycles: balCycles(s) }));
+    let D = +Y.dem || 0, src = 'capturada'; if (!D && +Y.takt > 0) { D = Math.floor((a.H * 60 - parosEn(a.paros, a.H)) * 60 / Y.takt); src = 'calculada con el takt'; }
+    const R = simulate(nA, { H: a.H, paros: a.paros, dem: D, reps: a.reps }); R.demSrc = D ? src : 'sin demanda'; R.costo = a.costo; R.yz = Y.name; R.scope = 'Línea actual en orden (una persona por operación)'; R.at = new Date(); R.used = nA.length;
+    const RB = simulate(nB, { H: a.H, paros: a.paros, dem: D, reps: a.reps }); RB.costo = a.costo; RB.dem = D; RB.nPer = st.reduce((x, s) => x + s.p, 0); R.B = RB;
+    R.chg = `propuesta de balanceo: ${st.length} estaciones y ${st.reduce((x, s) => x + s.p, 0)} personas en lugar de ${nA.length}`; last = R; results(R); el.querySelector('.an-res')?.scrollIntoView({ block: 'start' }); }
+  function balYz() { if (!BALST) return; const { st, Y } = BALST, S = api.S(); if (!S) return; const ids = st.map(() => 'y' + Math.random().toString(36).slice(2, 9));
+    const Y2 = { id: 'y' + Math.random().toString(36).slice(2, 9), name: Y.name + ' · balanceo', planta: Y.planta, linea: Y.linea, programa: Y.programa, trip: Y.trip, turno: Y.turno, fecha: new Date().toISOString().slice(0, 10), analista: 'Propuesta de balanceo', takt: Y.takt, dem: Y.dem, src: 'Balanceo automático de «' + Y.name + '»',
+      ops: st.map((s, i) => ({ id: ids[i], name: `Estación ${i + 1}${s.p > 1 ? ' (×' + s.p + ')' : ''}`, est: '', pos: '', lado: '', oper: s.ops.map(o => o.oper || o.name).join(' + '), on: true, next: ids[i + 1] || '', cycles: balCycles(s) })) };
+    S.yz = (S.yz || []).concat([Y2]); api.save(); alert(`Listo: yamazumi «${Y2.name}» con ${st.length} estaciones. Elígelo en la pestaña Operaciones para animarlo o analizarlo.`); }
   function failOf(id) { const a = cfgOf(); a.fail = a.fail || {}; return a.fail[id] || {}; }
   function failForm(P) { const nm = o => o.oper || api.flow.short(o);
     return `<h4>Paros no planeados y scrap por persona</h4><div style="overflow-x:auto"><table><thead><tr><th>Persona</th><th>Falla cada (min de operación)</th><th>Dura en promedio (min)</th><th>Scrap (%)</th></tr></thead><tbody>${P.list.map(({ o }) => { const f = failOf(o.id);
@@ -135,6 +175,7 @@ export function create(api) {
     if (t.dataset.f && t.dataset.id) { a.fail = a.fail || {}; const f = a.fail[t.dataset.id] = { ...failOf(t.dataset.id) }, v = t.value === '' ? undefined : Math.max(0, +t.value); if (v === undefined) delete f[t.dataset.f]; else f[t.dataset.f] = t.dataset.f === 'scrap' ? Math.min(100, v) : v; api.save(); return; }
     if (t.dataset.vb) { a.vbox = a.vbox || {}; if (t.value) a.vbox[t.dataset.vb] = t.value; else delete a.vbox[t.dataset.vb]; api.save(); return; }
     if (t.dataset.c) { a.chg = a.chg || {}; const id = t.dataset.id, c = a.chg[id] = { ...chgOf(id) }; if (t.dataset.c === 'on' || t.dataset.c === 'norew') c[t.dataset.c] = t.checked; else if (t.dataset.c === 'pct') c.pct = Math.max(10, Math.min(300, +t.value || 100)); else c.next = t.value || null; api.save(); return; }
+    if (t.dataset.a === 'balPct') { const v = Math.max(60, Math.min(100, +t.value || 95)); a.balPct = v; api.save(); const box = el.querySelector('.an-bal'); if (box) box.innerHTML = balPane(); return; }
     if (t.dataset.a === 'turno') { a.turno = t.value || undefined; const tu = api.turnos?.()?.list().find(x => x.id === t.value);
       if (tu) { a.H = tu.H; a.paros = tu.paros.map(p => ({ ...p })); if (P.Y && tu.dem?.[P.Y.id] > 0) P.Y.dem = tu.dem[P.Y.id]; } api.save(); last = null; form(); return; }
     if (t.dataset.a === 'dem') { if (P.Y) { const v = +t.value; P.Y.dem = v > 0 ? Math.round(v) : undefined; api.save(); } return; }
@@ -149,6 +190,9 @@ export function create(api) {
     else if (b.dataset.k === 'close') close();
     else if (b.dataset.k === 'cmp') { cmpOn = !cmpOn; form(); }
     else if (b.dataset.k === 'fail') { failOn = !failOn; form(); }
+    else if (b.dataset.k === 'bal') { balOn = !balOn; form(); }
+    else if (b.dataset.k === 'balsim') balSim();
+    else if (b.dataset.k === 'balyz') balYz();
     else if (b.dataset.k === 'tovsm') toVsm();
     else if (b.dataset.k === 'cmpreset') { a.chg = {}; api.save(); form(); }
     else if (b.dataset.k === 'pdf') printReport();
@@ -208,7 +252,7 @@ export function create(api) {
       ${vsmBlock(R)}
       <div class="an-row"><button class="prim" data-k="pdf">Descargar reporte (PDF)</button><button data-k="csv">Descargar para Excel (CSV)</button><span class="an-note">El PDF se guarda desde la ventana de impresión: elige «Guardar como PDF».</span></div>`; }
   function cmpRows(R) { const A = summary(R), B = summary(R.B), c = R.costo > 0, d = (x, y, better) => { const v = y - x; if (Math.abs(v) < .5) return '<span style="color:#a9b3bd">igual</span>'; const good = better === 'up' ? v > 0 : v < 0; return `<b style="color:${good ? '#3ddc97' : '#ff6b62'}">${v > 0 ? '+' : ''}${f0(v)}</b>`; };
-    return [['Personas', R.per.length, R.B.per.length, null], ['Piezas producidas', R.out.mean, R.B.out.mean, 'up'], ['Faltante (pzs)', A.falt ?? 0, B.falt ?? 0, 'down'], ['Min esperando material', A.starve, B.starve, 'down'], ['Min en retrabajo', A.rew, B.rew, 'down'], ['Min perdidos', A.lost, B.lost, 'down']]
+    return [['Personas', R.nPer ?? R.per.length, R.B.nPer ?? R.B.per.length, null], ['Piezas producidas', R.out.mean, R.B.out.mean, 'up'], ['Faltante (pzs)', A.falt ?? 0, B.falt ?? 0, 'down'], ['Min esperando material', A.starve, B.starve, 'down'], ['Min en retrabajo', A.rew, B.rew, 'down'], ['Min perdidos', A.lost, B.lost, 'down']]
       .concat(c ? [['Costo de minutos perdidos ($)', A.cost, B.cost, 'down']] : [])
       .map(([n, x, y, b]) => ({ n, x, y, d: b ? d(x, y, b) : (y - x ? (y - x > 0 ? '+' : '') + f0(y - x) : 'igual'), money: /\$/.test(n) })).concat([{ n: 'Cuello de botella', x: A.neck.oper || A.neck.short, y: B.neck.oper || B.neck.short, d: '', txt: true }]); }
   function cmpBlock(R) { return `<h4>Comparación · como está contra el cambio</h4><p class="an-note">Cambio: <b>${esc(R.chg)}</b></p><div style="overflow-x:auto"><table><thead><tr><th>Indicador</th><th>Como está</th><th>Con el cambio</th><th>Diferencia</th></tr></thead><tbody>${cmpRows(R).map(r => `<tr><td>${esc(r.n)}</td><td>${r.txt ? esc(r.x) : (r.money ? money(r.x) : f0(r.x))}</td><td>${r.txt ? esc(r.y) : (r.money ? money(r.y) : f0(r.y))}</td><td>${r.d}</td></tr>`).join('')}</tbody></table></div>`; }

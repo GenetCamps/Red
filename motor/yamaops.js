@@ -101,6 +101,60 @@ export function create(api) {
   const save = () => { api.save(); };
   const f1 = v => fmtN(v, 1);
 
+
+  /* ---------- cronómetro de piso (pensado para el celular): toma ciclos de una operación con su categoría ---------- */
+  const PCSS = `#pcron{position:fixed;inset:0;z-index:90;background:#0b1016;color:#e7ebef;display:flex;flex-direction:column;font:15px/1.4 system-ui,'Segoe UI',sans-serif;padding:max(12px,env(safe-area-inset-top)) 14px max(14px,env(safe-area-inset-bottom));box-sizing:border-box}
+#pcron .hd{display:flex;gap:10px;align-items:center}#pcron .hd b{flex:1;font-size:16px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#pcron button{font:inherit;color:inherit;background:#1b232c;border:1px solid #2a3542;border-radius:12px;padding:10px 14px;min-height:48px;cursor:pointer}
+#pcron button:focus-visible{outline:3px solid #FFB020;outline-offset:2px}
+#pcron .tm{font:700 64px/1.05 ui-monospace,Menlo,Consolas,monospace;text-align:center;margin:12px 0 4px;font-variant-numeric:tabular-nums}
+#pcron .sub{text-align:center;color:#a9b3bd;font-size:13px;min-height:18px}
+#pcron .cats{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin:10px 0}
+#pcron .cats button{min-height:40px;padding:6px 10px;font-size:13px;border-radius:99px}
+#pcron .cats button.on{color:#0b1016;font-weight:700}
+#pcron .lap{width:100%;min-height:120px;font-size:26px;font-weight:800;background:#FFB020;border-color:#FFB020;color:#12181F;border-radius:18px;margin:6px 0}
+#pcron .row{display:flex;gap:8px}#pcron .row button{flex:1}
+#pcron ol{flex:1;overflow:auto;margin:10px 0;padding:0 0 0 0;list-style:none;display:grid;gap:6px;align-content:start}
+#pcron li{display:grid;grid-template-columns:34px 1fr auto 44px;gap:8px;align-items:center;background:#131b23;border-radius:10px;padding:6px 8px}
+#pcron li i{width:12px;height:12px;border-radius:50%;display:inline-block;margin-right:6px}
+#pcron li button{min-height:40px;padding:4px 8px}
+#pcron .save{background:#199e70;border-color:#199e70;color:#fff;font-weight:700}`;
+  let PC = null;
+  const pfmt = s => { const m = Math.floor(s / 60), x = s - m * 60; return (m ? m + ':' + String(Math.floor(x)).padStart(2, '0') : Math.floor(x)) + '.' + Math.floor((x % 1) * 10); };
+  function pcOpen(op) { if (RO()) return; pcClose(); if (!document.getElementById('pcronCss')) { const s = document.createElement('style'); s.id = 'pcronCss'; s.textContent = PCSS; document.head.appendChild(s); }
+    PC = { op, laps: [], cat: 'va', t0: null, acc: 0, raf: 0, el: document.createElement('div') }; const el = PC.el; el.id = 'pcron'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', 'Cronómetro de piso');
+    el.innerHTML = `<div class="hd"><b>${esc(op.name)}</b><button data-p="x" aria-label="Cerrar sin guardar">Cerrar</button></div>
+      <div class="tm" aria-live="off">0.0</div><div class="sub"></div>
+      <div class="cats" role="group" aria-label="Categoría del siguiente ciclo">${CATS.filter(c => c.k !== 'otro').map(c => `<button data-c="${c.k}" style="border-color:${c.col}">${esc(c.name)}</button>`).join('')}</div>
+      <button class="lap" data-p="lap">Iniciar</button>
+      <div class="row"><button data-p="pause">Pausa</button><button data-p="undo">Deshacer</button><button data-p="note">Nota</button></div>
+      <ol></ol><div class="row"><button class="save" data-p="save">Guardar ciclos</button></div>`;
+    document.body.appendChild(el); el.addEventListener('click', pcClick); pcPaint(); const tick = () => { if (!PC) return; pcTime(); PC.raf = requestAnimationFrame(tick); }; tick(); }
+  const pcNow = () => PC.t0 == null ? PC.acc : PC.acc + (performance.now() - PC.t0) / 1000;
+  function pcTime() { const el = PC.el.querySelector('.tm'); if (el) el.textContent = pfmt(pcNow()); }
+  function pcPaint() { const el = PC.el, n = PC.laps.length, mean = n ? PC.laps.reduce((a, b) => a + b.t, 0) / n : 0, Y = cur(), takt = +Y?.takt || 0;
+    el.querySelectorAll('[data-c]').forEach(b => { const on = b.dataset.c === PC.cat, c = CATS.find(x => x.k === b.dataset.c); b.classList.toggle('on', on); b.style.background = on ? c.col : ''; b.setAttribute('aria-pressed', String(on)); });
+    el.querySelector('.lap').textContent = PC.t0 == null && !PC.acc && !n ? 'Iniciar' : 'Vuelta · termina ciclo ' + (n + 1);
+    el.querySelector('[data-p=pause]').textContent = PC.t0 == null && (PC.acc || n) ? 'Seguir' : 'Pausa';
+    el.querySelector('[data-p=save]').textContent = n ? `Guardar ${n} ciclo${n === 1 ? '' : 's'}` : 'Guardar ciclos';
+    el.querySelector('.sub').textContent = n ? `${n} ciclos · promedio ${pfmt(mean)} s${takt ? ' · ' + fmtN(mean / takt * 100, 0) + '% del takt' : ''}` : 'Toca «Iniciar» al empezar el primer ciclo; luego «Vuelta» al terminar cada uno.';
+    el.querySelector('ol').innerHTML = PC.laps.map((l, i) => { const c = CATS.find(x => x.k === l.cat) || CATS[7]; return `<li><b>${i + 1}</b><span><i style="background:${c.col}"></i>${esc(c.name)}${l.note ? ' · ' + esc(l.note) : ''}</span><b>${pfmt(l.t)} s</b><button data-del="${i}" aria-label="Borrar ciclo ${i + 1}">×</button></li>`; }).reverse().join(''); }
+  function pcClick(e) { const b = e.target.closest('button'); if (!b || !PC) return; const p = b.dataset.p;
+    if (b.dataset.c) { PC.cat = b.dataset.c; pcPaint(); return; }
+    if (b.dataset.del !== undefined) { PC.laps.splice(+b.dataset.del, 1); pcPaint(); return; }
+    if (p === 'lap') { if (PC.t0 == null && !PC.acc && !PC.laps.length) { PC.t0 = performance.now(); pcPaint(); try { navigator.vibrate?.(30); } catch (_) {} return; }
+      const t = pcNow(); if (t < .3) return; PC.laps.push({ t: +t.toFixed(1), cat: PC.cat, note: '' }); PC.acc = 0; PC.t0 = performance.now(); pcPaint(); try { navigator.vibrate?.(30); } catch (_) {} return; }
+    if (p === 'pause') { if (PC.t0 != null) { PC.acc = pcNow(); PC.t0 = null; } else if (PC.acc || PC.laps.length) PC.t0 = performance.now(); pcPaint(); return; }
+    if (p === 'undo') { const l = PC.laps.pop(); if (l) { PC.acc = l.t + pcNow(); if (PC.t0 != null) PC.t0 = performance.now(); } pcPaint(); return; }
+    if (p === 'note') { const l = PC.laps[PC.laps.length - 1]; if (!l) { alert('Primero registra un ciclo.'); return; } const v = prompt('Nota para el ciclo ' + PC.laps.length + ':', l.note || ''); if (v !== null) { l.note = v.trim(); pcPaint(); } return; }
+    if (p === 'save') { if (!PC.laps.length) { alert('No hay ciclos registrados.'); return; } const op = PC.op; op.cycles = (op.cycles || []).concat(PC.laps); const n = PC.laps.length; save(); pcClose(); st.osel = op.id; st.msg = [`Se agregaron ${n} ciclos cronometrados en piso.`]; api.redraw(); return; }
+    if (p === 'x') { if (PC.laps.length && !confirm('¿Cerrar sin guardar los ciclos tomados?')) return; pcClose(); } }
+  function pcClose() { if (!PC) return; cancelAnimationFrame(PC.raf); PC.el.remove(); PC = null; }
+  function newYzPiso() { const nm = prompt('Nombre del yamazumi (línea o estación):', ''); if (!nm || !nm.trim()) return null; const tk = prompt('Takt en segundos (puedes dejarlo vacío):', ''); const tr = prompt('Tripulación (A, B, C…):', '') || '';
+    const Y = { id: uid(), name: nm.trim(), planta: '', linea: nm.trim(), programa: '', trip: tr.trim().toUpperCase(), turno: '', fecha: new Date().toISOString().slice(0, 10), analista: 'Cronometrado en piso', takt: +String(tk || '').replace(',', '.') > 0 ? +String(tk).replace(',', '.') : 0, src: 'Captura en piso', ops: [] };
+    list().push(Y); st.cur = Y.id; save(); return Y; }
+  function newOpPiso(Y) { const nm = prompt('Nombre de la operación (por ejemplo «CERRADO FR LH Rosa»):', ''); if (!nm || !nm.trim()) return; const o = { id: uid(), name: nm.trim(), ...splitName(nm.trim()), on: true, cycles: [] }; Y.ops.push(o); st.osel = o.id; save(); api.redraw(true); pcOpen(o); }
+
   function draw() {
     const Y = cur(), o = [], fs = 13;
     if (!Y) { svg.innerHTML = `<rect x="0" y="0" width="900" height="420" rx="6" fill="#12181F"/><text x="450" y="200" text-anchor="middle" font-size="16" fill="#e7ebef">Aún no hay yamazumis de operaciones en este escenario</text><text x="450" y="228" text-anchor="middle" font-size="13" fill="#a9b3bd">Usa «Importar Excel o CSV» en el panel de la derecha (plantilla Yamazumi v5).</text>`; return { x: -16, y: -16, w: 932, h: 452 }; }
@@ -136,6 +190,7 @@ export function create(api) {
     const L = list(), Y = cur(), o = [], ro = RO();
     o.push(`<h5>Yamazumis de operaciones</h5>`);
     if (L.length) o.push(`<select data-y="pick" style="width:100%;background:var(--raise,#1b232c);border:1px solid var(--line,#27323e);border-radius:6px;color:inherit;padding:7px;font:inherit">${L.map(y => `<option value="${esc(y.id)}"${Y && y.id === Y.id ? ' selected' : ''}>${esc(y.name)}</option>`).join('')}</select>`);
+    if (!ro) o.push(`<div class="vz-btns"><button data-y="pyz" title="Crear un yamazumi sin Excel y cronometrar en piso desde el celular">Nuevo en piso</button>${Y ? '<button data-y="pop" title="Agregar una operación y cronometrarla">Operación en piso</button>' : ''}</div>`);
     if (!ro) o.push(`<div class="vz-btns"><button class="prim" data-y="imp">Importar Excel o CSV</button>${Y ? '<button data-y="dup">Duplicar</button><button data-y="del">Eliminar</button>' : ''}</div><input type="file" accept=".xlsx,.csv,text/csv" hidden>`);
     if (st.msg.length) o.push(`<div class="vz-card" style="border-color:#FFB020"><div class="hd"><b>Avisos de la importación</b><button data-y="msgx" aria-label="Cerrar avisos">×</button></div>${st.msg.map(m => `<p>${esc(m)}</p>`).join('')}</div>`);
     if (Y) {
@@ -162,7 +217,7 @@ export function create(api) {
             <p style="margin:0">Estación: ${sel.link ? (sel.link.oid != null ? 'enlazada a una figura del gemelo' : 'enlazada a un punto libre') + ` (${f1(sel.link.x)}, ${f1(sel.link.z)})` : 'sin enlazar'}</p>
             ${ro ? '' : `<div class="vz-btns" style="margin:0"><button data-y="flink1">${sel.link ? 'Cambiar estación' : 'Enlazar con clic'}</button>${sel.link ? '<button data-y="funlink">Quitar enlace</button>' : ''}</div>`}</div>` : ''}
           <div>${sel.cycles.map((c, i) => `<div class="vz-stop" style="grid-template-columns:22px 62px 1fr 24px;cursor:default" title="${esc(c.note || '')}"><b style="background:${(CATS.find(C => C.k === c.cat) || CATS[7]).col}">${i + 1}</b><input data-ct="${i}" type="number" min="0" step="0.1" value="${c.t}"${ro ? ' disabled' : ''} aria-label="Segundos del ciclo ${i + 1}"><select data-cc="${i}"${ro ? ' disabled' : ''} aria-label="Categoría del ciclo ${i + 1}">${CATS.map(C => `<option value="${C.k}"${C.k === c.cat ? ' selected' : ''}>${esc(C.name)}</option>`).join('')}</select>${ro ? '<span></span>' : `<button data-cx="${i}" aria-label="Borrar ciclo ${i + 1}">×</button>`}</div>${c.note ? `<p style="margin:0 0 4px 27px">${esc(c.note)}</p>` : ''}`).join('')}</div>
-          ${ro ? '' : '<div class="vz-btns"><button data-y="cadd">Agregar ciclo</button></div>'}</div>`); }
+          ${ro ? '' : '<div class="vz-btns"><button class="prim" data-y="pcron">Cronometrar en piso</button><button data-y="cadd">Agregar ciclo</button></div>'}</div>`); }
       o.push(`<label class="vz-chk"><input type="checkbox" data-y="sort"${st.sort ? ' checked' : ''}> Ordenar de mayor a menor carga</label><p>La casilla decide si la operación entra en este yamazumi; ▶ la agrega a la animación en 3D. Clic en un nombre para ver sus ciclos, su estación y a quién le entrega.</p>`);
       Y.ops.forEach(x => { const s = statOf(x), ov = takt && s.mean > takt;
         o.push(`<div class="vz-row${st.osel === x.id ? ' on' : ''}" data-oid="${esc(x.id)}" style="grid-template-columns:18px 1fr auto 26px;cursor:pointer"><input type="checkbox" data-on="${esc(x.id)}"${x.on !== false ? ' checked' : ''}${ro ? ' disabled' : ''} aria-label="Incluir ${esc(x.name)}"><span><b>${esc(x.est ? `${x.est} ${x.pos} ${x.lado}` : x.name)}</b><small>${esc(x.est ? x.oper + ' · ' : '')}${s.n} ciclos · ${f1(s.min)}–${f1(s.max)} s</small></span><em class="${ov ? 'over' : ''}">${takt ? fmtN(s.mean / takt * 100, 0) + '%' : f1(s.mean) + ' s'}</em>${flow ? `<button data-an="${esc(x.id)}" title="${x.anim ? 'Quitar de la animación' : 'Animar a esta persona en 3D'}" aria-label="${x.anim ? 'Quitar de la animación' : 'Animar en 3D'} ${esc(x.name)}" aria-pressed="${x.anim ? 'true' : 'false'}"${ro ? ' disabled' : ''} style="padding:0;min-width:24px;height:24px;border-radius:5px;border:1px solid ${x.anim ? '#FFB020' : 'var(--line,#27323e)'};background:${x.anim ? '#FFB020' : 'none'};color:${x.anim ? '#12181F' : 'inherit'};cursor:pointer">▶</button>` : ''}</div>`); });
@@ -183,6 +238,9 @@ export function create(api) {
     if (y === 'imp') { side.querySelector('input[type=file]').click(); return; }
     if (y === 'msgx') { st.msg = []; api.redraw(); return; }
     if (y === 'osx') { st.osel = null; api.redraw(); return; }
+    if (y === 'pyz') { const Yn = newYzPiso(); if (Yn) { api.redraw(true); newOpPiso(Yn); } return; }
+    if (y === 'pop' && Y) { newOpPiso(Y); return; }
+    if (y === 'pcron' && Y) { const so = Y.ops.find(x => x.id === st.osel); if (so) pcOpen(so); return; }
     if (api.turnos?.()?.cardClick(b)) return;
     if (flow) {
       if (y === 'fana') { api.ana?.()?.open(flow.anim().length ? 'anim' : 'yz'); return; }
@@ -218,5 +276,5 @@ export function create(api) {
     if (t.dataset.ct !== undefined) { const v = num(t.value); if (v > 0) sel.cycles[+t.dataset.ct].t = +v.toFixed(1); save(); api.redraw(); }
     else if (t.dataset.cc !== undefined) { sel.cycles[+t.dataset.cc].cat = t.value; save(); api.redraw(); }
   }
-  return { current: cur, draw, drawSide, click, sideClick, sideChange, importFile, title: () => 'Operaciones · ' + (cur()?.name || 'sin yamazumi'), state: () => ({ n: list().length, cur: cur()?.name || null, ops: cur()?.ops.length || 0, msg: st.msg }) };
+  return { pcOpen, pcClose, current: cur, draw, drawSide, click, sideClick, sideChange, importFile, title: () => 'Operaciones · ' + (cur()?.name || 'sin yamazumi'), state: () => ({ n: list().length, cur: cur()?.name || null, ops: cur()?.ops.length || 0, msg: st.msg }) };
 }
