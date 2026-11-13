@@ -167,7 +167,7 @@ export function create(api) {
       Y.ops.forEach(x => { const s = statOf(x), ov = takt && s.mean > takt;
         o.push(`<div class="vz-row${st.osel === x.id ? ' on' : ''}" data-oid="${esc(x.id)}" style="grid-template-columns:18px 1fr auto 26px;cursor:pointer"><input type="checkbox" data-on="${esc(x.id)}"${x.on !== false ? ' checked' : ''}${ro ? ' disabled' : ''} aria-label="Incluir ${esc(x.name)}"><span><b>${esc(x.est ? `${x.est} ${x.pos} ${x.lado}` : x.name)}</b><small>${esc(x.est ? x.oper + ' · ' : '')}${s.n} ciclos · ${f1(s.min)}–${f1(s.max)} s</small></span><em class="${ov ? 'over' : ''}">${takt ? fmtN(s.mean / takt * 100, 0) + '%' : f1(s.mean) + ' s'}</em>${flow ? `<button data-an="${esc(x.id)}" title="${x.anim ? 'Quitar de la animación' : 'Animar a esta persona en 3D'}" aria-label="${x.anim ? 'Quitar de la animación' : 'Animar en 3D'} ${esc(x.name)}" aria-pressed="${x.anim ? 'true' : 'false'}"${ro ? ' disabled' : ''} style="padding:0;min-width:24px;height:24px;border-radius:5px;border:1px solid ${x.anim ? '#FFB020' : 'var(--line,#27323e)'};background:${x.anim ? '#FFB020' : 'none'};color:${x.anim ? '#12181F' : 'inherit'};cursor:pointer">▶</button>` : ''}</div>`); });
       if (!ro) o.push(`<div class="vz-btns"><button data-y="new">Nuevo yamazumi con las marcadas</button></div>`);
-    } else o.push('<p>Importa un archivo de la plantilla «Yamazumi v5» (hojas CONFIG y CICLOS) o un CSV con columnas operacion, segundos, categoria.</p>');
+    } else { if (api.turnos?.()) o.push(api.turnos().card(null, 0)); o.push('<p>Importa un archivo de la plantilla «Yamazumi v5» (hojas CONFIG y CICLOS) o un CSV con columnas operacion, segundos, categoria.</p>'); }
     side.innerHTML = o.join('');
   }
 

@@ -9,7 +9,7 @@
      y un reporte descargable (página para imprimir o guardar como PDF, y archivo CSV para Excel). */
 import { win } from './ventanas.js';
 const CSS = `
-#anaWin{position:fixed;left:50%;top:60px;transform:translateX(-50%);z-index:62;width:min(1120px,calc(100vw - 24px));max-height:calc(100vh - 80px);overflow:auto;background:rgba(13,18,24,.97);border:1px solid var(--line,#27323e);border-radius:12px;padding:12px 16px 16px;color:#e7ebef;font:13px/1.45 system-ui,'Segoe UI',sans-serif;box-shadow:0 18px 50px rgba(0,0,0,.55)}
+#anaWin{position:fixed;box-sizing:border-box;left:50%;top:60px;transform:translateX(-50%);z-index:62;width:min(1120px,calc(100vw - 24px));max-height:calc(100vh - 80px);overflow:auto;background:rgba(13,18,24,.97);border:1px solid var(--line,#27323e);border-radius:12px;padding:12px 16px 16px;color:#e7ebef;font:13px/1.45 system-ui,'Segoe UI',sans-serif;box-shadow:0 18px 50px rgba(0,0,0,.55)}
 #anaWin h3{margin:0 0 6px;font-size:16px} #anaWin h4{margin:16px 0 6px;font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:#a9b3bd}
 #anaWin .an-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px 12px}
 #anaWin label{display:grid;gap:3px;font-size:12px;color:#a9b3bd}
@@ -223,7 +223,7 @@ export function create(api) {
     setTimeout(() => vsmBoxes().then(L => { el?.querySelectorAll('[data-vb]').forEach(sel => { const g = {}; L.forEach(x => (g[x.g] = g[x.g] || []).push(x)); sel.innerHTML = '<option value="">Sin caja</option>' + Object.entries(g).map(([k, xs]) => `<optgroup label="${esc(k)}">${xs.map(x => `<option value="${esc(x.key)}"${vb[sel.dataset.vb] === x.key ? ' selected' : ''}>${esc(x.n)}</option>`).join('')}</optgroup>`).join(''); }); }), 0);
     return `<h4>Mandar al VSM</h4><p class="an-note">Elige la caja del VSM de cada persona. Si varias van a la misma caja, la caja recibe el ciclo del cuello, el número de personas, la cola total, la disponibilidad y el scrap del grupo.</p>
       <div style="overflow-x:auto"><table><thead><tr><th>Persona</th><th>Caja del VSM</th></tr></thead><tbody>${R.per.map(p => `<tr><td>${esc(p.oper || p.short || p.name)}</td><td><select data-vb="${esc(p.id)}" aria-label="Caja del VSM de ${esc(p.oper || p.name)}"><option value="">${vb[p.id] ? esc(vb[p.id]) : 'Sin caja'}</option></select></td></tr>`).join('')}</tbody></table></div>
-      <div class="an-row"><button data-k="tovsm">Mandar al VSM</button><span class="an-note">Escribe C/T, operadores, WIP, disponibilidad y defecto en la «Captura en gemba» de cada caja (fuente: cronometrado, por el análisis de turno).</span></div>`; }
+      <div class="an-row"${window.RD_RO ? ' hidden' : ''}><button data-k="tovsm">Mandar al VSM</button><span class="an-note">Escribe C/T, operadores, WIP, disponibilidad y defecto en la «Captura en gemba» de cada caja (fuente: cronometrado, por el análisis de turno).</span></div>`; }
   async function toVsm() { if (!last) return; const a = cfgOf(), vb = a.vbox || {}, L = await vsmBoxes(), groups = {};
     last.per.forEach(p => { const k = vb[p.id]; if (!k) return; (groups[k] = groups[k] || []).push(p); });
     const keys = Object.keys(groups); if (!keys.length) { alert('Elige primero la caja del VSM de al menos una persona.'); return; }

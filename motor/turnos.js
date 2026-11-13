@@ -7,7 +7,7 @@
 import { win } from './ventanas.js';
 import { PAROS12, parosEn } from './analisis.js';
 const CSS = `
-#tuWin{position:fixed;left:50%;top:60px;transform:translateX(-50%);z-index:63;width:min(980px,calc(100vw - 24px));max-height:calc(100vh - 80px);overflow:auto;background:rgba(13,18,24,.97);border:1px solid var(--line,#27323e);border-radius:12px;padding:12px 16px 16px;color:#e7ebef;font:13px/1.45 system-ui,'Segoe UI',sans-serif;box-shadow:0 18px 50px rgba(0,0,0,.55)}
+#tuWin{position:fixed;box-sizing:border-box;left:50%;top:60px;transform:translateX(-50%);z-index:63;width:min(980px,calc(100vw - 24px));max-height:calc(100vh - 80px);overflow:auto;background:rgba(13,18,24,.97);border:1px solid var(--line,#27323e);border-radius:12px;padding:12px 16px 16px;color:#e7ebef;font:13px/1.45 system-ui,'Segoe UI',sans-serif;box-shadow:0 18px 50px rgba(0,0,0,.55)}
 #tuWin h3{margin:0;font-size:16px;flex:1} #tuWin h4{margin:14px 0 6px;font-size:12.5px;letter-spacing:.06em;text-transform:uppercase;color:#a9b3bd}
 #tuWin label{display:grid;gap:3px;font-size:12px;color:#a9b3bd} #tuWin .tu-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px 12px}
 #tuWin input,#tuWin select{background:#1b232c;border:1px solid #2a3542;border-radius:6px;color:#e7ebef;font:inherit;padding:6px 8px;min-width:0}

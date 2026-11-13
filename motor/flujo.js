@@ -5,7 +5,7 @@
    - Las piezas avanzan de una operación a la siguiente y se acumulan frente a la que no da el ritmo: ese es el cuello de botella.
    Nada de esto cambia datos del gemelo: solo dibuja. Lo único que se guarda es el enlace, quién camina y a quién entrega (en SCN.yz). */
 const CSS = `
-#vzFlow{position:fixed;left:14px;bottom:14px;z-index:60;width:min(520px,calc(100vw - 28px));max-height:min(62vh,560px);overflow:auto;background:rgba(13,18,24,.94);border:1px solid var(--line,#27323e);border-radius:10px;padding:12px 14px;color:var(--ink,#e7ebef);font:13px/1.4 system-ui,'Segoe UI',sans-serif;box-shadow:0 10px 30px rgba(0,0,0,.45)}
+#vzFlow{position:fixed;box-sizing:border-box;left:14px;bottom:14px;z-index:60;width:min(520px,calc(100vw - 28px));max-height:min(62vh,560px);overflow:auto;background:rgba(13,18,24,.94);border:1px solid var(--line,#27323e);border-radius:10px;padding:12px 14px;color:var(--ink,#e7ebef);font:13px/1.4 system-ui,'Segoe UI',sans-serif;box-shadow:0 10px 30px rgba(0,0,0,.45)}
 #vzFlow h4{margin:0 0 8px;font-size:14px;display:flex;justify-content:space-between;gap:10px;align-items:center}
 #vzFlow .fl-ctl{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:8px}
 #vzFlow button{background:var(--raise,#1b232c);border:1px solid var(--line,#27323e);border-radius:6px;color:inherit;font:inherit;padding:5px 9px;cursor:pointer;min-height:30px}
