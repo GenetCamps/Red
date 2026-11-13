@@ -1512,7 +1512,7 @@ const EMB = new Map(), EMB_SUBS = new Map();
 addEventListener('message', e=>{ const m=e.data; if(m&&m.src==='emb'&&m.type==='theme'){ const w=document.getElementById('vxc'); if(w) w.classList.toggle('light', m.v==='light'); } });
 addEventListener('message', async e=>{
   const m=e.data; if(!m||m.src!=='emb'||m.type!=='db') return; const pre=EMB.get(e.source); if(!pre) return;
-  const reply=o=>{ try{ e.source.postMessage(Object.assign({src:'net'},o),'*'); }catch(_){} }, mp=p=>pre+p;
+  const reply=o=>{ try{ e.source.postMessage(Object.assign({src:'net'},o),'*'); }catch(_){} }, mp=p=>p.startsWith('~/')?p.slice(2):pre+p;
   try{
     if(m.op==='avail') return reply({cmd:'dbres',rid:m.rid,ok:true,val:!!DB});
     if(!DB) throw {code:'unavailable'};
