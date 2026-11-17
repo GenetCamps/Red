@@ -21,7 +21,43 @@ body.rd-clean>*:not(#stage):not(#rdClean):not(script):not(style){visibility:hidd
 #rdClean{all:unset;position:fixed;right:12px;bottom:12px;z-index:80;cursor:pointer;background:rgba(13,18,24,.88);color:#e7ebef;border:1px solid rgba(127,140,155,.5);border-radius:99px;padding:7px 12px;font:600 12px/1.2 system-ui,'Segoe UI',sans-serif;box-shadow:0 6px 18px rgba(0,0,0,.3)}
 #rdClean:hover,body.rd-clean #rdClean{background:#FFB020;color:#12181F;border-color:#FFB020} #rdClean:focus-visible{outline:2px solid #FFB020;outline-offset:2px}
 .rd-logo{height:30px;width:auto;border-radius:6px;background:#fff;padding:2px;flex:none;align-self:center}
+#rdHelpT{position:fixed;right:16px;bottom:56px;z-index:95;width:min(360px,calc(100vw - 32px));background:#0e161f;color:#e6eef5;border:1px solid #FFB020;border-radius:14px;padding:12px 14px;box-shadow:0 18px 50px rgba(0,0,0,.45);font:14px/1.45 system-ui,'Segoe UI',sans-serif}
+#rdHelpT .hd{display:flex;align-items:center;gap:8px}#rdHelpT .hd b{flex:1}#rdHelpT .hd span{color:#8a9cae;font-size:12px}
+#rdHelpT h4{margin:8px 0 4px;font-size:15px}#rdHelpT p{margin:0 0 10px;color:#c9d4de}#rdHelpT .ft{display:flex;justify-content:space-between;gap:8px}
+#rdHelpT button{font:inherit;color:inherit;background:#132030;border:1px solid #2a3d50;border-radius:8px;padding:6px 12px;min-height:36px;cursor:pointer}
+#rdHelpT button.prim{background:#FFB020;border-color:#FFB020;color:#12181F;font-weight:700}#rdHelpT button:focus-visible,.rd-help:focus-visible{outline:2px solid #48c2ff;outline-offset:2px}
+.rd-help{min-width:34px;font-weight:700}
 `;
+/* ---------- ayuda del gemelo: botón «?» en las dos barras y recorrido corto la primera vez (localStorage rd_help_gemelo) ---------- */
+const TWIN_HELP = {
+  ops: ['Gemelo de la planta', [
+    ['La planta en 3D', 'Arrastra para girar, rueda para acercar. Haz clic en una máquina, rack o persona para ver su información.'],
+    ['Buscar', 'Encuentra montacargas, números de parte, ubicaciones o zonas.', '.o-search'],
+    ['Simulación', 'Pausa o cambia la velocidad del turno simulado.', '#oPlay'],
+    ['Flota y yamazumi', 'La flota en movimiento, su yamazumi y las alertas.', '#oFleet'],
+    ['Gráficos', 'Básica, Media o Alta. En «auto» se elige sola según el equipo.', '#oGfx'],
+    ['Vista ingeniería', 'Layout, Reporte 2D (espagueti, yamazumi, operaciones), análisis de turno y edición.', '#oEng']]],
+  eng: ['Gemelo · vista ingeniería', [
+    ['Herramientas', 'Info para consultar, Medir distancias, Ruta para trazar recorridos y Editor para mover objetos.', '[data-tool=info]'],
+    ['Reporte 2D', 'Espagueti, yamazumi y Operaciones: yamazumis, cronómetro de piso, estudio de tiempos, animación de hasta 10 personas y análisis de turno.', '#reportBtn'],
+    ['Techo y piso', 'Muestra u oculta el techo y cambia el piso entre el plano DWG y el piso real.', '#floorMode'],
+    ['Gráficos', 'Básica, Media o Alta. En «auto» se elige sola según el equipo.', '#gfxMode'],
+    ['Vista limpia', 'Deja solo la planta en 3D para presentar o tomar capturas. También con la tecla H.', '#rdClean']]]
+};
+let HT = null;
+function htMark(t) { if (HT?.mk) { HT.mk.t.style.outline = HT.mk.o; HT.mk.t.style.outlineOffset = HT.mk.oo; HT.mk = null; } if (!t || !HT) return; HT.mk = { t, o: t.style.outline, oo: t.style.outlineOffset }; t.style.outline = '3px solid #FFB020'; t.style.outlineOffset = '3px'; }
+function htStep(i) { const [title, S] = HT.set, n = S.length; if (i < 0) return; if (i >= n) { htClose(); return; } HT.i = i; htMark(null); const [tt, tx, sel] = S[i];
+  const esc = v => String(v).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  HT.el.innerHTML = `<div class="hd"><b>${esc(title)}</b><span>${i + 1} de ${n}</span><button data-h="x" aria-label="Cerrar ayuda">×</button></div><h4>${esc(tt)}</h4><p>${esc(tx)}</p><div class="ft">${i ? '<button data-h="p">Anterior</button>' : '<span></span>'}<button data-h="n" class="prim">${i === n - 1 ? 'Listo' : 'Siguiente'}</button></div>`;
+  if (sel) { const t = document.querySelector(sel); if (t && t.getClientRects().length) htMark(t); } HT.el.querySelector('[data-h=n]').focus(); }
+function htClose() { if (!HT) return; htMark(null); HT.el.remove(); HT = null; }
+export function twinHelp() { ensure(); htClose(); const set = document.documentElement.classList.contains('ops') ? TWIN_HELP.ops : TWIN_HELP.eng; const el = document.createElement('div'); el.id = 'rdHelpT'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', 'Ayuda del gemelo');
+  document.body.appendChild(el); HT = { set, i: 0, el }; el.addEventListener('click', e => { const h = e.target.closest('button')?.dataset.h; if (h === 'x') htClose(); else if (h === 'n') htStep(HT.i + 1); else if (h === 'p') htStep(HT.i - 1); });
+  htStep(0); try { localStorage.setItem('rd_help_gemelo', '1'); } catch (_) {} }
+function helpButtons() { const mk = cls => { const b = document.createElement('button'); b.type = 'button'; b.className = cls + ' rd-help'; b.textContent = '?'; b.title = 'Ayuda del gemelo'; b.setAttribute('aria-label', 'Ayuda del gemelo'); b.onclick = twinHelp; return b; };
+  const eng = document.getElementById('oEng'); if (eng && !document.getElementById('rdHelpO')) { const b = mk('o-btn'); b.id = 'rdHelpO'; eng.before(b); }
+  const sp = document.querySelector('#topbar .spacer'); if (sp && !document.getElementById('rdHelpE')) { const b = mk('topbtn'); b.id = 'rdHelpE'; sp.before(b); } }
+addEventListener('keydown', e => { if (e.key === 'Escape' && HT) htClose(); });
 let tray = null;
 function ensure() { if (tray) return; const s = document.createElement('style'); s.id = 'rdWinCss'; s.textContent = CSS; document.head.appendChild(s);
   tray = document.createElement('div'); tray.id = 'rdTray'; tray.setAttribute('aria-label', 'Ventanas minimizadas'); document.body.appendChild(tray); }
@@ -47,7 +83,8 @@ export function win(el, { title, key }) {
 }
 
 export function init({ scene }) {
-  ensure();
+  ensure(); helpButtons(); setTimeout(helpButtons, 1500);
+  setTimeout(() => { try { if (localStorage.getItem('rd_help_gemelo') || document.getElementById('rdGate') || document.hidden) return; } catch (_) { return; } twinHelp(); }, 5000);
   // logo en el encabezado del gemelo
   const brand = document.querySelector('.brand'); if (brand && !brand.querySelector('.rd-logo')) { const im = document.createElement('img'); im.className = 'rd-logo'; im.alt = 'DAIMAY'; im.src = 'estilo/logo_daimay.png'; im.onerror = () => im.remove(); brand.prepend(im); }
   // modo limpio: deja solo la planta 3D (para presentar o tomar capturas); H o el botón lo encienden y apagan

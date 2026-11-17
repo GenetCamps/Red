@@ -428,7 +428,7 @@
   <nav class="jumps" id="jumps" aria-label="Ir a planta"></nav>
   <div class="search">
     <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-4-4"></path></svg>
-    <input id="q" type="search" placeholder="Buscar estación, línea, equipo…" title="Buscar en las plantas: IMM 2400, Línea 9, hornos, andén…" autocomplete="off" aria-label="Buscar en todas las plantas">
+    <input id="q" type="search" placeholder="Buscar estación, equipo, acción, caja VSM…" title="Buscar en las plantas: IMM 2400, Línea 9, hornos, andén…" autocomplete="off" aria-label="Buscar en todas las plantas">
     <div id="sres" hidden></div>
   </div>
   <div class="seal" id="seal" hidden></div>
@@ -436,7 +436,7 @@
     <button class="btn" id="tourBtn" title="Recorrido guiado por la red">▶ <span class="lab">Recorrido</span></button>
     <button class="btn" id="rtBtn" title="Recorrido Rivian P4">▶ <span class="lab">Recorrido Rivian</span></button>
     <button class="btn prim" id="rivBtn" title="Rivian P4 · Sala de Guerra">◆ <span class="lab">Rivian P4 · Sala de Guerra</span></button>
-    <button class="btn" id="panelBtn" title="Panel de módulos">☰ <span class="lab">Panel</span></button>
+    <button class="btn" id="rdHelpBtn" title="Ayuda" aria-label="Ayuda">?</button><button class="btn" id="panelBtn" title="Panel de módulos">☰ <span class="lab">Panel</span></button>
   </div>
 </header>
 <aside id="drawer" aria-label="Módulos de la red">
@@ -859,7 +859,7 @@ const LocalDB = (()=>{
     if(mem && window.RD_BASE && (mem['config/base_ver']||{}).v!==window.RD_BASE_VER){ const hs=(v=>{ const s=JSON.stringify(v); let h=5381; for(let i=0;i<s.length;i++) h=((h<<5)+h+s.charCodeAt(i))|0; return h; }), old=(mem['config/base_hash']||{}).h||{}, nh={}; for(const k in window.RD_BASE){ const nv=window.RD_BASE[k]; nh[k]=hs(nv); if(mem[k]===undefined || (old[k]!==undefined && hs(mem[k])===old[k])) mem[k]=JSON.parse(JSON.stringify(nv)); } mem['config/base_hash']={h:nh}; mem['config/base_ver']={v:window.RD_BASE_VER}; try{ localStorage.setItem(LKEY, JSON.stringify(mem)); }catch(_){} }
     if(!mem){ mem={}; try{ const s=JSON.parse(document.getElementById('seed')?.textContent||'{}'); Object.assign(mem,s); }catch(_){} Object.assign(mem, JSON.parse(JSON.stringify(window.RD_BASE||{}))); mem['config/base_ver']={v:window.RD_BASE_VER||null}; mem['config/base_hash']={h:Object.fromEntries(Object.entries(window.RD_BASE||{}).map(([k,v])=>[k,(v=>{ const s=JSON.stringify(v); let h=5381; for(let i=0;i<s.length;i++) h=((h<<5)+h+s.charCodeAt(i))|0; return h; })(v)]))}; persist(); }
     return mem; };
-  const persist = () => { if(memOnly) return; try{ localStorage.setItem(LKEY, JSON.stringify(mem)); }catch(_){ memOnly=true; } };
+  const persist = () => { if(memOnly) return; try{ localStorage.setItem(LKEY, JSON.stringify(mem)); }catch(_){ memOnly=true; try{ toast('Este navegador se quedó sin espacio: los cambios nuevos ya no se guardarán al recargar. Usa «Publicar mis datos» y avisa a quien administra la Red.',15000); }catch(__){} } };
   const subs = new Set();
   const clone = o => o==null ? o : JSON.parse(JSON.stringify(o));
   const notify = () => subs.forEach(s=>{ try{ s(); }catch(_){} });
@@ -1511,7 +1511,7 @@ function vxExit(){ VX.on=false; VX.g.visible=false; FLOW_G.visible=true; ORDER.f
 const EMB = new Map(), EMB_SUBS = new Map();
 addEventListener('message', e=>{ const m=e.data; if(m&&m.src==='emb'&&m.type==='theme'){ const w=document.getElementById('vxc'); if(w) w.classList.toggle('light', m.v==='light'); } });
 addEventListener('message', async e=>{
-  const m=e.data; if(!m||m.src!=='emb'||m.type!=='db') return; const pre=EMB.get(e.source); if(!pre) return;
+  const m=e.data; if(!m||m.src!=='emb'||m.type!=='db') return; const pre=EMB.get(e.source); if(pre===undefined) return;
   const reply=o=>{ try{ e.source.postMessage(Object.assign({src:'net'},o),'*'); }catch(_){} }, mp=p=>p.startsWith('~/')?p.slice(2):pre+p;
   try{
     if(m.op==='avail') return reply({cmd:'dbres',rid:m.rid,ok:true,val:!!DB});
@@ -1539,16 +1539,105 @@ const colRef=(path,o={})=>({path,doc:id=>docRef(path+'/'+(id||rid())),add:async 
 addEventListener('message',ev=>{const m=ev.data;if(!m||m.src!=='net')return;if(m.cmd==='dbres'){const p=pend.get(m.rid);if(!p)return;pend.delete(m.rid);m.ok?p.res(m.val):p.rej(m.err||{code:'unavailable'});}
  else if(m.cmd==='dbsnap'){const s=subs.get(m.sid);if(!s)return;s.k==='doc'?s.n(sd(m.doc)):s.n(shape(m.docs,s.o));}else if(m.cmd==='dberr'){const s=subs.get(m.sid);if(s){subs.delete(m.sid);s.e&&s.e(m.err);}}});
 const api={doc:docRef,collection:colRef};window.claude={use:async n=>n==='db'?(await rpc('avail').catch(()=>false)?api:null):null};})();<\/script>`;
-function vxConsoleOpen(kind){ const AC=kind==='acc', OE=kind==='oee', VP=kind==='parras', CK=AC?'ac':OE?'oe':VP?'vp':'vx';
-  let w=$('#vxc'); if(!w){ w=document.createElement('section'); w.id='vxc'; w.innerHTML=`<header><button class="mc-b" id="vxcBack">← Volver</button><b>Consola VSM · Planta 4</b><small>Door panel Rivian y toldos (Rivian · Tesla Everest) · lo que captures aquí alimenta el VSM 3D de red</small><span class="mc-sp"></span><button class="mc-b prim" id="vxc3d">Ver VSM 3D de red</button></header><div class="vxc-f"></div>`; document.body.appendChild(w);
-    $('#vxcBack').addEventListener('click',vxConsoleClose); $('#vxc3d').addEventListener('click',()=>{ vxConsoleClose(); vxEnter(); }); }
+function vxConsoleOpen(kind){ window.__rdKind=kind==='parras'?'vp':kind||'vx'; rdHelpClose(); const AC=kind==='acc', OE=kind==='oee', VP=kind==='parras', CK=AC?'ac':OE?'oe':VP?'vp':'vx';
+  let w=$('#vxc'); if(!w){ w=document.createElement('section'); w.id='vxc'; w.innerHTML=`<header><button class="mc-b" id="vxcBack" title="Regresar al mapa de la red">← Red DAIMAY</button><img class="rd-logo" src="estilo/logo_daimay.png" alt="DAIMAY"><b>Consola VSM · Planta 4</b><small>Door panel Rivian y toldos (Rivian · Tesla Everest) · lo que captures aquí alimenta el VSM 3D de red</small><span class="mc-sp"></span><button class="mc-b" id="vxcHelp" title="Ayuda de este módulo" aria-label="Ayuda de este módulo">?</button><button class="mc-b prim" id="vxc3d">Ver VSM 3D de red</button></header><div class="vxc-f"></div>`; document.body.appendChild(w);
+    $('#vxcBack').addEventListener('click',vxConsoleClose); $('#vxcHelp').addEventListener('click',()=>rdHelp(window.__rdKind||'vx')); $('#vxc3d').addEventListener('click',()=>{ vxConsoleClose(); vxEnter(); }); }
   w.querySelector('header b').textContent=AC?'Centro de acciones · Red DAIMAY':OE?'Centro OEE · Planta 4':VP?'Consola VSM · Parras':'Consola VSM · Planta 4'; w.querySelector('header small').textContent=AC?'Acciones de mejora con antes y después, ahorro y reporte ejecutivo de la red':OE?'OEE, scrap y pérdidas de la planta a la máquina · DQMC + Plex + captura del día':VP?'Costura Parras → Planta 7 · mapa, resumen, cumplimiento, embarques, tiempos, notas y fotos':'Door panel Rivian y toldos (Rivian · Tesla Everest) · lo que captures aquí alimenta el VSM 3D de red'; w.querySelector('#vxc3d').hidden=VP||OE||AC;
   const box=w.querySelector('.vxc-f'); box.innerHTML=''; const ifr=document.createElement('iframe'); ifr.title='Consola VSM'; box.appendChild(ifr);
   EMB.set(ifr.contentWindow,(OE||AC)?'':VP?'vp/r1/':'vx/r2/'); w.hidden=false; box.style.position='relative'; box.insertAdjacentHTML('beforeend','<p class="vxc-load" style="position:absolute;left:0;right:0;top:45%;text-align:center;color:var(--dim)">Cargando consola VSM…</p>');
-  ((vxConsoleOpen._c ||= {})[CK] ||= getBlob(CK+'_html').catch(e=>{ vxConsoleOpen._c[CK]=null; throw e; })).then(html=>{ box.querySelector('.vxc-load')?.remove(); ifr.srcdoc=html.replace(/<head>/i,'<head>'+VX_SHIM+(window.RD_RO?'<style>#drEd,#drAd{display:none!important}</style>':'')); })
+  ((vxConsoleOpen._c ||= {})[CK] ||= getBlob(CK+'_html').catch(e=>{ vxConsoleOpen._c[CK]=null; throw e; })).then(html=>{ box.querySelector('.vxc-load')?.remove(); ifr.srcdoc=html.replace(/<head>/i,'<head>'+VX_SHIM+(window.RD_RO?'<style>#drEd,#drAd{display:none!important}</style>':'')); ifr.addEventListener('load',()=>setTimeout(()=>rdHelpAuto(window.__rdKind),1800),{once:true}); })
     .catch(e=>{ box.querySelector('.vxc-load')?.remove(); toast('No se pudo cargar la consola VSM ('+e.message+').',8000); });
 }
-function vxConsoleClose(){ const w=$('#vxc'); if(!w) return; const ifr=w.querySelector('iframe'); if(ifr){ const cw=ifr.contentWindow; EMB.delete(cw); for(const [k,s] of [...EMB_SUBS]) if(s.w===cw){ s.un(); EMB_SUBS.delete(k); } ifr.remove(); } w.hidden=true; }
+/* =================================================================== NAVEGACIÓN ENTRE MÓDULOS, BÚSQUEDA EN TODO Y AYUDA
+   (build/hubnav.js; build.py lo inserta dentro del módulo del hub, así usa enterPlant, vxConsoleOpen, DB, $, esc, norm, toast…)
+   - Las páginas del marco (consolas, Centro OEE, Centro de acciones) piden ir a otro módulo con
+     parent.postMessage({src:'emb', type:'nav', t:{to:'oee'|'acc'|'vx'|'vp'|'plant', …}}) y el destino lee parent.__rdNav al abrir.
+   - También mandan su ruta: {src:'emb', type:'crumb', parts:[…]} y el hub la pone en el encabezado del marco.
+   - La búsqueda de arriba suma acciones de mejora, nodos del Centro OEE y cajas de las consolas VSM.
+   - Ayuda: botón «?» en la barra del hub y en el encabezado de cada módulo; la primera vez se muestra sola (localStorage rd_help_<módulo>). */
+window.__rdNav = null; window.__rdKind = null;
+function rdGo(t) { if (!t) return; try { stopTour(); } catch (_) {} try { $('#sres').hidden = true; } catch (_) {} rdHelpClose();
+  if (t.to === 'plant') { if (!PL[t.plant]) { toast('Esa planta no está en la red.'); return; } vxConsoleClose(); mcClose();
+    Promise.resolve(enterPlant(t.plant, t.focus ? [{ cmd: 'focus', x: t.focus.x, z: t.focus.z, r: t.focus.r || 26, label: t.focus.label || '' }] : null)).then(() => { if (t.ops) rdTwinOps(t.plant, t.yz); }); return; }
+  window.__rdNav = t; mcClose(); vxConsoleOpen(t.to === 'oee' ? 'oee' : t.to === 'acc' ? 'acc' : t.to === 'vp' ? 'parras' : undefined); }
+async function rdTwinOps(plant, yz) { const f = FR.get(plant); if (!f) return; await f.readyP; const w = f.ifr.contentWindow, d = w.document;
+  for (let i = 0; i < 40 && !w.__visor; i++) await sleep(250);
+  d.querySelector('#reportBtn')?.click(); await sleep(350); [...d.querySelectorAll('#repView button')].find(b => b.dataset.v === 'ops')?.click(); await sleep(350);
+  if (yz) { const sel = d.querySelector('.vz-side [data-y=pick]'), op = sel && [...sel.options].find(o => o.textContent === yz); if (op) { sel.value = op.value; sel.dispatchEvent(new Event('change', { bubbles: true })); } } }
+addEventListener('message', e => { const m = e.data; if (!m || m.src !== 'emb') return;
+  if (m.type === 'nav') rdGo(m.t);
+  else if (m.type === 'crumb') { const s = document.querySelector('#vxc header small'); if (s && Array.isArray(m.parts)) s.textContent = m.parts.filter(Boolean).join(' › '); } });
+
+/* ---------- búsqueda en todo ---------- */
+const RDX = { at: 0, items: [], busy: false };
+function rdGrab(src, name) { const i = src.indexOf('const ' + name + '='); if (i < 0) return null; let j = i + name.length + 7, d = 0, q = null; const s = j;
+  for (; j < src.length; j++) { const c = src[j]; if (q) { if (c === '\\') j++; else if (c === q) q = null; continue; } if (c === '"' || c === "'" || c === '`') { q = c; continue; } if (c === '{' || c === '[') d++; else if (c === '}' || c === ']') { d--; if (!d) { j++; break; } } }
+  return src.slice(s, j); }
+async function rdIndex() { if (RDX.busy || Date.now() - RDX.at < 30000 || !DB) return; RDX.busy = true; const out = [];
+  try { (await DB.collection('acc/r1/a').get()).docs.forEach(d => { const a = d.data(); if (!a || !a.t) return; out.push({ t: a.t, k: 'acción', plant: a.pl, n: norm([a.t, a.area, a.resp, a.desc].join(' ')), nav: { to: 'acc', id: d.id } }); }); } catch (_) {}
+  try { const s = await DB.doc('oee/r1/cfg/tree').get(), T = s.exists ? s.data() : null; (T?.nodes || []).forEach(n => out.push({ t: n.n, k: 'OEE ' + (n.lvl || ''), plant: 'p4', n: norm(n.n + ' oee'), nav: { to: 'oee', node: n.id } })); } catch (_) {}
+  try { const src = await (await fetch('vsm/consola.json')).json(), S = new Function('C', 'HEAD', 'return ' + rdGrab(src, 'STREAMS'))(new Proxy({}, { get: () => '' }), '');
+    Object.entries(S).forEach(([k, st]) => (st.procs || []).forEach(p => { const nm = (p.n || []).filter(Boolean).join(' '); if (nm) out.push({ t: nm + ' · ' + (st.name || k), k: 'caja VSM', plant: 'p4', n: norm(nm + ' vsm ' + (st.name || '')), nav: { to: 'vx', stream: k, box: p.id } }); })); } catch (_) {}
+  try { const src = await (await fetch('vsm/parras.json')).json(), A = JSON.parse(rdGrab(src, 'ALLP'));
+    Object.entries(A).forEach(([id, p]) => { if (p.k === 'jct') return; const nm = (p.n || []).filter(Boolean).join(' '); if (nm) out.push({ t: nm, k: 'caja VSM', plant: 'parras', n: norm(nm + ' vsm parras'), nav: { to: 'vp', box: id } }); }); } catch (_) {}
+  RDX.items = out; RDX.at = Date.now(); RDX.busy = false; const q = $('#q'); if (q && document.activeElement === q && q.value) runSearch(q.value); }
+
+/* ---------- ayuda y recorrido de bienvenida ---------- */
+const RD_HELP = {
+  red: { t: 'Red DAIMAY', s: [
+    ['Mapa de la red', 'Aquí están todas las plantas en el mapa regional. Haz clic en una para entrar a su gemelo 3D.'],
+    ['Ir a una planta', 'Esta barra te lleva directo a cada planta o de regreso a la red.', '#jumps'],
+    ['Buscar en todo', 'Busca estaciones, equipos, acciones de mejora, cajas del VSM y nodos del OEE. Elige un resultado y te lleva ahí.', '#q'],
+    ['Mejora Continua', 'Aquí están las consolas VSM, el Centro OEE y el Centro de acciones con su reporte ejecutivo.', '#mcBtn'],
+    ['Panel', 'Plantas, comparativos, portafolio de proyectos y flujos entre plantas.', '#panelBtn'],
+    ['Ayuda', 'Cuando quieras volver a ver esto, usa el botón «?». Cada módulo tiene su propia ayuda.', '#rdHelpBtn']] },
+  vx: { t: 'Consola VSM', s: [
+    ['Mapa animado', 'El flujo de valor con las piezas en movimiento, del proveedor al cliente. Las cajas con foco rojo marcan problemas.'],
+    ['Detalle de una caja', 'Haz clic en una caja: verás sus datos, notas y fotos de gemba, y botones para ver su OEE, sus acciones o crear una acción de mejora.'],
+    ['Capa OEE', 'Prende «OEE» para pintar cada caja con el OEE que mandó el Centro OEE.', '#lyOEE'],
+    ['Editar mapa', 'Mueve cajas, agrega símbolos, líneas de información y rutas directo en el mapa animado.', '#bLay'],
+    ['Fondo claro u oscuro', 'Se recuerda en las consolas, el Centro OEE y el Centro de acciones.', '#bTheme']] },
+  oee: { t: 'Centro OEE', s: [
+    ['Importar datos', 'Sube el Excel diario de DQMC y el concentrado de scrap de Plex. La estructura de planta a máquina se arma sola.', '#bImpD'],
+    ['Periodo y nivel', 'Elige el periodo y si quieres ver el OEE por planta, línea, proceso o máquina.', '#per'],
+    ['Tarjetas', 'Van de la peor a la mejor. Haz clic en una para entrar a ese nivel; arriba aparece la ruta y los botones para ir a su caja del VSM o a sus acciones.', '#grid'],
+    ['Captura del día', 'Tiempo planeado, paros, microparos, retrabajo y ciclo ideal se capturan aquí.', '#bCap'],
+    ['Acción de mejora', 'Crea una acción para el nodo que estás viendo; el Centro OEE mide solo el antes y el después.', '#bAcc']] },
+  acc: { t: 'Centro de acciones', s: [
+    ['Tablero', 'Las acciones de mejora por estado. Las vencidas salen en rojo.', '#vTab'],
+    ['Filtros', 'Filtra por planta, pérdida, responsable o busca por texto.', '#filters'],
+    ['Detalle', 'Abre una acción para capturar el antes y después, el ahorro, fotos y avances. «Ir al origen» te lleva a la caja, nodo o planta de donde salió.'],
+    ['Nueva acción', 'Crea una acción a mano; también se crean desde las consolas VSM, el análisis de turno y el Centro OEE.', '#bNew'],
+    ['Reporte ejecutivo', 'Resumen para la junta: por planta, ahorro, vencidas y las de más ahorro. Se imprime o guarda en PDF.', '#tabs']] }
+};
+RD_HELP.vp = RD_HELP.vx;
+let RDH = null;
+function rdHelpDoc() { if (RDH && RDH.kind !== 'red') { try { return $('#vxc iframe')?.contentDocument || null; } catch (_) { return null; } } return document; }
+function rdHelpMark(t) { if (RDH?.mk) { const m = RDH.mk; m.t.style.outline = m.o; m.t.style.outlineOffset = m.oo; RDH.mk = null; } if (!t || !RDH) return;
+  RDH.mk = { t, o: t.style.outline, oo: t.style.outlineOffset }; t.style.outline = '3px solid #FFB020'; t.style.outlineOffset = '3px'; try { t.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch (_) {} }
+function rdHelpStep(i) { if (!RDH) return; const H = RDH.H, n = H.s.length; if (i < 0) return; if (i >= n) { rdHelpClose(); return; } RDH.i = i; rdHelpMark(null); const [tt, tx, sel] = H.s[i];
+  RDH.el.innerHTML = `<div class="hd"><b>${esc(H.t)}</b><span>${i + 1} de ${n}</span><button data-h="x" aria-label="Cerrar ayuda">×</button></div><h4>${esc(tt)}</h4><p>${esc(tx)}</p><div class="ft">${i ? '<button data-h="p">Anterior</button>' : '<span></span>'}<button data-h="n" class="prim">${i === n - 1 ? 'Listo' : 'Siguiente'}</button></div>`;
+  if (sel) { const d = rdHelpDoc(), t = d && d.querySelector(sel); if (t && t.getClientRects().length) rdHelpMark(t); } RDH.el.querySelector('[data-h=n]').focus(); }
+function rdHelp(kind) { const H = RD_HELP[kind] || RD_HELP.red; rdHelpClose(); const el = document.createElement('div'); el.id = 'rdHelp'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', 'Ayuda: ' + H.t);
+  document.body.appendChild(el); RDH = { kind, H, i: 0, el }; el.addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; const h = b.dataset.h; if (h === 'x') rdHelpClose(); else if (h === 'n') rdHelpStep(RDH.i + 1); else if (h === 'p') rdHelpStep(RDH.i - 1); });
+  rdHelpStep(0); try { localStorage.setItem('rd_help_' + kind, '1'); } catch (_) {} }
+function rdHelpAuto(kind) { try { if (localStorage.getItem('rd_help_' + kind)) return; } catch (_) { return; } rdHelp(kind); }
+function rdHelpClose() { if (!RDH) return; rdHelpMark(null); RDH.el.remove(); RDH = null; }
+addEventListener('keydown', e => { if (e.key === 'Escape' && RDH) rdHelpClose(); });
+{ const st = document.createElement('style'); st.textContent = `#rdHelp{position:fixed;right:16px;bottom:16px;z-index:2000;width:min(360px,calc(100vw - 32px));background:#0e161f;color:#e6eef5;border:1px solid #FFB020;border-radius:14px;padding:12px 14px;box-shadow:0 18px 50px rgba(0,0,0,.45);font:14px/1.45 system-ui,'Segoe UI',sans-serif}
+#rdHelp .hd{display:flex;align-items:center;gap:8px}#rdHelp .hd b{flex:1}#rdHelp .hd span{color:#8a9cae;font-size:12px}
+#rdHelp h4{margin:8px 0 4px;font-size:15px}#rdHelp p{margin:0 0 10px;color:#c9d4de}
+#rdHelp .ft{display:flex;justify-content:space-between;gap:8px}
+#rdHelp button{font:inherit;color:inherit;background:#132030;border:1px solid #2a3d50;border-radius:8px;padding:6px 12px;min-height:36px;cursor:pointer}
+#rdHelp button.prim{background:#FFB020;border-color:#FFB020;color:#12181F;font-weight:700}
+#rdHelp button:focus-visible{outline:2px solid #48c2ff;outline-offset:2px}
+#vxc header .rd-logo{height:26px;width:auto;border-radius:5px;background:#fff;padding:2px}
+@media (max-width:600px){#vxc header .rd-logo{display:none}#vxc header small{flex-basis:100%}}`; document.head.appendChild(st); }
+$('#rdHelpBtn')?.addEventListener('click', () => rdHelp('red'));
+setTimeout(() => { if (MODE === 'red' && $('#vxc')?.hidden !== false && !document.getElementById('rdGate')) rdHelpAuto('red'); }, 6000);
+$('#q')?.addEventListener('focus', () => rdIndex());
+
+function vxConsoleClose(){ rdHelpClose(); const w=$('#vxc'); if(!w) return; const ifr=w.querySelector('iframe'); if(ifr){ const cw=ifr.contentWindow; EMB.delete(cw); for(const [k,s] of [...EMB_SUBS]) if(s.w===cw){ s.un(); EMB_SUBS.delete(k); } ifr.remove(); } w.hidden=true; }
 
 /* =================================================================== YAMAZUMI DE LÍNEAS (Centro MC) */
 const MZ_CAT=[['Proceso (VA)','VA','#16a34a'],['Inspeccion','Inspección','#2563eb'],['Carga/Descarga','Carga/descarga','#0891b2'],['Ajuste/Setup','Ajuste/setup','#8b5cf6'],['Movimiento','Movimiento','#f97316'],['Espera','Espera','#eab308'],['Rework','Retrabajo','#dc2626']];
@@ -1833,13 +1922,13 @@ let sSel=0, sList=[];
 function runSearch(q){
   const box=$('#sres'); const terms=norm(q).split(/\s+/).filter(Boolean);
   if(!terms.length){ box.hidden=true; return; }
-  const pool=[...SIDX, ...PROJ.map(p=>({t:p.name,k:'proyecto',plant:p.plant,proj:p.id,n:norm(p.name+' '+(p.owner||'')+' '+(p.type||''))})), ...FLOWS.map(f=>({t:`${PL[f.from]?.short} → ${PL[f.to]?.short} · ${f.what||''}`,k:'flujo',flow:f.id,n:norm((f.what||'')+' '+PL[f.from]?.name+' '+PL[f.to]?.name)}))];
+  rdIndex(); const pool=[...SIDX, ...RDX.items, ...PROJ.map(p=>({t:p.name,k:'proyecto',plant:p.plant,proj:p.id,n:norm(p.name+' '+(p.owner||'')+' '+(p.type||''))})), ...FLOWS.map(f=>({t:`${PL[f.from]?.short} → ${PL[f.to]?.short} · ${f.what||''}`,k:'flujo',flow:f.id,n:norm((f.what||'')+' '+PL[f.from]?.name+' '+PL[f.to]?.name)}))];
   sList=pool.filter(e=>terms.every(t=>e.n.includes(t)||norm(PL[e.plant]?.short).includes(t))).map(e=>({e,s:(e.n.startsWith(terms[0])?2:0)+(e.k==='planta'?3:0)+(e.k==='proyecto'?1:0)})).sort((a,b)=>b.s-a.s).slice(0,14).map(x=>x.e);
   sSel=0;
-  box.innerHTML=sList.length?sList.map((e,i)=>`<button data-i="${i}" class="${i===0?'sel':''}"><span class="pchip">${esc(PL[e.plant]?.short||'Red')}</span><span>${esc(e.t)}</span><span class="k">${esc(e.k)}</span></button>`).join(''):`<div class="note" style="padding:10px">Sin resultados en las 4 plantas.</div>`;
+  box.innerHTML=sList.length?sList.map((e,i)=>`<button data-i="${i}" class="${i===0?'sel':''}"><span class="pchip">${esc(PL[e.plant]?.short||'Red')}</span><span>${esc(e.t)}</span><span class="k">${esc(e.k)}</span></button>`).join(''):`<div class="note" style="padding:10px">Sin resultados.</div>`;
   box.hidden=false; box.querySelectorAll('button').forEach(b=>b.addEventListener('mousedown',ev=>{ ev.preventDefault(); pickResult(sList[+b.dataset.i]); }));
 }
-function pickResult(e){ if(!e) return; $('#sres').hidden=true; $('#q').blur(); stopTour();
+function pickResult(e){ if(!e) return; $('#sres').hidden=true; $('#q').blur(); stopTour(); if(e.nav){ rdGo(e.nav); return; }
   if(e.k==='proyecto'){ const p=PROJ.find(x=>x.id===e.proj); openDrawer('opex'); renderOpex(p.id); goProject(p); return; }
   if(e.k==='flujo'){ openDrawer('flujos'); renderFlows(e.flow); return; }
   if(e.k==='planta'){ onPlantClick(e.plant); return; }
