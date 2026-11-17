@@ -436,7 +436,7 @@
     <button class="btn" id="tourBtn" title="Recorrido guiado por la red">▶ <span class="lab">Recorrido</span></button>
     <button class="btn" id="rtBtn" title="Recorrido Rivian P4">▶ <span class="lab">Recorrido Rivian</span></button>
     <button class="btn prim" id="rivBtn" title="Rivian P4 · Sala de Guerra">◆ <span class="lab">Rivian P4 · Sala de Guerra</span></button>
-    <button class="btn" id="rdHelpBtn" title="Ayuda" aria-label="Ayuda">?</button><button class="btn" id="panelBtn" title="Panel de módulos">☰ <span class="lab">Panel</span></button>
+    <button class="btn" id="rsPill" title="Datos compartidos">☁ <span class="lab">…</span></button><button class="btn" id="rdHelpBtn" title="Ayuda" aria-label="Ayuda">?</button><button class="btn" id="panelBtn" title="Panel de módulos">☰ <span class="lab">Panel</span></button>
   </div>
 </header>
 <aside id="drawer" aria-label="Módulos de la red">
@@ -859,7 +859,7 @@ const LocalDB = (()=>{
     if(mem && window.RD_BASE && (mem['config/base_ver']||{}).v!==window.RD_BASE_VER){ const hs=(v=>{ const s=JSON.stringify(v); let h=5381; for(let i=0;i<s.length;i++) h=((h<<5)+h+s.charCodeAt(i))|0; return h; }), old=(mem['config/base_hash']||{}).h||{}, nh={}; for(const k in window.RD_BASE){ const nv=window.RD_BASE[k]; nh[k]=hs(nv); if(mem[k]===undefined || (old[k]!==undefined && hs(mem[k])===old[k])) mem[k]=JSON.parse(JSON.stringify(nv)); } mem['config/base_hash']={h:nh}; mem['config/base_ver']={v:window.RD_BASE_VER}; try{ localStorage.setItem(LKEY, JSON.stringify(mem)); }catch(_){} }
     if(!mem){ mem={}; try{ const s=JSON.parse(document.getElementById('seed')?.textContent||'{}'); Object.assign(mem,s); }catch(_){} Object.assign(mem, JSON.parse(JSON.stringify(window.RD_BASE||{}))); mem['config/base_ver']={v:window.RD_BASE_VER||null}; mem['config/base_hash']={h:Object.fromEntries(Object.entries(window.RD_BASE||{}).map(([k,v])=>[k,(v=>{ const s=JSON.stringify(v); let h=5381; for(let i=0;i<s.length;i++) h=((h<<5)+h+s.charCodeAt(i))|0; return h; })(v)]))}; persist(); }
     return mem; };
-  const persist = () => { if(memOnly) return; try{ localStorage.setItem(LKEY, JSON.stringify(mem)); }catch(_){ memOnly=true; try{ toast('Este navegador se quedó sin espacio: los cambios nuevos ya no se guardarán al recargar. Usa «Publicar mis datos» y avisa a quien administra la Red.',15000); }catch(__){} } };
+  const persist = (rm) => { if(!rm){ try{ window.rdSyncDirty&&window.rdSyncDirty(); }catch(_){} } if(memOnly) return; try{ localStorage.setItem(LKEY, JSON.stringify(mem)); }catch(_){ memOnly=true; try{ toast('Este navegador se quedó sin espacio: los cambios nuevos ya no se guardarán al recargar. Usa «Publicar mis datos» y avisa a quien administra la Red.',15000); }catch(__){} } };
   const subs = new Set();
   const clone = o => o==null ? o : JSON.parse(JSON.stringify(o));
   const notify = () => subs.forEach(s=>{ try{ s(); }catch(_){} });
@@ -890,11 +890,128 @@ const LocalDB = (()=>{
       limit: n => colRef(path,{...opt, limit:n}) };
   };
   return { doc:docRef, collection:colRef,
+    applyRemote: (docs, dels) => { const db=load(); for(const k in docs) db[k]=clone(docs[k]); (dels||[]).forEach(k=>{ delete db[k]; }); persist(true); notify(); },
     exportAll: () => clone(load()),
     importAll: obj => { mem=clone(obj)||{}; persist(); notify(); },
     reset: () => { mem=null; try{ localStorage.removeItem(LKEY); }catch(_){} load(); notify(); },
     get volatile(){ load(); return memOnly; } };
 })();
+/* =================================================================== DATOS COMPARTIDOS EN GITHUB (build/sync.js; build.py lo inserta en el módulo del hub)
+   Todos los cambios (yamazumis, escenarios, VSM, OEE, acciones…) viven en la base local del hub (LocalDB). Para que los vea cualquier usuario:
+   - Se traen al abrir la Red y cada 2 minutos desde datos/compartido.json del repositorio (con clave: API de GitHub, al instante; sin clave: GitHub Pages).
+   - Quien tiene clave de GitHub con permiso de escritura (administradores y editores) los guarda solo, 45 s después del último cambio, o con «Guardar para todos».
+   - compartido.json guarda solo lo que difiere de los datos oficiales (datos/base.js), igual que «Publicar mis datos».
+   - Por documento: si aquí no cambió, gana lo compartido; si cambió aquí y no allá, se queda lo de aquí y se sube; si cambió en los dos, se queda lo de aquí y se avisa.
+   La clave la escribe cada persona en su navegador (localStorage rd_gh_token); nunca se sube a ningún lado más que a la API de GitHub. */
+const RS = { repo: 'GenetCamps/Red', path: 'datos/compartido.json', branch: 'main', sha: null, H: {}, at: null, by: null, busy: false, again: false, err: '', t: null, last: 0, pend: 0 };
+const rsHash = v => { if (v === undefined) return 0; const s = JSON.stringify(v); let h = 5381; for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0; return h || 1; };
+const RS_SKIP = k => /^config\/(base_|sync)/.test(k);
+const rsTok = () => { try { return localStorage.getItem('rd_gh_token') || ''; } catch (_) { return ''; } };
+const rsAuto = () => { try { return localStorage.getItem('rd_sync_auto') !== '0'; } catch (_) { return true; } };
+const rsCanWrite = () => !!rsTok() && !window.RD_RO;
+const rsSaveMeta = () => { try { localStorage.setItem('rd_sync_meta', JSON.stringify({ sha: RS.sha, H: RS.H, at: RS.at, by: RS.by })); } catch (_) {} };
+// el estado se relee antes de cada operación: si hay dos pestañas de la Red abiertas, comparten lo último sincronizado
+const rsLoadMeta = () => { try { const m = JSON.parse(localStorage.getItem('rd_sync_meta') || 'null') || {}; RS.sha = m.sha || null; RS.H = m.H || {}; RS.at = m.at || null; RS.by = m.by || null; } catch (_) {} };
+rsLoadMeta();
+const rsB64 = s => { const b = new TextEncoder().encode(s); let o = ''; for (let i = 0; i < b.length; i += 0x8000) o += String.fromCharCode.apply(null, b.subarray(i, i + 0x8000)); return btoa(o); };
+const rsUnB64 = s => new TextDecoder().decode(Uint8Array.from(atob(String(s).replace(/\s/g, '')), c => c.charCodeAt(0)));
+const RS_EMPTY = { docs: {}, del: [] };
+async function rsFetch() { const tok = rsTok();
+  if (tok) { const u = `https://api.github.com/repos/${RS.repo}/contents/${RS.path}?ref=${RS.branch}`, h = { Authorization: 'Bearer ' + tok, Accept: 'application/vnd.github+json' };
+    const r = await fetch(u, { headers: h, cache: 'no-store' }); if (r.status === 404) return { sha: null, data: RS_EMPTY };
+    if (r.status === 401) throw new Error('la clave de GitHub no es válida o ya venció'); if (!r.ok) throw new Error('GitHub respondió ' + r.status);
+    const j = await r.json(); let txt = j.content && j.encoding === 'base64' ? rsUnB64(j.content) : null;
+    if (!txt) { const r2 = await fetch(u, { headers: { ...h, Accept: 'application/vnd.github.raw+json' }, cache: 'no-store' }); if (!r2.ok) throw new Error('GitHub respondió ' + r2.status); txt = await r2.text(); }
+    return { sha: j.sha, data: JSON.parse(txt || '{}') }; }
+  const r = await fetch(RS.path + '?t=' + Date.now(), { cache: 'no-store' }); if (r.status === 404) return { sha: RS.sha, data: RS_EMPTY };
+  if (!r.ok) throw new Error('no se pudo leer los datos compartidos (' + r.status + ')'); return { sha: RS.sha, data: await r.json() }; }
+function rsPending() { const all = LocalDB.exportAll(), B = window.RD_BASE || {}, out = [];
+  for (const k in all) { if (RS_SKIP(k)) continue; const lh = rsHash(all[k]); if (k in RS.H) { if (lh !== RS.H[k]) out.push(k); } else if (!(k in B) || lh !== rsHash(B[k])) out.push(k); }
+  for (const k in RS.H) if (!RS_SKIP(k) && !(k in all) && RS.H[k] !== 0) out.push(k);
+  for (const k in B) if (!RS_SKIP(k) && !(k in all) && !(k in RS.H)) out.push(k);
+  return out; }
+async function rsPull(quiet, inPush) { if (RS.busy) return; RS.busy = true; rsLoadMeta(); rsUI();
+  try { const R = await rsFetch(), docs = R.data.docs || {}, del = new Set(R.data.del || []), all = LocalDB.exportAll(), B = window.RD_BASE || {}, apply = {}, rm = [], conf = [];
+    const keys = new Set([...Object.keys(docs), ...Object.keys(RS.H), ...del]);
+    for (const k of keys) { if (RS_SKIP(k)) continue;
+      const remote = k in docs ? docs[k] : del.has(k) ? undefined : B[k], rh = rsHash(remote), lh = rsHash(all[k]), sh = RS.H[k];
+      if (lh === rh) { RS.H[k] = rh; continue; }
+      const localChanged = sh === undefined ? lh !== rsHash(B[k]) : lh !== sh;
+      if (!localChanged) { if (remote === undefined) rm.push(k); else apply[k] = remote; RS.H[k] = rh; }
+      else if (sh === undefined ? rh !== rsHash(B[k]) : rh !== sh) conf.push(k); }
+    const n = Object.keys(apply).length + rm.length; if (n) LocalDB.applyRemote(apply, rm);
+    RS.sha = R.sha; RS.at = R.data.at || RS.at; RS.by = R.data.by || RS.by; RS.err = ''; RS.last = Date.now(); rsSaveMeta();
+    if (n && !quiet) toast(`Se trajeron ${n} cambio${n === 1 ? '' : 's'} compartido${n === 1 ? '' : 's'}${RS.by ? ' · último de ' + RS.by : ''}.`, 5000);
+    else if (n && (() => { try { return MODE === 'plant'; } catch (_) { return false; } })()) toast(`Llegaron ${n} cambio${n === 1 ? '' : 's'} de otro usuario${RS.by ? ' (' + RS.by + ')' : ''}.`, 5000);
+    if (conf.length && !inPush) toast(`${conf.length === 1 ? '1 registro cambió' : conf.length + ' registros cambiaron'} aquí y en otro equipo: se quedó tu versión, y al guardar para todos reemplaza la otra.`, 10000);
+  } catch (e) { RS.err = e.message || String(e); } finally { RS.busy = false; rsUI(); } }
+async function rsPush(manual) { if (!rsCanWrite()) { if (manual) rsPanel(); return; } if (RS.busy) { RS.again = true; return; }
+  clearTimeout(RS.t); RS.tp = false; await rsPull(true, true); RS.busy = true; rsUI(); const tok = rsTok();
+  try { for (let attempt = 0; attempt < 3; attempt++) {
+      const all = LocalDB.exportAll(), B = window.RD_BASE || {}, docs = {}, del = [];
+      for (const k in all) { if (RS_SKIP(k)) continue; if (!(k in B) || rsHash(all[k]) !== rsHash(B[k])) docs[k] = all[k]; }
+      for (const k in B) if (!RS_SKIP(k) && !(k in all)) del.push(k);
+      const who = (window.RD_ME && window.RD_ME.nombre) || 'usuario', now = new Date().toISOString();
+      const body = JSON.stringify({ app: 'red-daimay', kind: 'compartido', v: 1, at: now, by: who, base: window.RD_BASE_VER || null, docs, del });
+      const r = await fetch(`https://api.github.com/repos/${RS.repo}/contents/${RS.path}`, { method: 'PUT', headers: { Authorization: 'Bearer ' + tok, Accept: 'application/vnd.github+json' },
+        body: JSON.stringify({ message: `Datos compartidos · ${who} · ${now.slice(0, 16).replace('T', ' ')}`, content: rsB64(body), branch: RS.branch, ...(RS.sha ? { sha: RS.sha } : {}) }) });
+      if (r.status === 409 || r.status === 422) { RS.busy = false; await rsPull(true, true); RS.busy = true; continue; }
+      if (r.status === 401) throw new Error('la clave de GitHub no es válida o ya venció');
+      if (r.status === 403 || r.status === 404) throw new Error('la clave no tiene permiso para escribir en el repositorio');
+      if (!r.ok) throw new Error('GitHub respondió ' + r.status);
+      const j = await r.json(); RS.sha = j.content?.sha || RS.sha; RS.at = now; RS.by = who; RS.H = {}; for (const k in docs) RS.H[k] = rsHash(docs[k]); del.forEach(k => { RS.H[k] = 0; });
+      RS.err = ''; RS.last = Date.now(); rsSaveMeta(); if (manual) toast('Guardado para todos. Los demás lo verán al abrir o en unos minutos.', 5000); return; }
+    throw new Error('otro usuario guardó al mismo tiempo; intenta de nuevo');
+  } catch (e) { RS.err = e.message || String(e); if (manual) toast('No se pudo guardar en GitHub: ' + RS.err, 9000); }
+  finally { RS.busy = false; rsUI(); if (RS.again) { RS.again = false; rsSchedule(); } } }
+function rsSchedule() { clearTimeout(RS.t); RS.tp = false; if (rsCanWrite() && rsAuto()) { RS.tp = true; RS.t = setTimeout(() => rsPush(false), 45000); } }
+let rsUiT = null;
+window.rdSyncDirty = () => { rsSchedule(); clearTimeout(rsUiT); rsUiT = setTimeout(rsUI, 800); };
+
+/* ---------- indicador en la barra y panel ---------- */
+function rsState() { if (RS.busy) return ['…', 'Sincronizando', '#48c2ff'];
+  if (RS.err) return ['!', 'Sin sincronizar', '#ff5a76'];
+  RS.pend = window.RD_RO ? 0 : rsPending().length;
+  if (RS.pend && !rsCanWrite()) return ['●', RS.pend + ' sin compartir', '#ffb321'];
+  if (RS.pend) return ['●', rsAuto() ? 'Guardando pronto' : RS.pend + ' sin compartir', '#ffb321'];
+  return ['✓', 'Al día', '#3ddc97']; }
+function rsUI() { const b = document.getElementById('rsPill'); if (!b) return; const [ic, tx, col] = rsState(); b.innerHTML = `<i style="color:${col};font-style:normal;font-weight:700">☁ ${ic}</i> <span class="lab">${esc(tx)}</span>`;
+  b.title = `Datos compartidos: ${tx}${RS.at ? ' · último guardado ' + new Date(RS.at).toLocaleString('es-MX') + (RS.by ? ' por ' + RS.by : '') : ''}${RS.err ? ' · ' + RS.err : ''}`; if (document.getElementById('rsPanel')) rsPanel(true); }
+function rsPanel(refresh) { let p = document.getElementById('rsPanel'); if (refresh && !p) return;
+  if (!p) { p = document.createElement('div'); p.id = 'rsPanel'; p.setAttribute('role', 'dialog'); p.setAttribute('aria-label', 'Datos compartidos'); document.body.appendChild(p);
+    p.addEventListener('click', async e => { const b = e.target.closest('button'); if (!b) return; const a = b.dataset.rs;
+      if (a === 'x') p.remove(); else if (a === 'pull') rsPull(false); else if (a === 'push') rsPush(true);
+      else if (a === 'auto') { try { localStorage.setItem('rd_sync_auto', rsAuto() ? '0' : '1'); } catch (_) {} rsSchedule(); rsUI(); }
+      else if (a === 'tok') { const v = p.querySelector('#rsTok').value.trim(); if (!v) return; b.disabled = true; b.textContent = 'Revisando…';
+        try { const r = await fetch(`https://api.github.com/repos/${RS.repo}`, { headers: { Authorization: 'Bearer ' + v, Accept: 'application/vnd.github+json' }, cache: 'no-store' }); const j = r.ok ? await r.json() : null;
+          if (!r.ok) throw new Error(r.status === 401 ? 'GitHub no reconoce esa clave' : 'esa clave no tiene acceso al repositorio ' + RS.repo);
+          if (!(j.permissions && j.permissions.push)) throw new Error('la clave solo puede leer; necesita permiso de escritura (Contents: Read and write)');
+          localStorage.setItem('rd_gh_token', v); toast('Clave guardada en este navegador. Ya puedes guardar para todos.', 6000); RS.err = ''; await rsPull(false); rsSchedule(); if (rsPending().length) rsPush(false); }
+        catch (er) { toast('No se guardó la clave: ' + (er.message || er), 9000); } rsPanel(true); }
+      else if (a === 'untok') { if (!confirm('¿Quitar la clave de GitHub de este navegador? Ya no se guardarán tus cambios para todos.')) return; try { localStorage.removeItem('rd_gh_token'); } catch (_) {} rsUI(); rsPanel(true); } }); }
+  const [ic, tx, col] = rsState(), tok = rsTok(), ro = !!window.RD_RO;
+  p.innerHTML = `<div class="hd"><b>Datos compartidos</b><button data-rs="x" aria-label="Cerrar">×</button></div>
+    <p><b style="color:${col}">☁ ${esc(tx)}</b>${RS.pend && !ro ? ` · ${RS.pend} registro${RS.pend === 1 ? '' : 's'} con cambios tuyos` : ''}</p>
+    <p class="m">${RS.at ? `Último guardado para todos: ${esc(new Date(RS.at).toLocaleString('es-MX'))}${RS.by ? ' por ' + esc(RS.by) : ''}.` : 'Aún no hay datos compartidos guardados.'}${RS.err ? `<br><span style="color:#ff5a76">${esc(RS.err)}</span>` : ''}</p>
+    <div class="row"><button data-rs="pull">Traer cambios ahora</button>${!ro && tok ? `<button data-rs="push" class="prim">Guardar para todos</button>` : ''}</div>
+    ${!ro && tok ? `<label class="m"><button data-rs="auto" role="switch" aria-checked="${rsAuto()}">${rsAuto() ? '☑' : '☐'}</button> Guardar para todos solo (45 s después de cada cambio)</label>
+      <p class="m">Este navegador tiene una clave de GitHub. <button data-rs="untok" class="lnk">Quitar clave</button></p>` : ''}
+    ${!ro && !tok ? `<p class="m">Tus cambios se guardan en este navegador. Para que los vean todos, pon tu clave de GitHub (una sola vez en cada navegador):</p>
+      <ol class="m"><li>Entra a GitHub → Settings → Developer settings → Personal access tokens.</li><li>Fine-grained: repositorio <b>${esc(RS.repo)}</b> con «Contents: Read and write». Si el repositorio no es tuyo y te agregaron como colaboradora, usa un token classic con el permiso «public_repo».</li><li>Cópiala y pégala aquí.</li></ol>
+      <div class="row"><input id="rsTok" type="password" autocomplete="off" placeholder="Pega aquí tu clave de GitHub" aria-label="Clave de GitHub"><button data-rs="tok" class="prim">Guardar clave</button></div>` : ''}
+    ${ro ? '<p class="m">Tu usuario es de solo lectura: ves los cambios de todos, pero no guardas.</p>' : ''}`; }
+{ const st = document.createElement('style'); st.textContent = `#rsPanel{position:fixed;right:16px;top:64px;z-index:2001;width:min(420px,calc(100vw - 32px));max-height:calc(100vh - 90px);overflow:auto;background:#0e161f;color:#e6eef5;border:1px solid #2a3d50;border-radius:14px;padding:12px 14px;box-shadow:0 18px 50px rgba(0,0,0,.45);font:14px/1.45 system-ui,'Segoe UI',sans-serif}
+#rsPanel .hd{display:flex;align-items:center}#rsPanel .hd b{flex:1;font-size:15px}#rsPanel p{margin:8px 0}#rsPanel .m{color:#b9c6d2;font-size:13px}#rsPanel ol{padding-left:18px;margin:6px 0}
+#rsPanel .row{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}#rsPanel input{flex:1;min-width:0;background:#0b121a;border:1px solid #2a3d50;border-radius:8px;color:inherit;padding:7px 9px;font:inherit}
+#rsPanel button{font:inherit;color:inherit;background:#132030;border:1px solid #2a3d50;border-radius:8px;padding:6px 12px;min-height:34px;cursor:pointer}#rsPanel button.prim{background:#48c2ff;border-color:#48c2ff;color:#03121c;font-weight:700}
+#rsPanel button.lnk{background:none;border:0;color:#48c2ff;padding:0;min-height:0;text-decoration:underline}#rsPanel label{display:flex;gap:6px;align-items:center}#rsPanel label button{min-height:28px;padding:2px 8px}
+#rsPanel button:focus-visible,#rsPill:focus-visible{outline:2px solid #FFB020;outline-offset:2px}`; document.head.appendChild(st); }
+document.getElementById('rsPill')?.addEventListener('click', () => { const p = document.getElementById('rsPanel'); if (p) p.remove(); else rsPanel(); });
+setTimeout(() => rsPull(true).then(() => { if (rsCanWrite() && rsPending().length) rsSchedule(); }), 400);
+setInterval(() => { if (!document.hidden) rsPull(true); }, 120000);
+addEventListener('beforeunload', e => { if (rsCanWrite() && (RS.tp || RS.busy)) { e.preventDefault(); e.returnValue = ''; } });
+window.__rdSync = { pull: rsPull, push: rsPush, pending: rsPending, _db: () => LocalDB, state: () => ({ sha: RS.sha, at: RS.at, by: RS.by, err: RS.err, busy: RS.busy, pend: rsPending().length, tok: !!rsTok(), H: Object.keys(RS.H).length }) };
+
 const LocalDL = { save: async ({filename,data}) => { const blob = data instanceof Blob ? data : new Blob([data],{type: /\.csv$/i.test(filename)?'text/csv;charset=utf-8':/\.json$/i.test(filename)?'application/json':'application/octet-stream'});
   const u=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=u; a.download=filename; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(u),4000); } };
 const twinHref = p => STATIC ? `${p.id}.html` : p.twin;
