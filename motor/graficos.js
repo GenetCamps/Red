@@ -1,11 +1,11 @@
-/* Red DAIMAY · gráficos 3D de los gemelos (piloto en Planta 4).
+/* Red DAIMAY · gráficos 3D de los gemelos (las 6 plantas; piloto validado en Planta 4).
    Tres niveles, elegidos solos según el equipo (y ajustables en la barra: «Gráficos»):
    - Básica: como siempre + contorno de lo seleccionado (casi sin costo).
    - Media:  + sombra de contacto bajo máquinas, racks y equipos (una sola llamada de dibujo) y brillo en andones.
    - Alta:   + oclusión ambiental en pantalla (las esquinas y bases se oscurecen como en la realidad).
    La oclusión reconstruye la distancia desde la profundidad logarítmica del motor (d = log2(1+w) / log2(far+1)),
    así que no necesita una segunda pasada de normales. Si la computadora no da el ancho, en «Auto» se baja sola. */
-const LV = ['basica', 'media', 'alta'], NAME = { basica: 'Básica', media: 'Media', alta: 'Alta' }, PILOT = ['p4'];
+const LV = ['basica', 'media', 'alta'], NAME = { basica: 'Básica', media: 'Media', alta: 'Alta' }, PILOT = ['p1', 'p2', 'p4', 'p67', 'p8', 'parras'];
 
 export function init(ctx) {
   const { THREE, scene, renderer, camera, OBJS, PICK, id } = ctx;
@@ -37,17 +37,22 @@ export function init(ctx) {
   /* ---------------- brillo en andones (rojo parpadea) ---------------- */
   const glowTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d'), gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
     gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(.18, 'rgba(255,255,255,.85)'); gr.addColorStop(.45, 'rgba(255,255,255,.3)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, 64, 64); return new THREE.CanvasTexture(c); })();
-  const smat = (hex, op) => new THREE.SpriteMaterial({ map: glowTex, color: hex, transparent: true, opacity: op, depthWrite: false, toneMapped: false, fog: true });
-  const HAL = { g: new THREE.Group(), mats: { red: smat(0xff2a1a, .9), amb: smat(0xffa31a, .75), grn: smat(0x2fe07a, .55) }, n: 0, sig: '' };
+  // tres lotes (rojo, ámbar, verde) de planos que miran a la cámara: 3 llamadas de dibujo aunque haya cientos de andones
+  const hmat = (hex, op) => new THREE.MeshBasicMaterial({ map: glowTex, color: hex, transparent: true, opacity: op, depthWrite: false, toneMapped: false, fog: true, side: THREE.DoubleSide });
+  const HAL = { g: new THREE.Group(), mats: { red: hmat(0xff2a1a, .9), amb: hmat(0xffa31a, .75), grn: hmat(0x2fe07a, .55) }, ims: {}, pts: { red: [], amb: [], grn: [] }, n: 0, sig: '' };
+  const HSC = { red: 2.6, amb: 1.7, grn: 1.2 }, hGeo = new THREE.PlaneGeometry(1, 1);
   HAL.g.name = 'rd-brillo'; HAL.g.userData.noLote = true; scene.add(HAL.g);
   function andons() { const out = []; scene.traverse(o => { if (o.isInstancedMesh && o.instanceColor && o.material && o.material.isMeshBasicMaterial && o.count < 5000 && !o.name.startsWith('rd-')) out.push(o); }); return out; }
   function buildHalos() { const A = andons(), M = new THREE.Matrix4(), v = new THREE.Vector3(), c = new THREE.Color(), hsl = {};
     let sig = A.length + ':'; A.forEach(im => { sig += im.count + '/' + im.instanceMatrix.version + '/' + (im.instanceColor?.version || 0) + ';'; });
-    if (sig === HAL.sig) return; HAL.sig = sig; HAL.g.clear(); let n = 0;
-    A.forEach(im => { im.updateWorldMatrix(true, false); for (let i = 0; i < im.count && n < 400; i++) { im.getMatrixAt(i, M); M.premultiply(im.matrixWorld); v.set(0, .5, 0).applyMatrix4(M); im.getColorAt(i, c); c.getHSL(hsl);
-      if (hsl.s < .35 || hsl.l < .12) continue; const k = hsl.h < .045 || hsl.h > .93 ? 'red' : hsl.h < .16 ? 'amb' : 'grn';
-      const sp = new THREE.Sprite(HAL.mats[k]); sp.position.copy(v); const sc = k === 'red' ? 2.6 : k === 'amb' ? 1.7 : 1.2; sp.scale.set(sc, sc, 1); sp.raycast = () => {}; sp.renderOrder = 5; HAL.g.add(sp); n++; } });
-    HAL.n = n; }
+    if (sig === HAL.sig) return; HAL.sig = sig; const P = { red: [], amb: [], grn: [] };
+    A.forEach(im => { im.updateWorldMatrix(true, false); for (let i = 0; i < im.count; i++) { im.getMatrixAt(i, M); M.premultiply(im.matrixWorld); v.set(0, .5, 0).applyMatrix4(M); im.getColorAt(i, c); c.getHSL(hsl);
+      if (hsl.s < .35 || hsl.l < .12) continue; P[hsl.h < .045 || hsl.h > .93 ? 'red' : hsl.h < .16 ? 'amb' : 'grn'].push(v.clone()); } });
+    for (const k of ['red', 'amb', 'grn']) { const old = HAL.ims[k]; if (old) { HAL.g.remove(old); old.dispose(); delete HAL.ims[k]; } HAL.pts[k] = P[k]; if (!P[k].length) continue;
+      const im = new THREE.InstancedMesh(hGeo, HAL.mats[k], P[k].length); im.renderOrder = 5; im.raycast = () => {}; im.frustumCulled = false; im.castShadow = im.receiveShadow = false; im.name = 'rd-brillo-' + k; HAL.ims[k] = im; HAL.g.add(im); }
+    HAL.n = P.red.length + P.amb.length + P.grn.length; faceHalos(); }
+  const _hm = new THREE.Matrix4(), _hs = new THREE.Vector3();
+  function faceHalos() { if (!HAL.g.visible) return; for (const k in HAL.ims) { const im = HAL.ims[k], sc = HSC[k]; _hs.set(sc, sc, 1); HAL.pts[k].forEach((p, i) => { im.setMatrixAt(i, _hm.compose(p, camera.quaternion, _hs)); }); im.instanceMatrix.needsUpdate = true; } }
 
   /* ---------------- contorno de lo seleccionado ---------------- */
   const SEL = { g: new THREE.Group(), key: null, o: null, mesh: null, t: 0 }; SEL.g.name = 'rd-seleccion'; SEL.g.userData.noLote = true; scene.add(SEL.g);
@@ -112,11 +117,11 @@ export function init(ctx) {
     void main(){ float z = vz(vUv), s = 0., w = 0.; vec2 tx = 1. / uRes;
       for (int x = -2; x <= 2; x++) for (int y = -2; y <= 2; y++) { vec2 o = vec2(float(x), float(y)) * tx * 1.25; float zz = vz(vUv + o); float k = exp(-abs(zz - z) / (.04 * -z + .05)); s += texture2D(tAO, vUv + o).r * k; w += k; }
       float a = s / max(w, 1e-4); gl_FragColor = vec4(a, a, a, 1.); }` });
-  const outMat = new THREE.ShaderMaterial({ depthTest: false, depthWrite: false,
+  const outMat = new THREE.ShaderMaterial({ depthTest: true, depthWrite: true, depthFunc: THREE.AlwaysDepth,
     uniforms: { tColor: { value: null }, tAO: { value: null }, tDepth: { value: null }, uK: { value: 1 } },
     vertexShader: VS, fragmentShader: `varying vec2 vUv; uniform sampler2D tColor, tAO, tDepth; uniform float uK;
     void main(){ vec4 c = texture2D(tColor, vUv); float d = texture2D(tDepth, vUv).x; float ao = mix(1., texture2D(tAO, vUv).r, uK);
-      gl_FragColor = vec4(c.rgb * ao, 1.);
+      gl_FragColor = vec4(c.rgb * ao, 1.); gl_FragDepth = d;
       #include <tonemapping_fragment>
       if (d >= .99999) gl_FragColor.rgb = c.rgb;
       #include <colorspace_fragment>
@@ -128,21 +133,32 @@ export function init(ctx) {
     const hw = Math.max(2, w >> 1), hh = Math.max(2, h >> 1); AO.a = new THREE.WebGLRenderTarget(hw, hh); AO.b = new THREE.WebGLRenderTarget(hw, hh); }
   const orig = renderer.render.bind(renderer);
   let aoFail = false;
+  /* Lo transparente (vidrios, cajas translúcidas, líneas de ayuda) se mezcla distinto en luz lineal que en pantalla; para que se vea
+     igual que siempre, en Alta se dibuja en una segunda pasada directo a pantalla (capa 30), sobre la profundidad de lo opaco. */
+  const TL = 30, TRN = { mats: [], t: -1e9 };
+  function collectTrans() { const mats = new Set(); scene.traverse(o => { if (o.isLight) { o.layers.enable(TL); return; } if (!(o.isMesh || o.isLine || o.isPoints || o.isSprite) || !o.material) return;
+      const ms = Array.isArray(o.material) ? o.material : [o.material], tr = ms.some(m => m && m.transparent);
+      if (tr && (o.layers.mask & 1)) { o.layers.enable(TL); ms.forEach(m => { if (m && m.transparent) mats.add(m); }); } else o.layers.disable(TL); });
+    TRN.mats = [...mats]; TRN.t = performance.now(); }
   renderer.render = function (s, c) {
     if (!ON.ao || aoFail || s !== scene) return orig(s, c);
     try { ensureRT(); const prev = renderer.getRenderTarget(), logF = Math.log2(c.far + 1), P = c.projectionMatrix.elements;
-      renderer.setRenderTarget(AO.rt); orig(s, c);
+      if (performance.now() - TRN.t > 1000) collectTrans();
+      const sv = TRN.mats.map(m => [m.colorWrite, m.depthWrite]); TRN.mats.forEach(m => { m.colorWrite = false; m.depthWrite = false; });
+      try { renderer.setRenderTarget(AO.rt); orig(s, c); } finally { TRN.mats.forEach((m, i) => { m.colorWrite = sv[i][0]; m.depthWrite = sv[i][1]; }); }
       for (const m of [aoMat, blurMat]) { m.uniforms.tDepth.value = AO.rt.depthTexture; m.uniforms.uLogF.value = logF; m.uniforms.uP.value.set(P[0], P[5]); m.uniforms.uRes.value.set(AO.a.width, AO.a.height); }
       quad.material = aoMat; renderer.setRenderTarget(AO.a); orig(qScene, qCam);
       blurMat.uniforms.tAO.value = AO.a.texture; quad.material = blurMat; renderer.setRenderTarget(AO.b); orig(qScene, qCam);
       outMat.uniforms.tColor.value = AO.rt.texture; outMat.uniforms.tAO.value = AO.b.texture; outMat.uniforms.tDepth.value = AO.rt.depthTexture;
       quad.material = outMat; renderer.setRenderTarget(prev); orig(qScene, qCam);
+      if (TRN.mats.length) { const lm = c.layers.mask, ac = renderer.autoClear, su = renderer.shadowMap.autoUpdate; c.layers.set(TL); renderer.autoClear = false; renderer.shadowMap.autoUpdate = false;
+        try { orig(s, c); } finally { c.layers.mask = lm; renderer.autoClear = ac; renderer.shadowMap.autoUpdate = su; } }
     } catch (e) { aoFail = true; console.warn('Oclusión ambiental desactivada:', e); renderer.setRenderTarget(null); orig(s, c); } };
 
   /* ---------------- niveles, selector y ajuste automático ---------------- */
   function apply(lv) { LVL = lv; ON.blobs = lv !== 'basica'; ON.halos = lv !== 'basica'; ON.ao = lv === 'alta';
     blobMat.opacity = lv === 'alta' ? .26 : .36; if (blobIM) blobIM.visible = ON.blobs; HAL.g.visible = ON.halos;
-    if (ON.blobs) buildBlobs(); if (ON.halos) buildHalos(); paintSeg(); }
+    if (ON.blobs) buildBlobs(); if (ON.halos) { buildHalos(); faceHalos(); } paintSeg(); }
   function opsSel() { const sp = document.getElementById('oSpeed'); if (!sp || document.getElementById('oGfx')) return;
     sp.insertAdjacentHTML('afterend', `<select id="oGfx" aria-label="Calidad de gráficos" title="Calidad de gráficos 3D"><option value="auto">Gráficos: auto</option>${LV.map(v => `<option value="${v}">Gráficos: ${NAME[v].toLowerCase()}</option>`).join('')}</select>`);
     document.getElementById('oGfx').addEventListener('change', e => set(e.target.value)); }
@@ -158,7 +174,7 @@ export function init(ctx) {
   (function tick(now) { fr++; if (now - t0 > 3000) { const fps = fr * 1000 / (now - t0); fr = 0; t0 = now; checks++;
       if (pref === 'auto' && fps < 24 && LVL === 'alta' && !document.hidden) { apply('media'); console.info('Gráficos: bajados a', LVL, '(', fps.toFixed(0), 'cuadros/s)'); }
       if (!document.getElementById('oGfx')) paintSeg(); if (ON.blobs) buildBlobs(); if (ON.halos) buildHalos(); if (SEL.o) { const o = SEL.o; clearSel(); SEL.key = 'o:' + o.id; SEL.o = o; drawObj(o); } }
-    const k = .55 + .45 * Math.sin(now * .006); HAL.mats.red.opacity = .3 + .65 * k; ringMat.opacity = .5 + .35 * Math.sin(now * .005);
+    const k = .55 + .45 * Math.sin(now * .006); HAL.mats.red.opacity = .3 + .65 * k; if (ON.halos) faceHalos(); ringMat.opacity = .5 + .35 * Math.sin(now * .005);
     requestAnimationFrame(tick); })(performance.now());
   setTimeout(() => apply(LVL), 1500);
   apply(LVL);
