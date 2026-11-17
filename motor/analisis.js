@@ -194,6 +194,8 @@ export function create(api) {
     else if (b.dataset.k === 'balsim') balSim();
     else if (b.dataset.k === 'balyz') balYz();
     else if (b.dataset.k === 'tovsm') toVsm();
+    else if (b.dataset.k === 'acc') accNew();
+    else if (b.dataset.k === 'accres') accRes();
     else if (b.dataset.k === 'cmpreset') { a.chg = {}; api.save(); form(); }
     else if (b.dataset.k === 'pdf') printReport();
     else if (b.dataset.k === 'csv') csv(); }
@@ -231,7 +233,31 @@ export function create(api) {
   function summary(R) { const lost = R.per.reduce((a, p) => a + p.lost, 0), starve = R.per.reduce((a, p) => a + p.starve, 0), rew = R.per.reduce((a, p) => a + p.rew, 0), falt = R.dem ? Math.max(0, R.dem - R.out.mean) : null;
     const neck = R.per.slice().sort((a, b) => b.qmax - a.qmax || (b.work - a.work))[0], waitTop = R.per.slice().sort((a, b) => b.starve - a.starve);
     return { lost, starve, rew, falt, neck, waitTop, cost: R.costo > 0 ? lost * R.costo : null, costStarve: R.costo > 0 ? starve * R.costo : null, costRew: R.costo > 0 ? rew * R.costo : null }; }
-  function results(R) { const r = el.querySelector('.an-res'); if (!r) return; const s = summary(R);
+
+  /* ---------- acciones de mejora: crear desde el análisis y registrar el «después» ---------- */
+  const PLK = (location.pathname.match(/\/(p\d+|parras)\.html/i) || [])[1]?.toLowerCase() || 'p4';
+  const meName = () => { try { return (JSON.parse(sessionStorage.getItem('rd_user') || 'null') || {}).nombre || 'usuario'; } catch (_) { return 'usuario'; } };
+  async function accDb() { let db = null; try { db = await window.claude?.use?.('db'); } catch (_) {} if (!db) alert('Para trabajar con acciones abre esta planta desde la Red DAIMAY (no el archivo suelto).'); return db; }
+  function snap(R) { const s = summary(R); return { pz: Math.round(R.out.mean), dem: R.dem || 0, falt: s.falt, lost: Math.round(s.lost), cm: R.costo > 0 ? +R.costo : 0, oee: R.lineOee ?? null, neck: s.neck ? (s.neck.oper || s.neck.short || '') : '', yz: R.yz || '' }; }
+  function repSave(R) { if (window.RD_RO) return; const b = snap(R), s = summary(R);
+    window.claude?.use?.('db').then(db => db && db.doc('~/rep/r1/ana/' + PLK).set({ at: Date.now(), yz: b.yz, pz: b.pz, dem: b.dem, falt: b.falt, cump: b.dem ? Math.min(1, b.pz / b.dem) : null, lost: b.lost, cost: s.cost, oee: b.oee, neck: b.neck, turno: R.turno || '' })).catch(() => {}); }
+  async function accNew() { if (!last) return; const db = await accDb(); if (!db) return; const R = last, s = summary(R), b = snap(R);
+    const t = prompt('Acción de mejora a partir de este análisis.\n¿Qué se va a hacer?', R.B ? 'Implementar: ' + R.chg : (b.neck ? 'Quitar el cuello de botella en ' + b.neck : '')); if (!t || !t.trim()) return;
+    const resp = prompt('Responsable (puedes dejarlo vacío):', '') || '', fc = prompt('Fecha compromiso (AAAA-MM-DD, puedes dejarla vacía):', new Date(Date.now() + 14 * 864e5).toLocaleDateString('sv')) || '', by = meName();
+    const id = 'a' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    const doc = { t: t.trim(), pl: PLK, area: R.yz || '', perd: s.starve >= s.lost * .5 ? 'Flujo y material' : 'Balanceo y personal', tipo: 'Kaizen', resp: resp.trim(), fc: /^\d{4}-\d{2}-\d{2}$/.test(fc.trim()) ? fc.trim() : '', est: 'abierta',
+      desc: `Análisis de turno: ${b.pz} piezas${b.dem ? ' de ' + b.dem : ''}, ${b.lost} min perdidos por turno. Cuello: ${b.neck || '—'}.${R.B ? ' Cambio simulado: ' + R.chg + ' (' + Math.round(R.B.out.mean) + ' piezas y ' + Math.round(summary(R.B).lost) + ' min perdidos con el cambio).' : ''}`,
+      src: { k: 'ana', ref: PLK + '|' + (R.yz || ''), lab: 'Análisis de turno · ' + (R.yz || '') + (R.turno ? ' · ' + R.turno : '') }, base: Object.assign(b, { at: Date.now() }), tm: 44, cr: Date.now(), by, log: [{ at: Date.now(), by, txt: 'Acción creada desde el análisis de turno' }] };
+    try { await db.doc('~/acc/r1/a/' + id).set(doc); alert('Acción creada. Síguela en el hub: Centro MC → Centro de acciones.\nCuando hagas el cambio en piso, vuelve a correr el análisis y usa «Registrar resultado de una acción».'); } catch (e) { alert('No se pudo crear la acción: ' + (e.message || e.code || e)); } }
+  async function accRes() { if (!last) return; const db = await accDb(); if (!db) return; let L = [];
+    try { L = (await db.collection('~/acc/r1/a').get()).docs.map(d => ({ id: d.id, ...d.data() })).filter(a => a.src?.k === 'ana' && a.pl === PLK && a.est !== 'cancelada'); } catch (e) { alert('No se pudieron leer las acciones.'); return; }
+    if (!L.length) { alert('No hay acciones de esta planta creadas desde el análisis de turno.'); return; }
+    L.sort((x, y) => (x.est === 'cerrada') - (y.est === 'cerrada') || (y.cr || 0) - (x.cr || 0));
+    const k = prompt('¿A qué acción le registras este resultado como «después»?\n' + L.map((a, i) => `${i + 1}. ${a.t} (${a.est === 'cerrada' ? 'cerrada' : a.est === 'curso' ? 'en curso' : 'abierta'}${a.aft ? ', ya tiene resultado' : ''})`).join('\n') + '\nEscribe el número:', '1'); const a = L[(+k || 0) - 1]; if (!a) return;
+    let R = last; if (R.B && confirm('Este análisis tiene comparación. ¿Registrar el resultado «con el cambio»?\nAceptar = con el cambio · Cancelar = como está')) R = Object.assign({}, R.B, { yz: last.yz, costo: last.costo, dem: last.dem, lineOee: R.B.lineOee });
+    const b = snap(R), by = meName(); a.aft = Object.assign(b, { at: Date.now() }); (a.log = a.log || []).push({ at: Date.now(), by, txt: `Resultado registrado desde el análisis: ${b.pz} piezas, ${b.lost} min perdidos por turno` });
+    const { id, ...doc } = a; try { await db.doc('~/acc/r1/a/' + id).set(doc); const g = (a.base?.lost ?? 0) - b.lost; alert(`Listo. «${a.t}»: ${a.base ? `${a.base.lost} → ${b.lost} min perdidos por turno (${g >= 0 ? 'mejoró ' : 'empeoró '}${Math.abs(g)} min)` : 'resultado guardado'}.`); } catch (e) { alert('No se pudo guardar: ' + (e.message || e.code || e)); } }
+  function results(R) { const r = el.querySelector('.an-res'); if (!r) return; const s = summary(R); repSave(R);
     r.innerHTML = `<h4>Resultado · ${R.turno ? esc(R.turno) + ' · ' : ''}${f1(R.H)} h · tiempo neto ${hhmm(R.net)} h · ${R.reps} repeticiones</h4>
       ${R.plant != null ? `<p class="an-note">Plantilla del turno: <b>${R.plant}</b> personas · el análisis usa ${R.used}${R.plant < R.used ? ' · <span class="an-warn">faltan ' + (R.used - R.plant) + ' personas en la plantilla para cubrir estas operaciones</span>' : ''}</p>` : ''}
       <div class="an-kpis">
@@ -250,7 +276,8 @@ export function create(api) {
       <h4>¿Cuándo esperan más? · espera de material por hora</h4>${heatSvg(R)}
       <h4>Detalle por operador</h4>${table(R)}
       ${vsmBlock(R)}
-      <div class="an-row"><button class="prim" data-k="pdf">Descargar reporte (PDF)</button><button data-k="csv">Descargar para Excel (CSV)</button><span class="an-note">El PDF se guarda desde la ventana de impresión: elige «Guardar como PDF».</span></div>`; }
+      <div class="an-row"><button class="prim" data-k="pdf">Descargar reporte (PDF)</button><button data-k="csv">Descargar para Excel (CSV)</button><span class="an-note">El PDF se guarda desde la ventana de impresión: elige «Guardar como PDF».</span></div>
+      <div class="an-row"${window.RD_RO ? ' hidden' : ''}><button data-k="acc">Crear acción de mejora</button><button data-k="accres">Registrar resultado de una acción</button><span class="an-note">La acción se sigue en el Centro de acciones del hub; el resultado de un análisis nuevo queda como su «después».</span></div>`; }
   function cmpRows(R) { const A = summary(R), B = summary(R.B), c = R.costo > 0, d = (x, y, better) => { const v = y - x; if (Math.abs(v) < .5) return '<span style="color:#a9b3bd">igual</span>'; const good = better === 'up' ? v > 0 : v < 0; return `<b style="color:${good ? '#3ddc97' : '#ff6b62'}">${v > 0 ? '+' : ''}${f0(v)}</b>`; };
     return [['Personas', R.nPer ?? R.per.length, R.B.nPer ?? R.B.per.length, null], ['Piezas producidas', R.out.mean, R.B.out.mean, 'up'], ['Faltante (pzs)', A.falt ?? 0, B.falt ?? 0, 'down'], ['Min esperando material', A.starve, B.starve, 'down'], ['Min en retrabajo', A.rew, B.rew, 'down'], ['Min perdidos', A.lost, B.lost, 'down']]
       .concat(c ? [['Costo de minutos perdidos ($)', A.cost, B.cost, 'down']] : [])
