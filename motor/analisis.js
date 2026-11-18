@@ -78,9 +78,9 @@ export function create(api) {
   const hhmm = m => { m = Math.round(m); return Math.floor(m / 60) + ':' + String(m % 60).padStart(2, '0'); };
   const cfgOf = () => { const S = api.S() || {}; S.ana = S.ana || {}; const a = S.ana; if (!a.H) a.H = 12; if (!Array.isArray(a.paros)) a.paros = PAROS12.map(p => ({ ...p })); if (!a.reps) a.reps = 10; return a; };
 
-  function open(scope) {
+  function open(scope, opt) {
     close(); el = document.createElement('div'); el.id = 'anaWin'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', 'Análisis de turno'); document.body.appendChild(el);
-    w = win(el, { title: 'Análisis de turno', key: 'analisis' }); el.dataset.scope = scope || ''; form(); }
+    w = win(el, { title: 'Análisis de turno', key: 'analisis' }); el.dataset.scope = scope || ''; if (opt?.prop) { propOn = true; PROPR = null; } form(); if (opt?.prop) el.querySelector('.an-prop')?.scrollIntoView({ block: 'start' }); }
   function close() { w?.remove(); w = null; el?.remove(); el = null; }
   function people() { const sc = el?.dataset.scope || 'anim', A = api.flow.anim(), Y = api.yz();
     if (sc === 'yz' || !A.length) return { label: Y ? `Operaciones marcadas de «${Y.name}»` : 'Sin yamazumi', Y, list: Y ? Y.ops.filter(o => o.on !== false).map(o => ({ Y, o })) : [] };
@@ -112,6 +112,7 @@ export function create(api) {
       <div class="an-row"><button class="prim" data-k="run">Correr análisis</button><span class="an-note">${esc(P.label)}${!Y?.takt && !dem ? ' · <span class="an-warn">sin demanda: la primera estación nunca se queda sin material</span>' : ''}</span></div>
       <div class="an-res"></div>`;
     if (last) results(last);
+    if (propOn) propAuto();
   }
 
   /* ---------- balanceo automático: agrupa operaciones en estaciones contra el takt ---------- */
@@ -155,34 +156,57 @@ export function create(api) {
   const PCOL = { A: '#3987e5', B: '#199e70', C: '#d95926' };
   function propData() { const Y = api.yz(), a = cfgOf(), T = balTakt(Y), net = a.H * 60 - parosEn(a.paros, a.H);
     const D = Y ? proponer(Y, { takt: T?.t || 0, pct: a.balPct || 95, net, meanOf }) : null; return D ? Object.assign(D, { Y, T, net }) : null; }
-  function propPane() { const Y = api.yz(); if (!Y) return '<p class="an-note">Elige un yamazumi de operaciones para proponer flujos.</p>';
-    const D = propData(); PROP = D; if (!D) return '<p class="an-warn">El yamazumi no tiene ciclos medidos.</p>';
-    const nm = o => esc(o.oper ? `${api.flow.short(o)} (${o.oper})` : o.name), sec = v => f1(v) + ' s';
-    const card = p => `<div style="border:1px solid #2a3542;border-top:4px solid ${PCOL[p.key]};border-radius:10px;padding:10px 12px;background:#111921;display:grid;gap:6px;align-content:start">
-      <div style="display:flex;gap:8px;align-items:baseline"><b style="font-size:15px;color:${PCOL[p.key]}">${p.key}</b><b style="font-size:14px">${esc(p.nombre)}</b></div>
-      <span class="an-note" style="margin:0">${esc(p.idea)}</span>
-      <div class="an-kpis" style="margin-top:2px;grid-template-columns:repeat(2,1fr)"><div class="an-kpi"><b>${D.N} → ${p.pers}</b><span>personas</span></div><div class="an-kpi"><b>${p.est.length}</b><span>estaciones</span></div>
-        <div class="an-kpi"><b>${sec(p.cmax)}</b><span>ciclo del cuello (hoy ${sec(D.hoy.cmax)})</span></div><div class="an-kpi ${p.bal >= .85 ? 'ok' : ''}"><b>${f0(p.bal * 100)}%</b><span>balance</span></div>
-        <div class="an-kpi"><b>${f0(p.pzT)}</b><span>piezas por turno, teórico (hoy ${f0(D.pzHoy)})</span></div><div class="an-kpi"><b>${f1(p.pzPH)}</b><span>piezas por persona-hora (hoy ${f1(D.pzHoy / D.N / (D.net / 60))})</span></div></div>
-      <ul style="margin:2px 0 0;padding-left:18px;font-size:12.5px">${p.cambios.map(c => `<li>${esc(c)}</li>`).join('')}</ul>
-      <details><summary style="cursor:pointer;font-size:12.5px;color:#a9b3bd">Ver estaciones</summary><div style="overflow-x:auto"><table><thead><tr><th>Est.</th><th>Operaciones</th><th>Tiempo</th><th>Pers.</th>${D.takt ? '<th>% takt</th>' : ''}</tr></thead><tbody>${p.est.map(e => `<tr><td>E${e.n}</td><td style="text-align:left;white-space:normal">${e.ops.map(nm).join(' + ')}</td><td>${sec(e.t)}</td><td>${e.p}</td>${D.takt ? `<td>${f0(e.c / D.takt * 100)}%</td>` : ''}</tr>`).join('')}</tbody></table></div>
-        ${p.mov.length ? `<p class="an-note">Mesas por acercar: ${p.mov.slice(0, 12).map(m => `${esc(m.o.oper || api.flow.short(m.o))} → junto a ${esc(m.a.oper || api.flow.short(m.a))} (E${m.e}${m.d != null ? ', hoy a ' + f1(m.d) + ' m' : ', sin lugar en 3D'})`).join(' · ')}${p.mov.length > 12 ? ' …' : ''}</p>` : ''}</details>
-      <div class="an-row" style="margin-top:2px"><button data-k="propver" data-p="${p.key}">Ver comparación</button><button data-k="propyz" data-p="${p.key}"${window.RD_RO ? ' hidden' : ''}>Crear yamazumi</button></div></div>`;
-    const W = 980, H = 220, px = 60, top = Math.max(D.hoy.cmax, D.takt || 0) * 1.18, Yv = v => 18 + (H - 58) * (1 - v / top), cols = D.props.length + 1, gw = (W - px - 20) / cols;
+  const GOALS = [['B', 'Menos personas', 'mismo volumen con menos gente'], ['C', 'Más piezas', 'misma gente, más salida'], ['A', 'Sin mover mesas', 'solo reagrupar trabajo']];
+  function propChecks(Y, D) { const ops = Y.ops.filter(o => o.on !== false), cyc = ops.filter(o => meanOf(o) > 0), ids = new Set(ops.map(o => o.id)), nx = ops.filter(o => ids.has(o.next)).length, lk = ops.filter(o => o.link).length, T = balTakt(Y);
+    const ok = (b, warn) => b ? '<b style="color:#3ddc97">✓</b>' : `<b style="color:${warn ? '#FFB020' : '#ff6b62'}">${warn ? '!' : '✗'}</b>`;
+    const row = (st, t, d, fix = '') => `<div style="display:grid;grid-template-columns:22px 1fr auto;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid #1f2933">${st}<span><b>${t}</b><br><small style="color:#a9b3bd">${d}</small></span><span style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">${fix}</span></div>`;
+    const ro = !!window.RD_RO, inp = (k, ph) => `<input data-pf="${k}" type="number" min="0" step="any" placeholder="${ph}" style="width:110px"${ro ? ' disabled' : ''}>`;
+    const R = [row(ok(cyc.length === ops.length, cyc.length > 0), 'Ciclos medidos', cyc.length === ops.length ? `${ops.length} operaciones con tiempo` : `${ops.length - cyc.length} sin ciclos: no entran a la propuesta (captúralos con el cronómetro)`),
+      row(ok(!!T, true), 'Takt o demanda', T ? `takt ${f1(T.t)} s (${esc(T.src)})` : 'Sin esto solo se puede proponer «Más piezas».', T ? '' : inp('takt', 'takt (s)') + inp('dem', 'o demanda (pzs)')),
+      row(ok(nx > 0, true), '«Le entrega a»', nx ? `${nx} de ${ops.length} operaciones dicen a quién entregan${nx < ops.length - 1 ? ' · las demás se toman como salida' : ''}` : 'Ninguna operación dice a quién entrega; se usa el orden de la lista.', !nx && !ro ? '<button data-k="propchain">Enlazar en el orden de la lista</button>' : ''),
+      row(ok(lk === ops.length, lk > 0), 'Lugar en 3D', lk === ops.length ? 'Todas las mesas están enlazadas en el gemelo' : `${ops.length - lk} sin «Enlazar en 3D»: para ellas no se sabe qué mesas están cerca`, lk < ops.length && !ro && api.flow?.link ? '<button data-k="proplink">Enlazar en 3D</button>' : '')];
+    const all = cyc.length === ops.length && T && nx && lk === ops.length;
+    return `<details${all ? '' : ' open'} style="background:#111921;border:1px solid #232d38;border-radius:9px;padding:6px 12px"><summary style="cursor:pointer;font-weight:700">1 · Tus datos ${all ? '<span style="color:#3ddc97">· completos</span>' : '<span style="color:#FFB020">· revisa lo que falta</span>'}</summary>${R.join('')}</details>`; }
+  function propSentence(D, p) { const sim = PROPR?.rows.find(r => r.key === p.key), hoy = PROPR?.rows[0], dem = PROPR?.dem || 0;
+    const pz = sim ? sim.pz : (dem ? Math.min(p.pzT, dem) : p.pzT), pzH = hoy ? hoy.pz : (dem ? Math.min(D.pzHoy, dem) : D.pzHoy), ap = sim ? '' : ' (aprox.)', b = v => `<b>${f0(v)}</b>`;
+    const same = p.pers === D.N && p.cmax >= D.hoy.cmax - .5, lim = dem && pz >= dem - 1 ? ` La demanda (${f0(dem)} pzs) es el límite.` : '';
+    let s;
+    if (p.key === 'C') s = same ? 'Tu línea ya trabaja al mejor ritmo posible con esta gente.' : `Con las mismas ${b(D.N)} personas sacas ${b(pz)} piezas por turno en lugar de ${b(pzH)}${ap}.${lim}`;
+    else if (p.key === 'B') s = p.pers >= D.N ? 'Con este takt no se puede quitar a nadie; prueba «Más piezas».' : `Con ${b(p.pers)} personas en lugar de ${b(D.N)} sacas ${b(pz)} piezas por turno (hoy ${b(pzH)})${ap}.${lim}`;
+    else s = p.pers >= D.N ? 'Sin mover mesas no se puede juntar trabajo; prueba «Menos personas».' : `Sin mover ninguna mesa: ${b(p.pers)} personas en lugar de ${b(D.N)} y ${b(pz)} piezas por turno (hoy ${b(pzH)})${ap}.${lim}`;
+    const extra = [p.mov.length ? `Hay que acercar ${p.mov.length} mesa${p.mov.length === 1 ? '' : 's'}.` : 'No hay que mover mesas.'];
+    const dup = p.est.filter(e => e.p > 1); if (dup.length) extra.push(`${dup.length === 1 ? 'Una estación lleva' : dup.length + ' estaciones llevan'} 2 o más personas en paralelo (una máquina por persona).`);
+    return { s, extra }; }
+  function propPane() { const Y = api.yz(); if (!Y) return '<p class="an-note">Elige un yamazumi de operaciones para proponer una mejora.</p>';
+    const D = propData(); PROP = D; if (!D) return propChecks(Y, null) + '<p class="an-warn">El yamazumi no tiene ciclos medidos.</p>';
+    const a = cfgOf(), avail = new Set(D.props.map(p => p.key)); let g = a.propGoal && avail.has(a.propGoal) ? a.propGoal : (avail.has('B') ? 'B' : 'C');
+    const p = D.props.find(x => x.key === g), nm = o => esc(o.oper ? `${api.flow.short(o)} (${o.oper})` : o.name), sec = v => f1(v) + ' s', S = propSentence(D, p);
+    const goals = `<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:6px">${GOALS.map(([k, t, d]) => { const on = k === g, dis = !avail.has(k);
+      return `<button data-k="propgoal" data-p="${k}"${dis ? ' disabled title="Hace falta el takt o la demanda"' : ''} aria-pressed="${on}" style="display:grid;gap:2px;text-align:left;padding:10px 12px;min-height:58px;${on ? `background:${PCOL[k]};border-color:${PCOL[k]};color:#fff` : ''}${dis ? ';opacity:.45' : ''}"><b style="font-size:14px">${t}</b><small style="opacity:.85">${d}</small></button>`; }).join('')}</div>`;
+    const rec = `<div style="margin-top:10px;border:1px solid ${PCOL[g]};border-left:6px solid ${PCOL[g]};border-radius:10px;padding:12px 14px;background:#111921">
+      <div style="font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:#a9b3bd">3 · Recomendación</div>
+      <p style="font-size:17px;line-height:1.45;margin:6px 0">${S.s}</p><p class="an-note" style="font-size:13px;margin:0">${S.extra.map(esc).join(' ')}${PROPR ? '' : ' <span class="an-prog">Calculando con la simulación del turno…</span>'}</p>
+      <details style="margin-top:8px"><summary style="cursor:pointer;font-size:12.5px;color:#a9b3bd">Cómo quedan las estaciones (${p.est.length})</summary><div style="overflow-x:auto"><table><thead><tr><th>Est.</th><th>Operaciones</th><th>Tiempo</th><th>Pers.</th>${D.takt ? '<th>% takt</th>' : ''}</tr></thead><tbody>${p.est.map(e => `<tr><td>E${e.n}</td><td style="text-align:left;white-space:normal">${e.ops.map(nm).join(' + ')}</td><td>${sec(e.t)}</td><td>${e.p}</td>${D.takt ? `<td>${f0(e.c / D.takt * 100)}%</td>` : ''}</tr>`).join('')}</tbody></table></div>
+        ${p.mov.length ? `<p class="an-note">Mesas por acercar: ${p.mov.slice(0, 12).map(m => `${esc(m.o.oper || api.flow.short(m.o))} → junto a ${esc(m.a.oper || api.flow.short(m.a))}${m.d != null ? ' (hoy a ' + f1(m.d) + ' m)' : ''}`).join(' · ')}${p.mov.length > 12 ? ' …' : ''}</p>` : ''}</details>
+      <div class="an-row"><button class="prim" data-k="propver" data-p="${g}">Ver comparación completa</button><button data-k="propyz" data-p="${g}"${window.RD_RO ? ' hidden' : ''}>Crear yamazumi</button><button data-k="propacc" data-p="${g}"${window.RD_RO ? ' hidden' : ''}>Crear acción de mejora</button></div></div>`;
+    // otras alternativas: gráfica, las 3 tarjetas y la tabla simulada
+    const W = 980, H = 200, px = 60, top = Math.max(D.hoy.cmax, D.takt || 0) * 1.18, Yv = v => 18 + (H - 58) * (1 - v / top), cols = D.props.length + 1, gw = (W - px - 20) / cols;
     let svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Ciclo de cada estación: hoy y en cada propuesta"><rect width="${W}" height="${H}" fill="#111921" rx="8"/>`;
     const grp = (k, nombre, cs, col) => { const x0 = px + gw * k + 8, bw = Math.max(2, Math.min(18, (gw - 16) / Math.max(1, cs.length) - 2));
       cs.forEach((c, i) => { svg += `<rect x="${x0 + i * (bw + 2)}" y="${Yv(c)}" width="${bw}" height="${Yv(0) - Yv(c)}" fill="${D.takt && c > D.takt ? '#e5484d' : col}"><title>${esc(nombre)} · ${f1(c)} s</title></rect>`; });
       svg += `<text x="${px + gw * k + gw / 2}" y="${H - 22}" text-anchor="middle" font-size="12" fill="#e7ebef">${esc(nombre)}</text><text x="${px + gw * k + gw / 2}" y="${H - 7}" text-anchor="middle" font-size="11" fill="#a9b3bd">${cs.length} est.</text>`; };
-    grp(0, 'Hoy', D.t, '#7c8a97'); D.props.forEach((p, k) => grp(k + 1, p.key + ' · ' + p.nombre, p.est.map(e => e.c), PCOL[p.key]));
+    grp(0, 'Hoy', D.t, '#7c8a97'); D.props.forEach((q, k) => grp(k + 1, GOALS.find(x => x[0] === q.key)[1], q.est.map(e => e.c), PCOL[q.key]));
     if (D.takt) svg += `<line x1="${px}" x2="${W - 20}" y1="${Yv(D.takt)}" y2="${Yv(D.takt)}" stroke="#ff5a4f" stroke-width="2" stroke-dasharray="7 4"/><text x="${px - 6}" y="${Yv(D.takt) + 4}" text-anchor="end" font-size="11" fill="#e7ebef">takt ${f1(D.takt)}</text>`;
-    svg += `<text x="${px - 6}" y="${Yv(0) + 4}" text-anchor="end" font-size="11" fill="#a9b3bd">0 s</text></svg>`;
-    return `${D.takt ? '' : '<p class="an-warn">Sin takt ni demanda solo se calcula la propuesta C. Captura el takt del yamazumi o la demanda de la línea para ver A y B.</p>'}
-      ${D.G.ciclo ? '<p class="an-warn">«Le entrega a» forma un círculo; se usó el orden de la lista.</p>' : `<p class="an-note">Orden del flujo: ${D.G.linked ? '«Le entrega a» de cada operación' : 'el de la lista (no hay enlaces «Le entrega a»)'} · ${D.N} operaciones · suma ${f1(D.sum)} s${D.takt ? ` · takt ${f1(D.takt)} s (${esc(D.T.src)}), llenado a ${D.pct}%` : ''} · tiempo neto ${hhmm(D.net)} h.</p>`}
-      ${svg}
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:10px;margin-top:10px">${D.props.map(card).join('')}</div>
-      <div class="an-row"><button class="prim" data-k="propsim">Simular las propuestas en el turno</button><span class="an-note">Corre la misma simulación del análisis (ciclos medidos, paros y demanda) para hoy y cada propuesta.</span></div>
-      <div class="an-propres">${PROPR ? propTable() : ''}</div>
-      <p class="an-note">Son propuestas para revisar en piso (ergonomía, herramienta, habilidades y máquina de cada operación), no órdenes. Las estaciones con ×2 o más necesitan una máquina igual por persona.</p>`; }
+    svg += '</svg>';
+    const mini = q => { const t = propSentence(D, q); return `<div style="border:1px solid #2a3542;border-top:4px solid ${PCOL[q.key]};border-radius:10px;padding:10px 12px;background:#111921"><b style="color:${PCOL[q.key]}">${GOALS.find(x => x[0] === q.key)[1]}</b><p style="margin:6px 0">${t.s}</p><small style="color:#a9b3bd">${esc(t.extra.join(' '))} · balance ${f0(q.bal * 100)}% · cuello ${sec(q.cmax)}</small><div class="an-row"><button data-k="propgoal" data-p="${q.key}">Elegir esta</button></div></div>`; };
+    return `${propChecks(Y, D)}
+      <div style="margin-top:12px;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:#a9b3bd">2 · ¿Qué quieres lograr?</div>${goals}${rec}
+      <details style="margin-top:10px"><summary style="cursor:pointer;color:#a9b3bd">Ver otras alternativas y la comparación de las tres</summary>${svg}
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px;margin-top:10px">${D.props.filter(q => q.key !== g).map(mini).join('')}</div>
+        <div class="an-propres">${PROPR ? propTable() : ''}</div></details>
+      <p class="an-note">Es una propuesta para revisar en piso (ergonomía, herramienta, habilidades y máquina de cada operación), no una orden.</p>`; }
+  function propRefresh() { const box = el?.querySelector('.an-prop'); if (box) box.innerHTML = propPane(); }
+  function propAuto() { if (!PROP || PROPR) return; setTimeout(() => { try { propSim(); propRefresh(); } catch (e) { console.warn('propuestas', e); } }, 40); }
   function propNodes(D, p) { const a = cfgOf();
     if (!p) return D.ops.map((o, i) => ({ id: o.id, name: o.name, oper: o.oper, short: api.flow.short(o), next: D.G.succ[i] >= 0 ? D.ops[D.G.succ[i]].id : null, cycles: o.cycles || [], fail: (a.fail || {})[o.id] || null }));
     return p.est.map((e, i) => ({ id: 'E' + e.n, name: 'Estación ' + e.n, oper: `E${e.n}${e.p > 1 ? ' ×' + e.p : ''}`, short: e.ops.map(o => o.oper || api.flow.short(o)).join(' + ').slice(0, 40), next: i < p.est.length - 1 ? 'E' + (i + 2) : null, cycles: balCycles(e) })); }
@@ -225,6 +249,7 @@ export function create(api) {
       return { ...n, cycles: cy, next: follow(nextOf(n)) }; }); }
   function readTime(v) { const m = String(v).trim().match(/^(\d+)(?::(\d{1,2}))?$/); return m ? (+m[1]) * 60 + (+(m[2] || 0)) : null; }
   function onChange(e) { const t = e.target, a = cfgOf(), P = people();
+    if (t.dataset.pf) { const Y = api.yz(), v = +t.value; if (Y && v > 0) { if (t.dataset.pf === 'takt') Y.takt = v; else Y.dem = Math.round(v); api.save(); PROPR = null; propRefresh(); propAuto(); } return; }
     if (t.dataset.a === 'scope') { el.dataset.scope = t.value; last = null; form(); return; }
     if (t.dataset.f && t.dataset.id) { a.fail = a.fail || {}; const f = a.fail[t.dataset.id] = { ...failOf(t.dataset.id) }, v = t.value === '' ? undefined : Math.max(0, +t.value); if (v === undefined) delete f[t.dataset.f]; else f[t.dataset.f] = t.dataset.f === 'scrap' ? Math.min(100, v) : v; api.save(); return; }
     if (t.dataset.vb) { a.vbox = a.vbox || {}; if (t.value) a.vbox[t.dataset.vb] = t.value; else delete a.vbox[t.dataset.vb]; api.save(); return; }
@@ -251,6 +276,10 @@ export function create(api) {
     else if (b.dataset.k === 'propsim') { b.disabled = true; b.textContent = 'Simulando…'; setTimeout(() => { try { propSim(); } finally { b.disabled = false; } }, 30); }
     else if (b.dataset.k === 'propver') propVer(b.dataset.p);
     else if (b.dataset.k === 'propyz') propYz(b.dataset.p);
+    else if (b.dataset.k === 'propgoal') { a.propGoal = b.dataset.p; api.save(); propRefresh(); el.querySelector('.an-prop')?.scrollIntoView({ block: 'start' }); }
+    else if (b.dataset.k === 'propacc') { propVer(b.dataset.p); accNew(); }
+    else if (b.dataset.k === 'propchain') { const Y = api.yz(); if (!Y) return; const ops = Y.ops.filter(o => o.on !== false); ops.forEach((o, i) => { if (!o.next && ops[i + 1]) o.next = ops[i + 1].id; }); api.save(); PROPR = null; propRefresh(); propAuto(); }
+    else if (b.dataset.k === 'proplink') { const Y = api.yz(); if (!Y) return; const ids = Y.ops.filter(o => o.on !== false && !o.link).map(o => o.id); close(); api.flow.link(ids); }
     else if (b.dataset.k === 'tovsm') toVsm();
     else if (b.dataset.k === 'acc') accNew();
     else if (b.dataset.k === 'accres') accRes();

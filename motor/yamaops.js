@@ -244,6 +244,7 @@ export function create(api) {
         <p>${esc([Y.programa, Y.linea, Y.fecha, Y.analista].filter(Boolean).join(' · '))}${Y.src ? '<br>Origen: ' + esc(Y.src) : ''}</p></div>`);
       o.push(`<div class="vz-tot">${ops.length} operaciones · suma ${f1(sum)} s${takt ? `<br>${fmtN(sum / takt, 2)} operadores teóricos · balance ${ops.length ? fmtN(sum / (ops.length * takt) * 100, 0) : 0}%` : ''}${sum ? `<br>Valor agregado ${fmtN(va / Math.max(1e-9, S.reduce((t, q) => t + q.mean, 0)) * 100, 0)}% del tiempo medido` : ''}${over ? `<br><span style="color:#ff5a4f">${over} sobre takt</span>` : ''}${risk ? `<br><span style="color:#FFB020">${risk} con máximo sobre takt</span>` : ''}</div>`);
       o.push(`<div class="vz-leg">${CATS.filter(C => S.some(s => s.by[C.k])).map(C => `<span><i style="background:${C.col}"></i>${esc(C.name)}</span>`).join('')}${st.std ? `<span><i style="background:${SUPC}"></i>Suplementos</span>` : '<span><i style="background:#8d98a5;opacity:.5"></i>Variación (máx − media)</span>'}</div>`);
+      if (flow && api.ana) o.push(`<div class="vz-btns" style="margin:2px 0 8px"><button class="prim" data-y="fprop" style="width:100%;min-height:38px;font-size:14px" title="El sistema revisa tus datos y te recomienda cómo acomodar estaciones: menos personas, más piezas o sin mover mesas">💡 Proponer mejora</button></div>`);
       if (api.turnos?.()) { const tk = +Y.takt || 0, sm = Y.ops.filter(x => x.on !== false).reduce((t, x) => t + statOf(x).mean, 0); o.push(api.turnos().card(Y, tk ? sm / tk : 0)); }
       if (flow) { const A = flow.anim(), miss = A.filter(x => !x.o.link), nm = q => q.oper || flow.short(q), nx = q => { const t = flow.byId(q.next); return t && t.o.anim ? nm(t.o) : 'salida'; };
         o.push(`<div class="vz-card" style="border-color:var(--line,#27323e)"><div class="hd"><b>Animación en 3D</b><span>${A.length} de ${flow.MAX}</span></div><p>Elige con ▶ hasta ${flow.MAX} personas, de uno o varios yamazumis. A cada una dile dónde está (clic en el gemelo), si camina y a quién le entrega.</p>
@@ -287,6 +288,7 @@ export function create(api) {
     if (api.turnos?.()?.cardClick(b)) return;
     if (flow) {
       if (y === 'fana') { api.ana?.()?.open(flow.anim().length ? 'anim' : 'yz'); return; }
+      if (y === 'fprop') { api.ana?.()?.open('yz', { prop: true }); return; }
       if (y === 'fgo') { st.fmsg = flow.start() || ''; if (st.fmsg) api.redraw(); return; }
       if (y === 'flink') { const A = flow.anim(), m = A.filter(x => !x.o.link); flow.link((m.length ? m : A).map(x => x.o.id)); return; }
       if (y === 'flink1' && st.osel) { flow.link([st.osel]); return; }
