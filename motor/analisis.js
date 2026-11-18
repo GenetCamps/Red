@@ -8,6 +8,7 @@
    - Resultado: gráfica por operador (trabajo, espera de material, retrabajo, paros), dónde y cuándo esperan más, cola por hora,
      y un reporte descargable (página para imprimir o guardar como PDF, y archivo CSV para Excel). */
 import { win } from './ventanas.js';
+import { proponer } from './propuestas.js';
 const CSS = `
 #anaWin{position:fixed;box-sizing:border-box;left:50%;top:60px;transform:translateX(-50%);z-index:62;width:min(1120px,calc(100vw - 24px));max-height:calc(100vh - 80px);overflow:auto;background:rgba(13,18,24,.97);border:1px solid var(--line,#27323e);border-radius:12px;padding:12px 16px 16px;color:#e7ebef;font:13px/1.45 system-ui,'Segoe UI',sans-serif;box-shadow:0 18px 50px rgba(0,0,0,.55)}
 #anaWin h3{margin:0 0 6px;font-size:16px} #anaWin h4{margin:16px 0 6px;font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:#a9b3bd}
@@ -71,7 +72,7 @@ export function simulate(nodes, cfg) {
 
 /* ---------- vista ---------- */
 export function create(api) {
-  const { esc, fmtN } = api; let el = null, w = null, last = null, cmpOn = false, failOn = false, balOn = false;
+  const { esc, fmtN } = api; let el = null, w = null, last = null, cmpOn = false, failOn = false, balOn = false, propOn = false, PROP = null, PROPR = null;
   const st = document.createElement('style'); st.textContent = CSS; document.head.appendChild(st);
   const f0 = v => fmtN(v, 0), f1 = v => fmtN(v, 1), money = v => '$' + fmtN(v, 0);
   const hhmm = m => { m = Math.round(m); return Math.floor(m / 60) + ':' + String(m % 60).padStart(2, '0'); };
@@ -104,6 +105,8 @@ export function create(api) {
       ${failOn ? failForm(P) : ''}
       <div class="an-row"><button data-k="bal" aria-pressed="${balOn}">${balOn ? 'Ocultar balanceo' : 'Balanceo automático'}</button><span class="an-note">Propone cómo agrupar las operaciones en estaciones contra el takt, con menos personas.</span>${balOn ? `<label style="display:flex;gap:6px;align-items:center">Llenar hasta<input data-a="balPct" type="number" min="60" max="100" step="1" value="${cfgOf().balPct || 95}" style="width:70px">% del takt</label>` : ''}</div>
       ${balOn ? `<div class="an-bal">${balPane()}</div>` : ''}
+      <div class="an-row"><button data-k="prop" aria-pressed="${propOn}">${propOn ? 'Ocultar propuestas de flujo' : 'Propuestas de flujo'}</button><span class="an-note">El sistema arma 3 alternativas de estaciones con los ciclos, «Le entrega a» y el lugar de cada mesa en 3D, y las compara.</span></div>
+      ${propOn ? `<div class="an-prop">${propPane()}</div>` : ''}
       <div class="an-row"><button data-k="cmp" aria-pressed="${cmpOn}">${cmpOn ? 'Quitar comparación' : 'Comparar con un cambio'}</button><span class="an-note">Prueba qué pasa si quitas a alguien, bajas un ciclo, eliminas el retrabajo o cambias a quién entrega.</span></div>
       ${cmpOn ? cmpForm(P) : ''}
       <div class="an-row"><button class="prim" data-k="run">Correr análisis</button><span class="an-note">${esc(P.label)}${!Y?.takt && !dem ? ' · <span class="an-warn">sin demanda: la primera estación nunca se queda sin material</span>' : ''}</span></div>
@@ -148,6 +151,57 @@ export function create(api) {
     const Y2 = { id: 'y' + Math.random().toString(36).slice(2, 9), name: Y.name + ' · balanceo', planta: Y.planta, linea: Y.linea, programa: Y.programa, trip: Y.trip, turno: Y.turno, fecha: new Date().toISOString().slice(0, 10), analista: 'Propuesta de balanceo', takt: Y.takt, dem: Y.dem, src: 'Balanceo automático de «' + Y.name + '»',
       ops: st.map((s, i) => ({ id: ids[i], name: `Estación ${i + 1}${s.p > 1 ? ' (×' + s.p + ')' : ''}`, est: '', pos: '', lado: '', oper: s.ops.map(o => o.oper || o.name).join(' + '), on: true, next: ids[i + 1] || '', cycles: balCycles(s) })) };
     S.yz = (S.yz || []).concat([Y2]); api.save(); alert(`Listo: yamazumi «${Y2.name}» con ${st.length} estaciones. Elígelo en la pestaña Operaciones para animarlo o analizarlo.`); }
+  /* ---------- propuestas de flujo (A mismo piso · B mínimas personas · C máximo ritmo) ---------- */
+  const PCOL = { A: '#3987e5', B: '#199e70', C: '#d95926' };
+  function propData() { const Y = api.yz(), a = cfgOf(), T = balTakt(Y), net = a.H * 60 - parosEn(a.paros, a.H);
+    const D = Y ? proponer(Y, { takt: T?.t || 0, pct: a.balPct || 95, net, meanOf }) : null; return D ? Object.assign(D, { Y, T, net }) : null; }
+  function propPane() { const Y = api.yz(); if (!Y) return '<p class="an-note">Elige un yamazumi de operaciones para proponer flujos.</p>';
+    const D = propData(); PROP = D; if (!D) return '<p class="an-warn">El yamazumi no tiene ciclos medidos.</p>';
+    const nm = o => esc(o.oper ? `${api.flow.short(o)} (${o.oper})` : o.name), sec = v => f1(v) + ' s';
+    const card = p => `<div style="border:1px solid #2a3542;border-top:4px solid ${PCOL[p.key]};border-radius:10px;padding:10px 12px;background:#111921;display:grid;gap:6px;align-content:start">
+      <div style="display:flex;gap:8px;align-items:baseline"><b style="font-size:15px;color:${PCOL[p.key]}">${p.key}</b><b style="font-size:14px">${esc(p.nombre)}</b></div>
+      <span class="an-note" style="margin:0">${esc(p.idea)}</span>
+      <div class="an-kpis" style="margin-top:2px;grid-template-columns:repeat(2,1fr)"><div class="an-kpi"><b>${D.N} → ${p.pers}</b><span>personas</span></div><div class="an-kpi"><b>${p.est.length}</b><span>estaciones</span></div>
+        <div class="an-kpi"><b>${sec(p.cmax)}</b><span>ciclo del cuello (hoy ${sec(D.hoy.cmax)})</span></div><div class="an-kpi ${p.bal >= .85 ? 'ok' : ''}"><b>${f0(p.bal * 100)}%</b><span>balance</span></div>
+        <div class="an-kpi"><b>${f0(p.pzT)}</b><span>piezas por turno, teórico (hoy ${f0(D.pzHoy)})</span></div><div class="an-kpi"><b>${f1(p.pzPH)}</b><span>piezas por persona-hora (hoy ${f1(D.pzHoy / D.N / (D.net / 60))})</span></div></div>
+      <ul style="margin:2px 0 0;padding-left:18px;font-size:12.5px">${p.cambios.map(c => `<li>${esc(c)}</li>`).join('')}</ul>
+      <details><summary style="cursor:pointer;font-size:12.5px;color:#a9b3bd">Ver estaciones</summary><div style="overflow-x:auto"><table><thead><tr><th>Est.</th><th>Operaciones</th><th>Tiempo</th><th>Pers.</th>${D.takt ? '<th>% takt</th>' : ''}</tr></thead><tbody>${p.est.map(e => `<tr><td>E${e.n}</td><td style="text-align:left;white-space:normal">${e.ops.map(nm).join(' + ')}</td><td>${sec(e.t)}</td><td>${e.p}</td>${D.takt ? `<td>${f0(e.c / D.takt * 100)}%</td>` : ''}</tr>`).join('')}</tbody></table></div>
+        ${p.mov.length ? `<p class="an-note">Mesas por acercar: ${p.mov.slice(0, 12).map(m => `${esc(m.o.oper || api.flow.short(m.o))} → junto a ${esc(m.a.oper || api.flow.short(m.a))} (E${m.e}${m.d != null ? ', hoy a ' + f1(m.d) + ' m' : ', sin lugar en 3D'})`).join(' · ')}${p.mov.length > 12 ? ' …' : ''}</p>` : ''}</details>
+      <div class="an-row" style="margin-top:2px"><button data-k="propver" data-p="${p.key}">Ver comparación</button><button data-k="propyz" data-p="${p.key}"${window.RD_RO ? ' hidden' : ''}>Crear yamazumi</button></div></div>`;
+    const W = 980, H = 220, px = 60, top = Math.max(D.hoy.cmax, D.takt || 0) * 1.18, Yv = v => 18 + (H - 58) * (1 - v / top), cols = D.props.length + 1, gw = (W - px - 20) / cols;
+    let svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Ciclo de cada estación: hoy y en cada propuesta"><rect width="${W}" height="${H}" fill="#111921" rx="8"/>`;
+    const grp = (k, nombre, cs, col) => { const x0 = px + gw * k + 8, bw = Math.max(2, Math.min(18, (gw - 16) / Math.max(1, cs.length) - 2));
+      cs.forEach((c, i) => { svg += `<rect x="${x0 + i * (bw + 2)}" y="${Yv(c)}" width="${bw}" height="${Yv(0) - Yv(c)}" fill="${D.takt && c > D.takt ? '#e5484d' : col}"><title>${esc(nombre)} · ${f1(c)} s</title></rect>`; });
+      svg += `<text x="${px + gw * k + gw / 2}" y="${H - 22}" text-anchor="middle" font-size="12" fill="#e7ebef">${esc(nombre)}</text><text x="${px + gw * k + gw / 2}" y="${H - 7}" text-anchor="middle" font-size="11" fill="#a9b3bd">${cs.length} est.</text>`; };
+    grp(0, 'Hoy', D.t, '#7c8a97'); D.props.forEach((p, k) => grp(k + 1, p.key + ' · ' + p.nombre, p.est.map(e => e.c), PCOL[p.key]));
+    if (D.takt) svg += `<line x1="${px}" x2="${W - 20}" y1="${Yv(D.takt)}" y2="${Yv(D.takt)}" stroke="#ff5a4f" stroke-width="2" stroke-dasharray="7 4"/><text x="${px - 6}" y="${Yv(D.takt) + 4}" text-anchor="end" font-size="11" fill="#e7ebef">takt ${f1(D.takt)}</text>`;
+    svg += `<text x="${px - 6}" y="${Yv(0) + 4}" text-anchor="end" font-size="11" fill="#a9b3bd">0 s</text></svg>`;
+    return `${D.takt ? '' : '<p class="an-warn">Sin takt ni demanda solo se calcula la propuesta C. Captura el takt del yamazumi o la demanda de la línea para ver A y B.</p>'}
+      ${D.G.ciclo ? '<p class="an-warn">«Le entrega a» forma un círculo; se usó el orden de la lista.</p>' : `<p class="an-note">Orden del flujo: ${D.G.linked ? '«Le entrega a» de cada operación' : 'el de la lista (no hay enlaces «Le entrega a»)'} · ${D.N} operaciones · suma ${f1(D.sum)} s${D.takt ? ` · takt ${f1(D.takt)} s (${esc(D.T.src)}), llenado a ${D.pct}%` : ''} · tiempo neto ${hhmm(D.net)} h.</p>`}
+      ${svg}
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:10px;margin-top:10px">${D.props.map(card).join('')}</div>
+      <div class="an-row"><button class="prim" data-k="propsim">Simular las propuestas en el turno</button><span class="an-note">Corre la misma simulación del análisis (ciclos medidos, paros y demanda) para hoy y cada propuesta.</span></div>
+      <div class="an-propres">${PROPR ? propTable() : ''}</div>
+      <p class="an-note">Son propuestas para revisar en piso (ergonomía, herramienta, habilidades y máquina de cada operación), no órdenes. Las estaciones con ×2 o más necesitan una máquina igual por persona.</p>`; }
+  function propNodes(D, p) { const a = cfgOf();
+    if (!p) return D.ops.map((o, i) => ({ id: o.id, name: o.name, oper: o.oper, short: api.flow.short(o), next: D.G.succ[i] >= 0 ? D.ops[D.G.succ[i]].id : null, cycles: o.cycles || [], fail: (a.fail || {})[o.id] || null }));
+    return p.est.map((e, i) => ({ id: 'E' + e.n, name: 'Estación ' + e.n, oper: `E${e.n}${e.p > 1 ? ' ×' + e.p : ''}`, short: e.ops.map(o => o.oper || api.flow.short(o)).join(' + ').slice(0, 40), next: i < p.est.length - 1 ? 'E' + (i + 2) : null, cycles: balCycles(e) })); }
+  function propDem(D) { const a = cfgOf(); let dem = +D.Y.dem || 0, src = 'capturada'; if (!dem && D.takt) { dem = Math.floor(D.net * 60 / D.takt); src = 'calculada con el takt'; } return { dem, src }; }
+  function propSim() { const D = PROP; if (!D) return; const a = cfgOf(), { dem } = propDem(D), cfg = { H: a.H, paros: a.paros, dem, reps: Math.min(a.reps, 6) };
+    const sim = p => { const R = simulate(propNodes(D, p), cfg), lost = R.per.reduce((s, x) => s + x.starve, 0); return { key: p?.key || 'hoy', nombre: p ? p.key + ' · ' + p.nombre : 'Hoy', pers: p ? p.pers : D.N, pz: R.out.mean, min: R.out.min, max: R.out.max, falt: dem ? Math.max(0, dem - R.out.mean) : null, esp: lost, wip: R.per.reduce((s, x) => s + x.qavg, 0), R }; };
+    PROPR = { dem, rows: [sim(null), ...D.props.map(sim)] }; const box = el.querySelector('.an-propres'); if (box) box.innerHTML = propTable(); }
+  function propTable() { const P = PROPR, h = P.rows[0], H = cfgOf().H, d = (v, ref, up) => { const x = v - ref; if (Math.abs(x) < .5) return ''; return ` <small style="color:${(up ? x > 0 : x < 0) ? '#3ddc97' : '#ff6b62'}">${x > 0 ? '+' : ''}${f0(x)}</small>`; };
+    return `<div style="overflow-x:auto"><table><thead><tr><th>Alternativa</th><th>Personas</th><th>Piezas en el turno</th><th>Rango</th>${P.dem ? '<th>Faltan vs demanda</th>' : ''}<th>Piezas por persona-hora (tiempo neto)</th><th>Min esperando material</th><th>WIP promedio</th></tr></thead><tbody>
+      ${P.rows.map(r => `<tr><td><b style="color:${PCOL[r.key] || '#e7ebef'}">${esc(r.nombre)}</b></td><td>${r.pers}${r === h ? '' : d(r.pers, h.pers, false)}</td><td>${f0(r.pz)}${r === h ? '' : d(r.pz, h.pz, true)}</td><td>${f0(r.min)}–${f0(r.max)}</td>${P.dem ? `<td>${f0(r.falt)}</td>` : ''}<td>${f1(r.pz / r.pers / (PROP.net / 60))}</td><td>${f0(r.esp)}${r === h ? '' : d(r.esp, h.esp, false)}</td><td>${f1(r.wip)}</td></tr>`).join('')}</tbody></table></div>
+      <p class="an-note">Demanda ${P.dem ? f0(P.dem) + ' piezas' : 'sin capturar (la primera estación nunca se queda sin material)'} · ${H} h con paros planeados · la mejor en piezas por persona-hora: <b>${esc(P.rows.slice(1).sort((a, b) => b.pz / b.pers - a.pz / a.pers)[0]?.nombre || '—')}</b>.</p>`; }
+  function propVer(key) { const D = PROP; if (!D) return; const p = D.props.find(x => x.key === key); if (!p) return; const a = cfgOf(), { dem, src } = propDem(D), cfg = { H: a.H, paros: a.paros, dem, reps: a.reps };
+    const R = simulate(propNodes(D, null), cfg); R.demSrc = dem ? src : 'sin demanda'; R.costo = a.costo; R.yz = D.Y.name; R.scope = 'Línea actual (una persona por operación, «Le entrega a»)'; R.at = new Date(); R.used = D.N;
+    const RB = simulate(propNodes(D, p), cfg); RB.costo = a.costo; RB.dem = dem; RB.nPer = p.pers; R.B = RB;
+    R.chg = `propuesta ${p.key} · ${p.nombre}: ${p.est.length} estaciones y ${p.pers} personas en lugar de ${D.N}`; last = R; results(R); el.querySelector('.an-res')?.scrollIntoView({ block: 'start' }); }
+  function propYz(key) { const D = PROP, S = api.S(); if (!D || !S) return; const p = D.props.find(x => x.key === key); if (!p) return; const ids = p.est.map(() => 'y' + Math.random().toString(36).slice(2, 9)), Y = D.Y;
+    const Y2 = { id: 'y' + Math.random().toString(36).slice(2, 9), name: `${Y.name} · propuesta ${p.key}`, planta: Y.planta, linea: Y.linea, programa: Y.programa, trip: Y.trip, turno: Y.turno, fecha: new Date().toISOString().slice(0, 10), analista: 'Propuesta de flujo ' + p.key, takt: Y.takt, dem: Y.dem, src: `Propuesta ${p.key} (${p.nombre}) de «${Y.name}»`,
+      ops: p.est.map((e, i) => ({ id: ids[i], name: `Estación ${e.n}${e.p > 1 ? ' (×' + e.p + ')' : ''}`, est: '', pos: '', lado: '', oper: e.ops.map(o => o.oper || o.name).join(' + '), on: true, next: ids[i + 1] || '', link: e.ops[0].link ? { ...e.ops[0].link } : undefined, cycles: balCycles(e) })) };
+    S.yz = (S.yz || []).concat([Y2]); api.save(); alert(`Listo: yamazumi «${Y2.name}» con ${p.est.length} estaciones y ${p.pers} personas. Elígelo en la pestaña Operaciones para animarlo en 3D o analizarlo.`); }
   function failOf(id) { const a = cfgOf(); a.fail = a.fail || {}; return a.fail[id] || {}; }
   function failForm(P) { const nm = o => o.oper || api.flow.short(o);
     return `<h4>Paros no planeados y scrap por persona</h4><div style="overflow-x:auto"><table><thead><tr><th>Persona</th><th>Falla cada (min de operación)</th><th>Dura en promedio (min)</th><th>Scrap (%)</th></tr></thead><tbody>${P.list.map(({ o }) => { const f = failOf(o.id);
@@ -193,6 +247,10 @@ export function create(api) {
     else if (b.dataset.k === 'bal') { balOn = !balOn; form(); }
     else if (b.dataset.k === 'balsim') balSim();
     else if (b.dataset.k === 'balyz') balYz();
+    else if (b.dataset.k === 'prop') { propOn = !propOn; PROPR = null; form(); }
+    else if (b.dataset.k === 'propsim') { b.disabled = true; b.textContent = 'Simulando…'; setTimeout(() => { try { propSim(); } finally { b.disabled = false; } }, 30); }
+    else if (b.dataset.k === 'propver') propVer(b.dataset.p);
+    else if (b.dataset.k === 'propyz') propYz(b.dataset.p);
     else if (b.dataset.k === 'tovsm') toVsm();
     else if (b.dataset.k === 'acc') accNew();
     else if (b.dataset.k === 'accres') accRes();
