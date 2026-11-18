@@ -1386,6 +1386,134 @@ const HL_N = { tables:0, bond:0, oven:0, carts:0 };
   [frame,paint,gloss,steel,light,flat,cyl,glow].forEach(b=>b.build(G_hl));
 }
 
+/* =================================================================== ESTACIÓN DE COSTURA v2 (foto de piso Parras «L1 DECORADO 10», 18-nov-2026)
+   Modelo común de Parras, Planta 6-7 y Planta 4. Lo inserta build.py dentro del motor de cada planta; usa sus utilidades
+   (Batch, M, std, UNIT, UCYL, canvasTex, CUR, camera). Las piezas grandes se dibujan en lotes globales; el detalle fino
+   (etiqueta, panel, lámpara, regla, hojas, pieza) va en lotes por zona que solo se ven cerca de la cámara y nunca en «Básica». */
+function sewKit(G){
+  let sd=4242; const rn=()=>{ sd=(sd*1664525+1013904223)>>>0; return sd/4294967296; };
+  // ---------- cuerpo de la máquina: perfil visto desde el operador, extruido con orillas redondeadas
+  function body(post){
+    const s=new THREE.Shape(), hb=post?.21:.07, at=post?.44:.36, ab=at-.12, r=.035;
+    s.moveTo(.10,0); s.lineTo(.30,0); s.lineTo(.30,at-r); s.quadraticCurveTo(.30,at,.30-r,at); s.lineTo(-.24+r,at); s.quadraticCurveTo(-.24,at,-.24,at-r);
+    s.lineTo(-.24,hb); s.lineTo(-.12,hb); s.lineTo(-.12,ab-.02); s.quadraticCurveTo(-.12,ab,-.10,ab); s.lineTo(.07,ab); s.quadraticCurveTo(.10,ab,.10,ab-.03); s.lineTo(.10,0);
+    const g=new THREE.ExtrudeGeometry(s,{depth:.12,bevelEnabled:true,bevelThickness:.018,bevelSize:.014,bevelSegments:1,curveSegments:3});
+    g.translate(0,0,-.06); g.computeVertexNormals(); return g;
+  }
+  function housing(){
+    const s=new THREE.Shape(), r=.05; s.moveTo(0,0); s.lineTo(.13,0); s.lineTo(.13,.40-r); s.quadraticCurveTo(.13,.40,.13-r,.40); s.lineTo(r,.40); s.quadraticCurveTo(0,.40,0,.40-r); s.lineTo(0,0);
+    const g=new THREE.ExtrudeGeometry(s,{depth:.17,bevelEnabled:true,bevelThickness:.02,bevelSize:.018,bevelSegments:1,curveSegments:3}); g.translate(0,0,-.085); g.computeVertexNormals(); return g;
+  }
+  const GEO={ bodyP:body(true), bodyF:body(false), hous:housing(), cone:new THREE.CylinderGeometry(.2,.5,1,9,1,true).translate(0,.5,0), wheel:new THREE.CylinderGeometry(.5,.5,1,14).translate(0,.5,0),
+    post:new THREE.CylinderGeometry(.5,.5,1,10).translate(0,.5,0), plane:new THREE.PlaneGeometry(1,1) };
+  // ---------- texturas
+  const T=(w,h,f)=>canvasTex(w,h,f);
+  const panelT=T(128,64,(g,w,h)=>{ g.fillStyle='#2a2e35'; g.fillRect(0,0,w,h); g.fillStyle='#11151a'; g.fillRect(6,6,w-12,22);
+    g.fillStyle='#ff3b30'; g.font='bold 16px monospace'; g.fillText('8.8.8',14,23); for(let i=0;i<6;i++){ g.fillStyle=i%3?'#d9dde2':'#ff4a3d'; g.fillRect(10+i*19,36,13,9); }
+    for(let i=0;i<6;i++){ g.fillStyle='#ff2d20'; g.beginPath(); g.arc(16+i*19,54,2.6,0,6.3); g.fill(); } });
+  const rulerT=T(512,16,(g,w,h)=>{ g.fillStyle='#f4f3ee'; g.fillRect(0,0,w,h); g.fillStyle='#2a2a2a'; for(let i=0;i<=120;i++){ const x=i*w/120; g.fillRect(x,0,1,i%10?(i%5?5:8):12); } });
+  const sheetT=T(128,96,(g,w,h)=>{ g.fillStyle='#fbfbf8'; g.fillRect(0,0,w,h); g.fillStyle='#1d3f78'; g.fillRect(6,5,w-12,9); g.strokeStyle='#9aa3ad'; g.lineWidth=1;
+    for(let i=0;i<9;i++){ g.strokeRect(6,18+i*8,w-12,8); } for(const x of [40,70,100]){ g.beginPath(); g.moveTo(x,18); g.lineTo(x,90); g.stroke(); }
+    g.fillStyle='#e8f0fb'; g.globalAlpha=.35; g.fillRect(0,0,w,h); });
+  const pieceT=T(64,64,(g,w,h)=>{ g.fillStyle='#ffffff'; g.fillRect(0,0,w,h); g.strokeStyle='#e9e4d6'; g.lineWidth=2; g.setLineDash([4,3]);
+    g.beginPath(); g.moveTo(8,10); g.lineTo(8,54); g.lineTo(56,54); g.stroke(); g.beginPath(); g.moveTo(14,10); g.lineTo(14,48); g.lineTo(56,48); g.stroke(); });
+  // ---------- lotes globales (siempre visibles)
+  const mk=(geo,col,o={},op={})=>new Batch(geo,std(col,o),op);
+  const BT={
+    wood:mk(UNIT,'#c78d55',{roughness:.55}), top:mk(UNIT,'#f1efe9',{roughness:.42},{cast:false}), frame:mk(UNIT,'#c3c6c8',{metalness:.55,roughness:.4},{cast:false}),
+    cbox:mk(UNIT,'#b3b8bc',{metalness:.5,roughness:.38},{cast:false}), pedal:mk(UNIT,'#6e93b0',{roughness:.55,metalness:.2},{cast:false}), plate:mk(UNIT,'#9ea4a9',{metalness:.6,roughness:.32},{cast:false}),
+    bodyP:mk(GEO.bodyP,'#e4e6e1',{roughness:.34,metalness:.12}), bodyF:mk(GEO.bodyF,'#e4e6e1',{roughness:.34,metalness:.12}), hous:mk(GEO.hous,'#363b45',{roughness:.45,metalness:.25}),
+    post:mk(GEO.post,'#d9dcd7',{roughness:.3,metalness:.25},{cast:false}), wheel:mk(GEO.wheel,'#1b1d21',{roughness:.4,metalness:.4},{cast:false}),
+    pole:mk(UNIT,'#d5d8da',{metalness:.65,roughness:.3},{cast:false}), cone:mk(GEO.cone,'#ffffff',{roughness:.85},{cast:false}),
+    seat:mk(UNIT,'#1d2026',{roughness:.7}), chairM:mk(UNIT,'#2a2d33',{metalness:.5,roughness:.4},{cast:false}), carton:mk(UNIT,'#b98a55',{roughness:.85},{cast:false}), lid:mk(UNIT,'#15171a',{roughness:.8},{cast:false}),
+  };
+  // ---------- lotes finos por zona (12 m)
+  const MATF={ panel:std('#ffffff',{map:panelT,roughness:.5,emissive:'#ff2a1a',emissiveIntensity:.08}), ruler:std('#ffffff',{map:rulerT,roughness:.6}), sheet:std('#ffffff',{map:sheetT,roughness:.35,metalness:.05}),
+    piece:std('#ffffff',{map:pieceT,roughness:.75}), knob:std('#2b2e33',{roughness:.4,metalness:.3}), steel:std('#c8cdd2',{metalness:.85,roughness:.22}),
+    lamp:new THREE.MeshBasicMaterial({color:'#fffbe8'}), blue:std('#2f6fd6',{roughness:.45}) };
+  let LBL=null; const TAGS=[], ZON=new Map(), ZS=12;
+  function zone(c){ const k=Math.floor(c[0]/ZS)+','+Math.floor(c[1]/ZS); let z=ZON.get(k); if(!z){ z={k,g:new THREE.Group(),b:{},lab:[],sx:0,sz:0,n:0}; ZON.set(k,z); } z.sx+=c[0]; z.sz+=c[1]; z.n++; return z; }
+  function fb(z,name,geo){ return z.b[name]||(z.b[name]=new Batch(geo||(name==='knob'||name==='steel'?UCYL:UNIT),name==='label'?null:MATF[name],{cast:false,receive:name!=='lamp'})); }
+  let N=0;
+  /* o: c=[x,z] centro de la mesa · r=[x,z] derecha del operador (unitario) · L largo (a lo largo de r) · D fondo · H altura de cubierta
+        x desplazamiento del cabezal · post máquina de poste (si no, plana) · tag texto de la etiqueta · cones [col,col] · piece [l,d,col] · box caja de cartón */
+  function station(o){
+    const c=o.c, r=o.r, fw=[r[1],-r[0]], L=o.L, D=o.D, H=o.H??.75, info=o.info, ry=Math.atan2(-r[1],r[0]);
+    const P=(x,z)=>[c[0]+r[0]*x+fw[0]*z, c[1]+r[1]*x+fw[1]*z];
+    const bx=(b,x,y,z,sx,sy,sz,col,inf,rx=0,rz=0)=>{ const q=P(x,z); b.add(M(q[0],y,q[1],ry,sx,sy,sz,rx,rz),col,inf); };
+    const Z=zone(c); N++;
+    // mesa: núcleo de madera con cubierta blanca laminada, bastidor gris y travesaños
+    bx(BT.wood,0,H-.032,0,L,.03,D,undefined,info); bx(BT.top,0,H-.003,0,L-.012,.006,D-.012,undefined,info);
+    const lx=L/2-.07, lz=D/2-.07;
+    for(const sx of [-1,1]){ for(const sz of [-1,1]) bx(BT.frame,sx*lx,0,sz*lz,.04,H-.032,.04); bx(BT.frame,sx*lx,.02,0,.045,.035,D-.06); bx(BT.frame,sx*lx,H-.075,0,.04,.04,D-.1); }
+    bx(BT.frame,0,.26,lz,L-.16,.07,.03); bx(BT.frame,0,H-.075,lz,L-.16,.04,.04);
+    // caja de control bajo la cubierta (derecha), pedal y su base
+    bx(BT.cbox,L/2-.3,H-.25,.02,.34,.2,.26,undefined,info); bx(BT.plate,L/2-.3,H-.31,.02,.1,.06,.12);
+    const mx=o.x??.04, mz=-D/2+Math.min(.25,D*.46);
+    bx(BT.plate,mx,0,-D/2+.2,.3,.02,.38); bx(BT.pedal,mx,.03,-D/2+.2,.26,.03,.32,undefined,undefined,.14);
+    // máquina: placa, cuerpo blanco (perfil Γ), carcasa gris, poste, volante
+    bx(BT.plate,mx+.02,H,mz,.66,.012,.24);
+    bx(o.post===false?BT.bodyF:BT.bodyP,mx,H+.012,mz,1,1,1,undefined,info);
+    bx(BT.hous,mx+.30,H+.012,mz+.01,1,1,1,undefined,info);
+    if(o.post!==false){ bx(BT.post,mx-.18,H+.012,mz-.005,.075,.19,.11,undefined,info); }
+    bx(BT.wheel,mx+.495,H+.30,mz+.01,.17,.045,.17,undefined,undefined,0,Math.PI/2);
+    // porta-conos en T al fondo derecho, con su base y conos
+    const px=Math.min(L/2-.12,.5), pz=D/2-.07;
+    bx(BT.pole,px,H,pz,.02,1.22,.02); bx(BT.frame,px,H+1.2,pz,.5,.018,.018); bx(BT.frame,px,H+.62,pz,.36,.012,.012); bx(BT.plate,px,H,pz,.3,.012,.12);
+    const cc=o.cones||['#f2f0ea','#1b1d20'];
+    bx(BT.cone,px-.08,H+.012,pz,.11,.19,.11,cc[0]); bx(BT.cone,px+.08,H+.012,pz,.11,.19,.11,cc[1]);
+    if(o.box!==false && (o.box||rn()<.4)){ bx(BT.carton,-L/2+.27,0,0,.38,.3,.32); bx(BT.lid,-L/2+.27,.3,0,.34,.03,.28,'#1a1c20'); }
+    // ---------- detalle fino
+    const f=(name,x,y,z,sx,sy,sz,col,rx=0,rz=0,geo)=>{ const q=P(x,z); fb(Z,name,geo).add(M(q[0],y,q[1],ry,sx,sy,sz,rx,rz),col); };
+    const top=H+.012, at=o.post===false?.36:.44;
+    f('panel',mx+.2,top+at-.16,mz-.087,.17,.085,.006);                                   // panel de botones con LEDs rojos
+    f('knob',mx-.20,top+at-.09,mz-.07,.03,.025,.03,undefined,Math.PI/2); f('knob',mx-.16,top+at-.15,mz-.07,.026,.022,.026,undefined,Math.PI/2);
+    f('steel',mx-.205,top+(o.post===false?.0:.19),mz,.012,(o.post===false?.07:.03)+.01,.012);           // barra de aguja / prensatelas
+    f('steel',mx-.16,top+at,mz-.03,.01,.16,.01); f('lamp',mx-.2,top+at+.14,mz-.01,.12,.022,.05);          // lámpara LED en cuello
+    f('blue',mx+.13,top+at-.03,mz-.082,.1,.035,.006);                                                     // placa de marca
+    f('ruler',0,H-.032,-D/2-.0015,L,.03,.003);                                                            // regla impresa en el canto
+    f('sheet',-L/2+.22,H+.001,-.02,.24,.002,.32,undefined,0,0); if(L>1.1) f('sheet',-L/2+.48,H+.001,-.04,.22,.002,.3);
+    if(o.piece){ const p=o.piece; f('piece',mx-.36,H+.004,mz-.02,p[0],.01,p[1],p[2]||'#15171a'); }
+    f('steel',mx+.04,.04,-D/2+.33,.008,H-.33,.008); // varilla del pedal a la caja
+    // etiqueta de estación (como «L1 DECORADO 10»)
+    if(o.tag){ Z.lab.push(TAGS.length); TAGS.push(String(o.tag).toUpperCase().slice(0,20)); const q=P(mx+.2,mz-.088); fb(Z,'label',GEO.plane).add(M(q[0],top+at-.055,q[1],ry,.17,.032,1)); }
+  }
+  // silla negra de trabajo (asiento, respaldo de malla, pistón y base de 5 patas). q=[x,z], dir hacia la mesa
+  function chair(q,dir){
+    const ry=Math.atan2(dir[0],dir[1]), bk=[q[0]-dir[0]*.21,q[1]-dir[1]*.21];
+    BT.seat.add(M(q[0],.42,q[1],ry,.46,.07,.44)); BT.seat.add(M(bk[0],.52,bk[1],ry,.42,.4,.04,-.1));
+    BT.chairM.add(M(q[0]-dir[0]*.17,.44,q[1]-dir[1]*.17,ry,.035,.1,.035)); BT.chairM.add(M(q[0],.06,q[1],0,.05,.36,.05));
+    for(let k=0;k<5;k++){ const t=ry+k*TAU5, ex=Math.sin(t), ez=Math.cos(t); BT.chairM.add(M(q[0]+ex*.13,.04,q[1]+ez*.13,t,.03,.03,.27)); BT.chairM.add(M(q[0]+ex*.26,0,q[1]+ez*.26,0,.05,.04,.05)); }
+  }
+  const TAU5=Math.PI*2/5;
+  function build(){
+    Object.values(BT).forEach(b=>b.build(G));
+    // atlas de etiquetas: 5 columnas de 192×36 px
+    const CW=192, CH=36, COLS=5, rows=Math.max(1,Math.ceil(TAGS.length/COLS));
+    if(TAGS.length){
+      const tex=canvasTex(CW*COLS,CH*rows,(g)=>{ TAGS.forEach((t,i)=>{ const x=(i%COLS)*CW, y=Math.floor(i/COLS)*CH; g.fillStyle='#ffffff'; g.fillRect(x,y,CW,CH);
+        g.strokeStyle='#d3231e'; g.lineWidth=3; g.strokeRect(x+2,y+2,CW-4,CH-4); g.fillStyle='#d3231e'; g.font='bold 19px Arial, sans-serif'; g.textAlign='center'; g.textBaseline='middle';
+        let fs=19; while(fs>11 && g.measureText(t).width>CW-14){ fs--; g.font=`bold ${fs}px Arial, sans-serif`; } g.fillText(t,x+CW/2,y+CH/2+1); }); });
+      tex.wrapS=tex.wrapT=THREE.ClampToEdgeWrapping; tex.generateMipmaps=true;
+      LBL=new THREE.MeshBasicMaterial({map:tex}); const S2=new THREE.Vector2(1/COLS,1/rows);
+      LBL.onBeforeCompile=sh=>{ sh.uniforms.uvs={value:S2}; sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nattribute vec2 uvo;\nuniform vec2 uvs;')
+        .replace('#include <uv_vertex>','#include <uv_vertex>\n#ifdef USE_MAP\nvMapUv = uv*uvs + uvo;\n#endif'); };
+      LBL.customProgramCacheKey=()=>'sewkit-label';
+      ZON.forEach(z=>{ const b=z.b.label; if(!b) return; const geo=GEO.plane.clone(), a=new Float32Array(z.lab.length*2);
+        z.lab.forEach((ti,i)=>{ a[i*2]=(ti%COLS)/COLS; a[i*2+1]=1-(Math.floor(ti/COLS)+1)/rows; }); geo.setAttribute('uvo',new THREE.InstancedBufferAttribute(a,2)); b.geo=geo; b.mat=LBL; });
+    }
+    ZON.forEach(z=>{ z.c=[z.sx/z.n,z.sz/z.n]; Object.values(z.b).forEach(b=>b.build(z.g)); z.g.visible=false; G.add(z.g); });
+    // nivel de detalle: el detalle fino solo cerca de la cámara (≤ 30 m) y nunca en gráficos «Básica»
+    const R2=30*30; let lastLv='';
+    const tick=()=>{ const lv=window.__graf?.level?.()||'media', on=lv!=='basica', p=camera.position;
+      ZON.forEach(z=>{ const dx=p.x-z.c[0], dz=p.z-z.c[1], v=on && dx*dx+dz*dz+p.y*p.y*.25<R2; if(z.g.visible!==v) z.g.visible=v; }); lastLv=lv; };
+    tick(); setInterval(tick,250);
+    window.__sewKit={ n:N, zonas:ZON.size, etiquetas:TAGS.length, tick, zonasVisibles:()=>[...ZON.values()].filter(z=>z.g.visible).length };
+    return N;
+  }
+  return { station, chair, build, get n(){ return N; } };
+}
+
 /* =================================================================== COSTURA · Rivian door panel (fotos de piso 27-oct-2026)
    Zona del DWG Rev 10: x −54.5…−47.6, z −23.9…−13.7 (marco amarillo). 12 mesas en 3 módulos 2×2 + 2 mesas sueltas + 4 de poste,
    cada una en su huella del DWG. Modelo: máquina plana Dürkopp Adler, mesa laminada, silla negra y operador sentado. */
@@ -1435,35 +1563,16 @@ const COS_N={maq:0,ops:0};
     for(const s of [-1,1]) F.box(dark,a-.02,b+s*.24,.55,.28,.04,.04,'#2a2d31'); }
 
   /* ---------- máquina de costura en su mesa ---------- */
+  const SK=sewKit(G_cos);
   function sewStation(id,rect,f,o={}){
     const cx=(rect[0]+rect[1])/2, cz=(rect[2]+rect[3])/2, ax=Math.abs(f[0])>.5, dep=ax?rect[1]-rect[0]:rect[3]-rect[2], len=ax?rect[3]-rect[2]:rect[1]-rect[0];
     const label=o.label||'Máquina de costura';
     CUR=newObj('cos_'+id,'equip',[cx,cz],rect[1]-rect[0],rect[3]-rect[2],0,label); COS_N.maq++;
     const info=infoPDF(label,[['Huella','PDF',`${(rect[1]-rect[0]).toFixed(2)}×${(rect[3]-rect[2]).toFixed(2)} m · contorno de mesa de costura del DWG`],['Modelo 3D','FOTO',(o.post?'Máquina de poste':'Máquina plana')+' tipo Dürkopp Adler sobre mesa laminada, porta-conos, servomotor y silla negra · '+FOTO],['Operador','PDF',o.op===false?'sin símbolo de operador en el DWG':'sentado, del lado del símbolo people2']]);
-    const tc=[cx+f[0]*(dep/2-.33), cz+f[1]*(dep/2-.33)], F=frameOf(tc,f), TL=Math.min(1.24,len*.96), H=.76;
-    F.box(lam,0,0,H,.64,.035,TL,'#efebe2',info); F.box(lam,-.322,0,H-.004,.012,.04,TL,'#c9c3b6',info);         // cubierta
-    for(const sa of [-1,1]) for(const sb of [-1,1]) F.box(met,sa*.25,sb*(TL/2-.06),0,.045,H,.045,'#cfcbc2');    // patas
-    for(const sb of [-1,1]) F.box(met,0,sb*(TL/2-.06),.08,.55,.04,.045,'#cfcbc2'); F.box(met,0,0,.08,.04,.04,TL-.12,'#cfcbc2');
-    F.box(dark,-.02,TL*.26,.52,.24,.2,.3,'#2b2e33',info); F.box(dark,.1,TL*.26,.6,.02,.05,.12,'#1f4e9c');       // servomotor + placa
-    F.box(dark,-.18,-.05,.03,.24,.05,.32,'#2a2d31');                                                         // pedal
-    // cabezal
-    const hc=o.post?'#d9d6cc':'#e6e2d6', b0=-.06;
-    F.box(lam,.0,b0,H+.035,.2,.05,.62,hc,info);
-    if(o.post){ F.box(lam,-.04,b0-.2,H+.085,.1,.24,.1,hc,info); }
-    F.box(lam,.04,b0+.24,H+.085,.15,.3,.14,hc,info);                                     // columna
-    F.box(lam,.04,b0+.02,H+.33,.13,.11,.56,hc,info);                                     // brazo
-    F.box(dark,.03,b0-.26,H+.17,.12,.27,.1,'#3a3e44',info);                              // cabeza (placa frontal)
-    F.box(met,-.02,b0-.24,H+.095,.012,.09,.012,'#9aa0a6');                               // barra de aguja
-    const hw=F.P(.04,b0+.33); cyl.add(M(hw[0],H+.27,hw[1],F.yaw,.17,.05,.17,Math.PI/2,0),'#2d3035');   // volante
-    F.box(lam,.12,b0+.02,H+.44,.04,.03,.4,'#cfcac0');                                    // lámpara LED
-    // porta-conos
-    const tp=F.P(.26,TL/2-.14); B(met,tp[0],H+.035,tp[1],.012,.72,.012,'#b9bec3');
-    F.box(met,.26,TL/2-.14,H+.75,.012,.012,.26,'#b9bec3'); F.box(dark,.26,TL/2-.14,H+.04,.12,.02,.26,'#2b2e33');
-    for(const s of [-1,1]){ const q=F.P(.26,TL/2-.14+s*.07); cyl.add(M(q[0],H+.06,q[1],0,.065,.13,.065),pick(['#15171a','#f1f1ee','#15171a','#8d1f2b'])); }
-    // material sobre la mesa
-    if(rnd()<.85) F.box(fab,-.12,-TL*.3,H+.036,.34,.012,.38,'#15171a');
-    if(rnd()<.6) F.box(fab,.12,-TL*.36,H+.048,.12,.012,.42,'#e9e9e6');
-    if(rnd()<.5){ const bx=F.P(-.5,TL/2+.32); B(lam,bx[0],0,bx[1],.42,.32,.36,'#b98a55'); B(fab,bx[0],.32,bx[1],.4,.012,.34,'#a57a48'); }
+    const tc=[cx+f[0]*(dep/2-.33), cz+f[1]*(dep/2-.33)], F=frameOf(tc,f), TL=Math.min(1.24,len*.96), H=.76, b0=-.06;
+    const cc=[pick(['#15171a','#f1f1ee','#15171a','#8d1f2b']),pick(['#15171a','#f1f1ee','#15171a','#8d1f2b'])]; const w1=rnd()<.85; rnd(); const bx1=rnd()<.5;
+    const tag='COSTURA '+label.replace(/^Costura · /,'').replace('módulo ','M').replace(' · máquina ','-').replace('máquina suelta ','S').replace('máquina de poste ','P').toUpperCase();
+    SK.station({c:tc, r:[-f[1],f[0]], L:TL, D:.64, H, info, x:.02, post:!!o.post, tag, cones:cc, piece:w1?[.34,.38,'#15171a']:null, box:bx1});
     if(o.op!==false){ chair(F,-.78,b0-.08,info); const sp=F.P(-.78,b0-.08); sitter(sp,F.yaw,infoPDF('Operador(a) de costura',[['Posición','PDF','Símbolo people2 del DWG'],['Figura','FOTO','Sentado(a) en silla de trabajo · '+FOTO]])); }
     else chair(F,-.78,b0-.08,info);
     CUR=null;
@@ -1545,7 +1654,7 @@ const COS_N={maq:0,ops:0};
   for(const {p,f} of boards){ const g=new THREE.PlaneGeometry(.84,1.2); const m=new THREE.Mesh(g,new THREE.MeshStandardMaterial({map:boardTex,roughness:.6}));
     m.position.set(p[0]+f[0]*.02,1.575,p[1]+f[1]*.02); m.rotation.y=Math.atan2(f[0],f[1]); G_cos.add(m);
     const m2=m.clone(); m2.position.set(p[0]-f[0]*.02,1.575,p[1]-f[1]*.02); m2.rotation.y=Math.atan2(-f[0],-f[1]); G_cos.add(m2); }
-  [lam,met,dark,cyl,fab,led,sPants,sShoe,sShirt,sSkin,sHair].forEach(b=>b.build(G_cos));
+  [lam,met,dark,cyl,fab,led,sPants,sShoe,sShirt,sSkin,sHair].forEach(b=>b.build(G_cos)); SK.build();
 }
 
 /* =================================================================== SPRAY HEADLINER (fotos de piso 27-oct-2026)
