@@ -906,9 +906,12 @@ const LocalDB = (()=>{
 const RS = { repo: 'GenetCamps/Red', path: 'datos/compartido.json', branch: 'main', sha: null, H: {}, at: null, by: null, busy: false, again: false, err: '', t: null, last: 0, pend: 0 };
 const rsHash = v => { if (v === undefined) return 0; const s = JSON.stringify(v); let h = 5381; for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0; return h || 1; };
 const RS_SKIP = k => /^config\/(base_|sync)/.test(k);
-const rsTok = () => { try { return localStorage.getItem('rd_gh_token') || ''; } catch (_) { return ''; } };
+const rsTok = () => { try { return localStorage.getItem('rd_gh_token') || sessionStorage.getItem('rd_tok') || ''; } catch (_) { return ''; } };
+const rsTeam = () => { try { return !localStorage.getItem('rd_gh_token') && !!sessionStorage.getItem('rd_tok'); } catch (_) { return false; } };
+// permisos del usuario (acceso.js): qué registros puede guardar para todos
+const rsMay = k => !window.RD_PERM || window.RD_PERM.key(k);
 const rsAuto = () => { try { return localStorage.getItem('rd_sync_auto') !== '0'; } catch (_) { return true; } };
-const rsCanWrite = () => !!rsTok() && !window.RD_RO;
+const rsCanWrite = () => !!rsTok() && !window.RD_RO && (!window.RD_PERM || window.RD_PERM.edit);
 const rsSaveMeta = () => { try { localStorage.setItem('rd_sync_meta', JSON.stringify({ sha: RS.sha, H: RS.H, at: RS.at, by: RS.by })); } catch (_) {} };
 // el estado se relee antes de cada operación: si hay dos pestañas de la Red abiertas, comparten lo último sincronizado
 const rsLoadMeta = () => { try { const m = JSON.parse(localStorage.getItem('rd_sync_meta') || 'null') || {}; RS.sha = m.sha || null; RS.H = m.H || {}; RS.at = m.at || null; RS.by = m.by || null; } catch (_) {} };
@@ -926,9 +929,9 @@ async function rsFetch() { const tok = rsTok();
   const r = await fetch(RS.path + '?t=' + Date.now(), { cache: 'no-store' }); if (r.status === 404) return { sha: RS.sha, data: RS_EMPTY };
   if (!r.ok) throw new Error('no se pudo leer los datos compartidos (' + r.status + ')'); return { sha: RS.sha, data: await r.json() }; }
 function rsPending() { const all = LocalDB.exportAll(), B = window.RD_BASE || {}, out = [];
-  for (const k in all) { if (RS_SKIP(k)) continue; const lh = rsHash(all[k]); if (k in RS.H) { if (lh !== RS.H[k]) out.push(k); } else if (!(k in B) || lh !== rsHash(B[k])) out.push(k); }
-  for (const k in RS.H) if (!RS_SKIP(k) && !(k in all) && RS.H[k] !== 0) out.push(k);
-  for (const k in B) if (!RS_SKIP(k) && !(k in all) && !(k in RS.H)) out.push(k);
+  for (const k in all) { if (RS_SKIP(k) || !rsMay(k)) continue; const lh = rsHash(all[k]); if (k in RS.H) { if (lh !== RS.H[k]) out.push(k); } else if (!(k in B) || lh !== rsHash(B[k])) out.push(k); }
+  for (const k in RS.H) if (!RS_SKIP(k) && rsMay(k) && !(k in all) && RS.H[k] !== 0) out.push(k);
+  for (const k in B) if (!RS_SKIP(k) && rsMay(k) && !(k in all) && !(k in RS.H)) out.push(k);
   return out; }
 async function rsPull(quiet, inPush) { if (RS.busy) return; RS.busy = true; rsLoadMeta(); rsUI();
   try { const R = await rsFetch(), docs = R.data.docs || {}, del = new Set(R.data.del || []), all = LocalDB.exportAll(), B = window.RD_BASE || {}, apply = {}, rm = [], conf = [];
@@ -940,26 +943,65 @@ async function rsPull(quiet, inPush) { if (RS.busy) return; RS.busy = true; rsLo
       if (!localChanged) { if (remote === undefined) rm.push(k); else apply[k] = remote; RS.H[k] = rh; }
       else if (sh === undefined ? rh !== rsHash(B[k]) : rh !== sh) conf.push(k); }
     const n = Object.keys(apply).length + rm.length; if (n) LocalDB.applyRemote(apply, rm);
-    RS.sha = R.sha; RS.at = R.data.at || RS.at; RS.by = R.data.by || RS.by; RS.err = ''; RS.last = Date.now(); rsSaveMeta();
+    RS.rem = docs; RS.rdel = [...del]; RS.log = Array.isArray(R.data.log) ? R.data.log : []; RS.sha = R.sha; RS.at = R.data.at || RS.at; RS.by = R.data.by || RS.by; RS.err = ''; RS.last = Date.now(); rsSaveMeta();
     if (n && !quiet) toast(`Se trajeron ${n} cambio${n === 1 ? '' : 's'} compartido${n === 1 ? '' : 's'}${RS.by ? ' · último de ' + RS.by : ''}.`, 5000);
     else if (n && (() => { try { return MODE === 'plant'; } catch (_) { return false; } })()) toast(`Llegaron ${n} cambio${n === 1 ? '' : 's'} de otro usuario${RS.by ? ' (' + RS.by + ')' : ''}.`, 5000);
     if (conf.length && !inPush) toast(`${conf.length === 1 ? '1 registro cambió' : conf.length + ' registros cambiaron'} aquí y en otro equipo: se quedó tu versión, y al guardar para todos reemplaza la otra.`, 10000);
   } catch (e) { RS.err = e.message || String(e); } finally { RS.busy = false; rsUI(); } }
+/* ---------- bitácora: qué hizo cada quien, en frases simples (va dentro de compartido.json, últimas 2000) ---------- */
+const RS_PLN = { p1: 'Planta 1', p2: 'Planta 2', p4: 'Plantas 3 y 4', p67: 'Plantas 6 y 7', p8: 'Planta 8', parras: 'Parras', red: 'Red' };
+const rsJ = v => JSON.stringify(v ?? null);
+const rsDk = (a, b) => { a = a || {}; b = b || {}; return [...new Set([...Object.keys(a), ...Object.keys(b)])].filter(x => rsJ(a[x]) !== rsJ(b[x])).length; };
+const rsPl = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
+function rsWhat(k, o, n) { let m;
+  if ((m = /^pl\/([^/]+)\/scenarios\/(.+)$/.exec(k))) { const O = o || {}, N = n || {}, nm = N.name || O.name || m[2], out = [];
+    if (!n) return [m[1], `borró el escenario «${nm}»`]; if (!o) out.push(`creó el escenario «${nm}»`);
+    const mv = rsDk(O.moves, N.moves); if (mv) out.push(`movió ${rsPl(mv, 'objeto')}`);
+    const ia = new Set((O.adds || []).map(x => x.id)), ib = new Set((N.adds || []).map(x => x.id)), ad = [...ib].filter(x => !ia.has(x)).length, qa = [...ia].filter(x => !ib.has(x)).length;
+    if (ad) out.push(`agregó ${rsPl(ad, 'objeto')}`); if (qa) out.push(`quitó ${rsPl(qa, 'objeto')} agregado${qa === 1 ? '' : 's'}`);
+    const de = (N.dels || []).filter(x => !(O.dels || []).includes(x)).length; if (de) out.push(`eliminó ${rsPl(de, 'objeto')} del modelo`);
+    const oc = rsDk(O.opc, N.opc); if (oc) out.push(`cambió el color de ${rsPl(oc, 'persona')}`);
+    const yo = new Map((O.yz || []).map(y => [y.id, y])), yn = new Map((N.yz || []).map(y => [y.id, y]));
+    for (const [id, y] of yn) { if (!yo.has(id)) out.push(`creó el yamazumi «${y.name}»`); else if (rsJ(y) !== rsJ(yo.get(id))) out.push(`editó el yamazumi «${y.name}»`); }
+    for (const [id, y] of yo) if (!yn.has(id)) out.push(`borró el yamazumi «${y.name}»`);
+    const dz = rsDk(Object.fromEntries((O.dz || []).map(x => [x.id, x])), Object.fromEntries((N.dz || []).map(x => [x.id, x]))); if (dz) out.push(`dibujó o cambió ${rsPl(dz, 'muro, zona o letrero')}`.replace('muros, zona o letreros', 'muros, zonas o letreros'));
+    if (rsJ(O.mk) !== rsJ(N.mk) || rsJ(O.sf) !== rsJ(N.sf) || rsJ(O.s5) !== rsJ(N.s5)) out.push('editó marcas, señalización o 5S');
+    if (!out.length) out.push('ajustó el escenario');
+    return [m[1], out.join(', ') + (m[2] !== 'actual' ? ` · escenario «${nm}»` : '')]; }
+  if ((m = /^pl\/([^/]+)\//.exec(k))) return [m[1], 'editó objetos del gemelo'];
+  if (/^vx\//.test(k)) return ['p4', 'editó la consola VSM'];
+  if (/^vp\//.test(k)) return ['parras', 'editó la consola VSM'];
+  if (/^rep\//.test(k)) return null;
+  if (/^oee\//.test(k)) return ['red', 'editó el Centro OEE'];
+  if ((m = /^acc\/r1\/a\//.exec(k))) return ['red', !n ? 'borró una acción de mejora' : o ? `actualizó la acción «${n.t || ''}»` : `creó la acción «${n.t || ''}»`];
+  const pm = /(p1|p2|p4|p67|p8|parras)/.exec(k), pl = pm ? pm[1] : 'red';
+  if (/^fives\//.test(k)) return [pl, 'editó 5S']; if (/^portfolio\//.test(k)) return [pl, 'editó el portafolio de mejora']; if (/^(flows|vsm)\//.test(k)) return [pl, 'editó flujos o VSM'];
+  return [pl, 'cambió ' + k.split('/')[0]]; }
+function rsLogOf(all, B, REM, RDEL, who, now) { const by = {}, n = window.RD_ME?.n || '';
+  const keys = new Set([...Object.keys(all), ...Object.keys(REM), ...RDEL]);
+  for (const k of keys) { if (RS_SKIP(k) || !rsMay(k)) continue; const old = k in REM ? REM[k] : RDEL.has(k) ? undefined : B[k], cur = all[k];
+    if (rsHash(old) === rsHash(cur)) continue; const w = rsWhat(k, old, cur); if (!w) continue; (by[w[0]] = by[w[0]] || new Set()).add(w[1]); }
+  return Object.entries(by).map(([pl, set]) => { const t = [...set]; return { at: now, by: who, n, pl, t: (t.length > 6 ? t.slice(0, 6).concat([`y ${t.length - 6} cambios más`]) : t).join('; ') }; }); }
 async function rsPush(manual) { if (!rsCanWrite()) { if (manual) rsPanel(); return; } if (RS.busy) { RS.again = true; return; }
   clearTimeout(RS.t); RS.tp = false; await rsPull(true, true); RS.busy = true; rsUI(); const tok = rsTok();
   try { for (let attempt = 0; attempt < 3; attempt++) {
-      const all = LocalDB.exportAll(), B = window.RD_BASE || {}, docs = {}, del = [];
-      for (const k in all) { if (RS_SKIP(k)) continue; if (!(k in B) || rsHash(all[k]) !== rsHash(B[k])) docs[k] = all[k]; }
-      for (const k in B) if (!RS_SKIP(k) && !(k in all)) del.push(k);
+      if (!RS.rem) throw new Error('no se pudo leer lo compartido; intenta de nuevo');
+      const all = LocalDB.exportAll(), B = window.RD_BASE || {}, docs = {}, del = [], REM = RS.rem || {}, RDEL = new Set(RS.rdel || []);
+      for (const k in all) { if (RS_SKIP(k) || !rsMay(k)) continue; if (!(k in B) || rsHash(all[k]) !== rsHash(B[k])) docs[k] = all[k]; }
+      for (const k in B) if (!RS_SKIP(k) && rsMay(k) && !(k in all)) del.push(k);
+      // lo que no le toca a este usuario se queda como está en el repositorio
+      for (const k in REM) if (!rsMay(k) && !RS_SKIP(k)) docs[k] = REM[k];
+      for (const k of RDEL) if (!rsMay(k) && !RS_SKIP(k)) del.push(k);
       const who = (window.RD_ME && window.RD_ME.nombre) || 'usuario', now = new Date().toISOString();
-      const body = JSON.stringify({ app: 'red-daimay', kind: 'compartido', v: 1, at: now, by: who, base: window.RD_BASE_VER || null, docs, del });
+      const log = (RS.log || []).concat(rsLogOf(all, B, REM, RDEL, who, now)).slice(-2000);
+      const body = JSON.stringify({ app: 'red-daimay', kind: 'compartido', v: 1, at: now, by: who, base: window.RD_BASE_VER || null, docs, del, log });
       const r = await fetch(`https://api.github.com/repos/${RS.repo}/contents/${RS.path}`, { method: 'PUT', headers: { Authorization: 'Bearer ' + tok, Accept: 'application/vnd.github+json' },
         body: JSON.stringify({ message: `Datos compartidos · ${who} · ${now.slice(0, 16).replace('T', ' ')}`, content: rsB64(body), branch: RS.branch, ...(RS.sha ? { sha: RS.sha } : {}) }) });
       if (r.status === 409 || r.status === 422) { RS.busy = false; await rsPull(true, true); RS.busy = true; continue; }
       if (r.status === 401) throw new Error('la clave de GitHub no es válida o ya venció');
       if (r.status === 403 || r.status === 404) throw new Error('la clave no tiene permiso para escribir en el repositorio');
       if (!r.ok) throw new Error('GitHub respondió ' + r.status);
-      const j = await r.json(); RS.sha = j.content?.sha || RS.sha; RS.at = now; RS.by = who; RS.H = {}; for (const k in docs) RS.H[k] = rsHash(docs[k]); del.forEach(k => { RS.H[k] = 0; });
+      const j = await r.json(); RS.sha = j.content?.sha || RS.sha; RS.at = now; RS.by = who; RS.rem = docs; RS.rdel = del; RS.log = log; RS.H = {}; for (const k in docs) RS.H[k] = rsHash(docs[k]); del.forEach(k => { RS.H[k] = 0; });
       RS.err = ''; RS.last = Date.now(); rsSaveMeta(); if (manual) toast('Guardado para todos. Los demás lo verán al abrir o en unos minutos.', 5000); return; }
     throw new Error('otro usuario guardó al mismo tiempo; intenta de nuevo');
   } catch (e) { RS.err = e.message || String(e); if (manual) toast('No se pudo guardar en GitHub: ' + RS.err, 9000); }
@@ -995,8 +1037,9 @@ function rsPanel(refresh) { let p = document.getElementById('rsPanel'); if (refr
     <p class="m">${RS.at ? `Último guardado para todos: ${esc(new Date(RS.at).toLocaleString('es-MX'))}${RS.by ? ' por ' + esc(RS.by) : ''}.` : 'Aún no hay datos compartidos guardados.'}${RS.err ? `<br><span style="color:#ff5a76">${esc(RS.err)}</span>` : ''}</p>
     <div class="row"><button data-rs="pull">Traer cambios ahora</button>${!ro && tok ? `<button data-rs="push" class="prim">Guardar para todos</button>` : ''}</div>
     ${!ro && tok ? `<label class="m"><button data-rs="auto" role="switch" aria-checked="${rsAuto()}">${rsAuto() ? '☑' : '☐'}</button> Guardar para todos solo (45 s después de cada cambio)</label>
-      <p class="m">Este navegador tiene una clave de GitHub. <button data-rs="untok" class="lnk">Quitar clave</button></p>` : ''}
-    ${!ro && !tok ? `<p class="m">Tus cambios se guardan en este navegador. Para que los vean todos, pon tu clave de GitHub (una sola vez en cada navegador):</p>
+      ${rsTeam() ? '<p class="m">Guardas con la llave del equipo (se abre con tu contraseña al entrar).</p>' : '<p class="m">Este navegador tiene una clave de GitHub. <button data-rs="untok" class="lnk">Quitar clave</button></p>'}${window.RD_PERM && window.RD_PERM.solo ? `<p class="m">Solo se guardan los cambios de tus plantas: ${esc(window.RD_PERM.list().join(', '))}.</p>` : ''}` : ''}
+    ${!ro && !tok && !(window.RD_PERM && window.RD_PERM.admin) ? `<p class="m">Tus cambios se guardan en este navegador. Para que los vean todos, pide al administrador que te dé la llave del equipo (te asigna una contraseña nueva en «Usuarios»).</p>` : ''}
+    ${!ro && !tok && (!window.RD_PERM || window.RD_PERM.admin) ? `<p class="m">Tus cambios se guardan en este navegador. Para que los vean todos, pon tu clave de GitHub (una sola vez en cada navegador) o activa la llave del equipo en «Usuarios»:</p>
       <ol class="m"><li>Entra a GitHub → Settings → Developer settings → Personal access tokens.</li><li>Fine-grained: repositorio <b>${esc(RS.repo)}</b> con «Contents: Read and write». Si el repositorio no es tuyo y te agregaron como colaboradora, usa un token classic con el permiso «public_repo».</li><li>Cópiala y pégala aquí.</li></ol>
       <div class="row"><input id="rsTok" type="password" autocomplete="off" placeholder="Pega aquí tu clave de GitHub" aria-label="Clave de GitHub"><button data-rs="tok" class="prim">Guardar clave</button></div>` : ''}
     ${ro ? '<p class="m">Tu usuario es de solo lectura: ves los cambios de todos, pero no guardas.</p>' : ''}`; }
@@ -1673,7 +1716,7 @@ function vxConsoleOpen(kind){ window.__rdKind=kind==='parras'?'vp':kind||'vx'; r
    - La búsqueda de arriba suma acciones de mejora, nodos del Centro OEE y cajas de las consolas VSM.
    - Ayuda: botón «?» en la barra del hub y en el encabezado de cada módulo; la primera vez se muestra sola (localStorage rd_help_<módulo>). */
 window.__rdNav = null; window.__rdKind = null;
-function rdGo(t) { if (!t) return; try { stopTour(); } catch (_) {} try { $('#sres').hidden = true; } catch (_) {} rdHelpClose();
+function rdGo(t) { if (!t) return; { const P = window.RD_PERM; if (P && P.solo && (t.to === 'oee' || t.to === 'acc' || (t.to === 'plant' && !P.plant(t.plant)) || (t.to === 'vx' && !P.plant('p4')) || (t.to === 'vp' && !P.plant('parras')))) { toast('Tu usuario no tiene acceso a eso.', 3500); return; } } try { stopTour(); } catch (_) {} try { $('#sres').hidden = true; } catch (_) {} rdHelpClose();
   if (t.to === 'plant') { if (!PL[t.plant]) { toast('Esa planta no está en la red.'); return; } vxConsoleClose(); mcClose();
     Promise.resolve(enterPlant(t.plant, t.focus ? [{ cmd: 'focus', x: t.focus.x, z: t.focus.z, r: t.focus.r || 26, label: t.focus.label || '' }] : null)).then(() => { if (t.ops) rdTwinOps(t.plant, t.yz); }); return; }
   window.__rdNav = t; mcClose(); vxConsoleOpen(t.to === 'oee' ? 'oee' : t.to === 'acc' ? 'acc' : t.to === 'vp' ? 'parras' : undefined); }
@@ -1753,6 +1796,65 @@ addEventListener('keydown', e => { if (e.key === 'Escape' && RDH) rdHelpClose();
 $('#rdHelpBtn')?.addEventListener('click', () => rdHelp('red'));
 setTimeout(() => { if (MODE === 'red' && $('#vxc')?.hidden !== false && !document.getElementById('rdGate')) rdHelpAuto('red'); }, 6000);
 $('#q')?.addEventListener('focus', () => rdIndex());
+
+/* =================================================================== PERMISOS POR PLANTA Y ACTIVIDAD (build/permisos.js; build.py lo inserta en el módulo del hub)
+   Usuarios con plantas asignadas (niveles 2–4 sin «Todas»): la Red abre directo en su planta; no ven la red, el Centro OEE, acciones,
+   mejora continua ni otras plantas. Pueden abrir la consola VSM de su planta (P3·P4 o Parras) desde la barra «Mi planta».
+   Actividad: niveles 1 y 2 ven quién cambió qué (el nivel 2, solo de sus plantas), con la bitácora que guarda la sincronización. */
+const RDP = { PL: { p1: 'Planta 1', p2: 'Planta 2', p4: 'Plantas 3 y 4', p67: 'Plantas 6 y 7', p8: 'Planta 8', parras: 'Parras', red: 'Red' } };
+function rdpSolo() {
+  const P = window.RD_PERM; if (!P || !P.solo) return;
+  const mine = P.list(), first = mine[0]; document.body.classList.add('rd-solo');
+  const hide = ['#mcBtn', '#tourBtn', '#panelBtn', '#drawer', '#mapui', '#q', '#sres', '#bar [data-j="red"]', ...Object.keys(RDP.PL).filter(p => p !== 'red' && !mine.includes(p)).map(p => `#bar [data-j="${p}"]`)];
+  if (!mine.includes('p4')) hide.push('#rivBtn', '#rtBtn');
+  const st = document.createElement('style'); st.textContent = `${hide.join(',')}{display:none!important}
+#rdpBar{display:flex;gap:6px;align-items:center;margin:0 10px;color:inherit;font:13px system-ui,'Segoe UI',sans-serif}#rdpBar.fl{position:fixed;left:50%;bottom:14px;transform:translateX(-50%);z-index:1500;background:rgba(14,22,31,.92);border:1px solid #2a3d50;border-radius:12px;padding:6px 8px;color:#e6eef5}
+#rdpBar b{padding:0 6px;color:#b9c6d2;font-weight:600}#rdpBar button{font:inherit;color:inherit;background:rgba(127,140,155,.14);border:1px solid rgba(127,140,155,.35);border-radius:8px;padding:5px 11px;min-height:32px;cursor:pointer}#rdpBar button[aria-current="true"]{background:#48c2ff;border-color:#48c2ff;color:#03121c;font-weight:700}
+#rdpBar button:focus-visible{outline:2px solid #FFB020;outline-offset:2px}`; document.head.appendChild(st);
+  const blocked = p => p === 'red' || (p && !mine.includes(p));
+  document.addEventListener('click', e => { const t = e.target.closest('[data-j],[data-enter],[data-ll]'); if (t) { const p = t.dataset.j || t.dataset.enter || t.dataset.ll; if (blocked(p)) { e.stopPropagation(); e.preventDefault(); toast('Tu usuario solo tiene acceso a ' + mine.map(x => RDP.PL[x]).join(', ') + '.', 4000); } }
+    if (e.target.closest('#vxOpenO,#vxOpenA,#mcBtn,#tourBtn')) { e.stopPropagation(); e.preventDefault(); } }, true);
+  const go = p => { const b = document.querySelector(`#bar [data-j="${p}"]`); if (b) b.click(); };
+  const bar = document.createElement('div'); bar.id = 'rdpBar'; bar.setAttribute('role', 'toolbar'); bar.setAttribute('aria-label', 'Mi planta');
+  const paint = () => { let cur = null; try { cur = MODE === 'plant' ? CUR : null; } catch (_) {}
+    bar.innerHTML = `<b>Mi planta</b>${mine.map(p => `<button data-rdp="${p}" aria-current="${cur === p}">${RDP.PL[p]}</button>`).join('')}${mine.includes('p4') ? '<button data-rdpv="vx">VSM P3·P4</button>' : ''}${mine.includes('parras') ? '<button data-rdpv="parras">VSM Parras</button>' : ''}`; };
+  bar.addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; if (b.dataset.rdp) { try { if (document.getElementById('vxc') && !document.getElementById('vxc').hidden) vxConsoleClose(); } catch (_) {} go(b.dataset.rdp); setTimeout(paint, 600); }
+    if (b.dataset.rdpv) { try { vxConsoleOpen(b.dataset.rdpv); } catch (er) { console.warn(er); } } });
+  const host = document.querySelector('#bar .acts'); if (host) host.parentNode.insertBefore(bar, host); else { bar.classList.add('fl'); document.body.appendChild(bar); } paint();
+  // siempre dentro de su planta: al cargar y si algo regresa a la vista de la red
+  let tries = 0; const keep = () => { let m = 'red'; try { m = MODE; } catch (_) {} const vxOpen = document.getElementById('vxc') && !document.getElementById('vxc').hidden;
+    if (m !== 'plant' && !vxOpen && !document.getElementById('rdGate')) { go(first); tries++; } paint();
+    const back = document.getElementById('vxcBack'); if (back && back.textContent.indexOf('Mi planta') < 0) back.textContent = '← Mi planta'; };
+  setTimeout(keep, 900); setInterval(keep, 1500);
+}
+/* ---------- Actividad (bitácora) ---------- */
+window.rdActividad = function () {
+  const P = window.RD_PERM; if (!P || !P.log) return; let p = document.getElementById('rdpLog'); if (p) { p.remove(); return; }
+  p = document.createElement('div'); p.id = 'rdpLog'; p.setAttribute('role', 'dialog'); p.setAttribute('aria-label', 'Actividad'); document.body.appendChild(p);
+  const F = { who: '', pl: '', q: '' };
+  const st = document.createElement('style'); st.textContent = `#rdpLog{position:fixed;right:16px;top:64px;z-index:2002;width:min(640px,calc(100vw - 32px));max-height:calc(100vh - 90px);overflow:auto;background:#0e161f;color:#e6eef5;border:1px solid #2a3d50;border-radius:14px;padding:12px 14px;box-shadow:0 18px 50px rgba(0,0,0,.45);font:14px/1.45 system-ui,'Segoe UI',sans-serif}
+#rdpLog .hd{display:flex;gap:8px;align-items:center}#rdpLog .hd b{flex:1;font-size:15px}#rdpLog select,#rdpLog input{background:#0b121a;border:1px solid #2a3d50;border-radius:8px;color:inherit;padding:6px 8px;font:inherit;min-width:0}
+#rdpLog button{font:inherit;color:inherit;background:#132030;border:1px solid #2a3d50;border-radius:8px;padding:5px 11px;min-height:32px;cursor:pointer}#rdpLog .f{display:grid;grid-template-columns:1fr 1fr 1.4fr;gap:6px;margin:8px 0}
+#rdpLog .d{margin:12px 0 4px;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:#8fa0b0}#rdpLog .e{display:grid;grid-template-columns:52px 1fr;gap:8px;padding:6px 0;border-bottom:1px solid #1c2a38}
+#rdpLog .e time{color:#8fa0b0;font-variant-numeric:tabular-nums}#rdpLog .e b{color:#48c2ff}#rdpLog .e em{font-style:normal;color:#ffb321}#rdpLog .k{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:8px 0}
+#rdpLog .k div{background:#0b121a;border:1px solid #1c2a38;border-radius:9px;padding:7px 9px}#rdpLog .k b{display:block;font-size:18px}#rdpLog .k span{font-size:11.5px;color:#8fa0b0}`; p.appendChild(st);
+  const body = document.createElement('div'); p.appendChild(body);
+  const all = () => { let L = []; try { L = RS.log || []; } catch (_) {} return L.filter(x => P.admin || P.all || P.plant(x.pl)).slice().reverse(); };
+  const paint = () => { const L0 = all(), L = L0.filter(x => (!F.who || x.by === F.who) && (!F.pl || x.pl === F.pl) && (!F.q || (x.t || '').toLowerCase().includes(F.q.toLowerCase())));
+    const whos = [...new Set(L0.map(x => x.by))].sort(), pls = [...new Set(L0.map(x => x.pl))], wk = Date.now() - 7 * 864e5, L7 = L0.filter(x => Date.parse(x.at) >= wk);
+    let lastD = '', rows = '';
+    L.slice(0, 400).forEach(x => { const d = new Date(x.at), ds = d.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' }); if (ds !== lastD) { rows += `<div class="d">${esc(ds)}</div>`; lastD = ds; }
+      rows += `<div class="e"><time>${d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}</time><span><b>${esc(x.by)}</b> · <em>${esc(RDP.PL[x.pl] || x.pl)}</em><br>${esc(x.t)}</span></div>`; });
+    body.innerHTML = `<div class="hd"><b>Actividad${P.admin || P.all ? '' : ' · ' + esc(P.list().map(x => RDP.PL[x]).join(', '))}</b><button data-l="r">Actualizar</button><button data-l="x" aria-label="Cerrar">×</button></div>
+      <div class="k"><div><b>${L7.length}</b><span>guardados en 7 días</span></div><div><b>${new Set(L7.map(x => x.by)).size}</b><span>personas activas en 7 días</span></div><div><b>${new Set(L7.map(x => x.pl)).size}</b><span>plantas con cambios</span></div></div>
+      <div class="f"><select data-f="who" aria-label="Persona"><option value="">Todas las personas</option>${whos.map(w => `<option${F.who === w ? ' selected' : ''}>${esc(w)}</option>`).join('')}</select>
+      <select data-f="pl" aria-label="Planta"><option value="">Todas las plantas</option>${pls.map(x => `<option value="${esc(x)}"${F.pl === x ? ' selected' : ''}>${esc(RDP.PL[x] || x)}</option>`).join('')}</select>
+      <input data-f="q" placeholder="Buscar: yamazumi, movió, color…" value="${esc(F.q)}" aria-label="Buscar en la actividad"></div>
+      ${rows || '<p style="color:#8fa0b0">Todavía no hay actividad registrada. Se anota cada vez que alguien guarda para todos.</p>'}`; };
+  p.addEventListener('click', async e => { const b = e.target.closest('button'); if (!b) return; if (b.dataset.l === 'x') p.remove(); if (b.dataset.l === 'r') { try { await rsPull(true); } catch (_) {} paint(); } });
+  p.addEventListener('input', e => { const t = e.target; if (t.dataset.f) { F[t.dataset.f] = t.value; if (t.dataset.f !== 'q') paint(); else { clearTimeout(p._t); p._t = setTimeout(() => { paint(); const i = p.querySelector('[data-f=q]'); i.focus(); i.setSelectionRange(i.value.length, i.value.length); }, 250); } } });
+  paint(); };
+setTimeout(rdpSolo, 50);
 
 function vxConsoleClose(){ rdHelpClose(); const w=$('#vxc'); if(!w) return; const ifr=w.querySelector('iframe'); if(ifr){ const cw=ifr.contentWindow; EMB.delete(cw); for(const [k,s] of [...EMB_SUBS]) if(s.w===cw){ s.un(); EMB_SUBS.delete(k); } ifr.remove(); } w.hidden=true; }
 

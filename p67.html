@@ -2404,14 +2404,14 @@ function edApplyAll(){
   SCN.moves=SCN.moves||{}; SCN.dels=SCN.dels||[]; SCN.adds=SCN.adds||[];
   rebuildAdds(); for(const id of DELETED){ const o=OBJS.get(id); if(o) o.del=false; } DELETED=new Set(); applyDels(); MOVED=new Set([...MOVED].filter(id=>OBJS.has(id))); applyMoves(SCN.moves);
   for(const id of [...selection]){ const o=OBJS.get(id); if(!o||o.del) selection.delete(id); }
-  mkBuild(); sfBuild(); s5Build(); opColorsApply(); if(typeof edRender5s==='function') edRender5s();
+  mkBuild(); sfBuild(); s5Build(); opColorsApply(); window.__dis?.rebuild(); if(typeof edRender5s==='function') edRender5s();
 }
 
 /* ---------- historial (deshacer / rehacer) ---------- */
-const edState=()=>JSON.stringify({m:SCN.moves||{},d:SCN.dels||[],a:SCN.adds||[],k:SCN.mk||{},s:SCN.sf||{},q:SCN.s5||[],o:SCN.opc||{}});
+const edState=()=>JSON.stringify({m:SCN.moves||{},d:SCN.dels||[],a:SCN.adds||[],k:SCN.mk||{},s:SCN.sf||{},q:SCN.s5||[],o:SCN.opc||{},z:SCN.dz||[]});
 function edResetHist(){ ED.undo.length=0; ED.redo.length=0; ED.prev=edState(); edRenderBar(); }
 function edCommit(){ const now=edState(); if(ED.prev!==null && ED.prev!==now){ ED.undo.push(ED.prev); if(ED.undo.length>100) ED.undo.shift(); ED.redo.length=0; } ED.prev=now; edRenderBar(); }
-function edRestore(str){ const s=JSON.parse(str); SCN.moves=s.m; SCN.dels=s.d; SCN.adds=s.a; SCN.mk=s.k||{}; SCN.sf=s.s||{}; SCN.s5=s.q||[]; SCN.opc=s.o||{}; ED.prev=str; edApplyAll(); drawSelection(); changed('moves'); edRenderBar(); edRenderLog(); }
+function edRestore(str){ const s=JSON.parse(str); SCN.moves=s.m; SCN.dels=s.d; SCN.adds=s.a; SCN.mk=s.k||{}; SCN.sf=s.s||{}; SCN.s5=s.q||[]; SCN.opc=s.o||{}; SCN.dz=s.z||[]; ED.prev=str; edApplyAll(); drawSelection(); changed('moves'); edRenderBar(); edRenderLog(); }
 function edUndo(){ if(!ED.undo.length) return; ED.redo.push(edState()); edRestore(ED.undo.pop()); edToast('Deshecho'); }
 function edRedo(){ if(!ED.redo.length) return; ED.undo.push(edState()); edRestore(ED.redo.pop()); edToast('Rehecho'); }
 function edSave(){ edCommit(); changed('moves'); edRenderLog(); }
@@ -2537,7 +2537,7 @@ function edHtml(){
     <button id="edDone" class="ed-done">Terminar</button></header>
   <div class="ed-status"><span id="edSave" class="ed-dot"></span><span id="edSum" class="mono"></span>
     <label class="ed-snap">Rejilla <select id="edSnapSel"><option value="0">libre</option><option value="0.05">5 cm</option><option value="0.1">10 cm</option><option value="0.25">25 cm</option><option value="0.5">50 cm</option><option value="1">1 m</option></select></label></div>
-  <nav class="ed-tabs" role="tablist"><button data-et="cat" class="on">Catálogo</button><button data-et="sel">Selección <i id="edSelN"></i></button><button data-et="piso">Piso</button><button data-et="5s">5S</button><button data-et="log">Cambios <i id="edLogN"></i></button></nav>
+  <nav class="ed-tabs" role="tablist"><button data-et="cat" class="on">Catálogo</button><button data-et="sel">Selección <i id="edSelN"></i></button><button data-et="piso">Piso</button><button data-et="5s">5S</button><button data-et="dis">Diseñar</button><button data-et="log">Cambios <i id="edLogN"></i></button></nav>
   <div class="ed-pane on" id="ed-cat">
     <div class="ed-search"><input id="edQ" type="search" placeholder="Buscar en catálogo: mesa, rack, cabina, canastilla…" autocomplete="off" aria-label="Buscar en catálogo"></div>
     <div class="ed-chips" id="edChips"></div>
@@ -2545,7 +2545,7 @@ function edHtml(){
   </div>
   <div class="ed-pane" id="ed-sel"></div>
   <div class="ed-pane" id="ed-piso"></div>
-  <div class="ed-pane" id="ed-5s"></div>
+  <div class="ed-pane" id="ed-dis"></div><div class="ed-pane" id="ed-5s"></div>
   <div class="ed-pane" id="ed-log"></div>
   <footer class="ed-keys"><span><kbd>Clic</kbd> seleccionar</span><span><kbd>Shift</kbd>+arrastrar área</span><span><kbd>Supr</kbd> eliminar</span><span><kbd>Ctrl</kbd>+<kbd>D</kbd> duplicar</span><span><kbd>R</kbd> girar 15°</span><span><kbd>←↑→↓</kbd> mover 10 cm</span><span><kbd>Ctrl</kbd>+<kbd>Z</kbd> deshacer</span></footer>`;
   document.body.appendChild(w);
@@ -2558,7 +2558,7 @@ function edHtml(){
   const ss=$('#edSnapSel'); ss.value=String(ED.snap); if(ss.selectedIndex<0) ss.value='0.1'; ss.addEventListener('change',e=>{ ED.snap=+e.target.value; try{ localStorage.setItem('p4_ed_snap',String(ED.snap)); }catch(_){} });
 }
 edHtml();
-function edTab(t){ ED.tab=t; document.querySelectorAll('#edp [data-et]').forEach(b=>b.classList.toggle('on',b.dataset.et===t)); document.querySelectorAll('#edp .ed-pane').forEach(p=>p.classList.toggle('on',p.id==='ed-'+t)); if(t==='log') edRenderLog(); if(t==='sel') edRenderSel(); if(t==='cat') edRenderCat();
+function edTab(t){ ED.tab=t; if(t==='dis'){ if(ED.place) edCancelPlace(); selection.clear(); drawSelection(); setTimeout(()=>window.__dis?.render(),0); } else window.__dis?.finish?.(); document.querySelectorAll('#edp [data-et]').forEach(b=>b.classList.toggle('on',b.dataset.et===t)); document.querySelectorAll('#edp .ed-pane').forEach(p=>p.classList.toggle('on',p.id==='ed-'+t)); if(t==='log') edRenderLog(); if(t==='sel') edRenderSel(); if(t==='cat') edRenderCat();
   if(t==='piso'||t==='5s'){ if(ED.place) edCancelPlace(); selection.clear(); drawSelection(); MK.sel=null; MK.paint.pts=[]; mkPreview(null);
     if(t==='5s'){ MK.layer='5s'; MK.paint.tool='sel'; G_5s.visible=true; edRender5s(); } else { if(MK.layer==='5s') MK.layer='sf'; edRenderPiso(); } } else { MK.paint.pts=[]; mkPreview(null); MK.sel=null; }
   mkDrawSel(); }
@@ -2959,6 +2959,11 @@ const PRM_T={
   '@mesaled':{n:'Mesa de línea con mampara y luz (tipo Rivian)', def:{l:4.0,d:1.9,h:.9,  c:'#202326'}},
   '@tapete': {n:'Tapete antifatiga',                         def:{l:3.0,d:.62,h:.014,c:'#26292d'}},
   '@valla':  {n:'Valla / barandal',                          def:{l:4.0,d:.08,h:1.1, c:'#f2c200'}},
+  '@maquina': {n:'Máquina genérica (cuerpo, pantalla y torreta)', def:{l:1.6,d:1.2,h:1.8, c:'#2f6fd6'}},
+  '@gabinete':{n:'Gabinete eléctrico',                       def:{l:.8, d:.4, h:2.0, c:'#c9ced3'}},
+  '@carro':   {n:'Carro WIP de 3 niveles',                   def:{l:1.2,d:.6, h:1.0, c:'#2f6fd6'}},
+  '@banda':   {n:'Banda transportadora',                     def:{l:4.0,d:.6, h:.8,  c:'#202326'}},
+  '@horno':   {n:'Horno / estufa',                           def:{l:1.4,d:1.0,h:1.6, c:'#c9ced3'}},
   '@anaquel':{n:'Anaquel / rack ligero',                     def:{l:1.8,d:.6, h:1.8, c:'#2f6fd6'}},
 };
 const PRM_COLORS=['#202326','#eeeeec','#6b7178','#2f6fd6','#2fa84f','#f2c200','#f07f1a','#d93030','#8e5bd6','#c9a27a'];
@@ -2966,7 +2971,24 @@ const PMAT={ wh:std('#ffffff',{roughness:.5,metalness:.15}), blk:std('#ffffff',{
 function prmParts(t,P){
   const L=Math.max(.2,+P.l||1), Dd=Math.max(.05,+P.d||.6), H=Math.max(.01,+P.h||.9), C=P.c||'#202326', out=[];
   const bx=(x,y,z,sx,sy,sz,c,mat='wh')=>out.push({mat,m:M(x,y,z,0,sx,sy,sz),c});
-  if(t==='@mesa'){ bx(0,H-.04,0,L,.04,Dd,C,'blk'); for(const sx of [-1,1]) for(const sz of [-1,1]) bx(sx*(L/2-.03),0,sz*(Dd/2-.03),.045,H-.04,.045,'#eeeeec'); bx(0,.18,0,L*.96,.03,Dd*.9,'#e3e3e1');
+  if(t==='@maquina'){ const hb=H*.8;
+    bx(0,0,0,L,.1,Dd,'#2a2d31','blk'); bx(0,.1,0,L*.97,hb-.1,Dd*.94,C,'wh'); bx(0,hb,0,L*.92,.05,Dd*.88,'#d8dbde','al');
+    bx(-L*.14,.32,Dd*.47,L*.46,hb*.48,.012,'#1d2733','blk'); bx(-L*.14,.32+hb*.48,Dd*.47,L*.46,.03,.02,'#c9ced3','al');
+    bx(L*.33,hb*.52,Dd*.47,L*.2,hb*.22,.02,'#15181b','blk'); bx(L*.33,hb*.52+.02,Dd*.47+.012,L*.17,hb*.17,.004,'#48c2ff','led');
+    bx(L*.33,hb*.3,Dd*.47,L*.14,.06,.03,'#d93030','blk');
+    const tx=L*.4, tz=-Dd*.34; bx(tx,hb+.05,tz,.035,Math.max(.25,H-hb-.25),.035,'#c9ced3','al'); const ty=hb+.05+Math.max(.25,H-hb-.25);
+    bx(tx,ty,tz,.1,.08,.1,'#2fa84f','led'); bx(tx,ty+.08,tz,.1,.08,.1,'#f2c200','led'); bx(tx,ty+.16,tz,.1,.08,.1,'#d93030','led'); }
+  else if(t==='@gabinete'){ bx(0,0,0,L,.08,Dd,'#2a2d31','blk'); bx(0,.08,0,L,H-.08,Dd,C,'al'); bx(0,.1,Dd/2+.003,.006,H-.14,.004,'#6b7178','blk');
+    bx(L*.18,H*.5,Dd/2+.01,.03,.16,.02,'#202326','blk'); bx(-L*.22,H*.72,Dd/2+.006,L*.2,L*.18,.004,'#f2c200','wh'); }
+  else if(t==='@carro'){ for(const sx of [-1,1]) for(const sz of [-1,1]){ bx(sx*(L/2-.03),.09,sz*(Dd/2-.03),.03,H-.09,.03,'#c9ced3','al'); bx(sx*(L/2-.05),0,sz*(Dd/2-.05),.07,.09,.07,'#15181b','blk'); }
+    for(const y of [.16,.16+(H-.2)/2,H-.04]) bx(0,y,0,L,.035,Dd,C,'wh'); }
+  else if(t==='@banda'){ bx(0,H-.12,0,L,.06,Dd,'#15181b','blk'); for(const sz of [-1,1]) bx(0,H-.16,sz*(Dd/2+.02),L,.14,.04,C,'al');
+    const n=Math.max(2,Math.round(L/1.5)+1); for(let k=0;k<n;k++){ const x=-L/2+.1+k*(L-.2)/(n-1); for(const sz of [-1,1]) bx(x,0,sz*(Dd/2-.02),.05,H-.16,.05,'#c9ced3','al'); }
+    for(const sx of [-1,1]) bx(sx*(L/2-.04),H-.14,0,.08,.08,Dd,'#6b7178','al'); }
+  else if(t==='@horno'){ bx(0,0,0,L,.1,Dd,'#2a2d31','blk'); bx(0,.1,0,L,H-.1,Dd,C,'al'); bx(-L*.08,.35,Dd/2+.004,L*.62,H*.42,.012,'#1d2733','blk');
+    bx(-L*.08,.38,Dd/2+.012,L*.56,H*.36,.004,'#ff8a3d','led'); bx(L*.36,H*.55,Dd/2+.004,L*.16,H*.22,.02,'#15181b','blk'); bx(L*.36,H*.7,Dd/2+.02,L*.08,.05,.004,'#2fa84f','led');
+    bx(0,H,0,L*.3,.22,Dd*.3,'#6b7178','al'); }
+  else if(t==='@mesa'){ bx(0,H-.04,0,L,.04,Dd,C,'blk'); for(const sx of [-1,1]) for(const sz of [-1,1]) bx(sx*(L/2-.03),0,sz*(Dd/2-.03),.045,H-.04,.045,'#eeeeec'); bx(0,.18,0,L*.96,.03,Dd*.9,'#e3e3e1');
     const n=Math.floor(L/1.6); for(let k=1;k<=n;k++){ const x=-L/2+k*L/(n+1); for(const sz of [-1,1]) bx(x,0,sz*(Dd/2-.03),.045,H-.04,.045,'#eeeeec'); } }
   else if(t==='@mesaled'){ const T=Math.max(.45,(Dd-.24)/2), nS=Math.max(1,Math.round(L/1.9));
     for(const s of [-1,1]){ const tz=s*(.12+T/2); bx(0,H-.04,tz,L,.04,T,C,'blk'); bx(0,.18,tz,L*.98,.03,T*.9,'#e3e3e1');
@@ -3011,8 +3033,8 @@ function edOpColorHtml(os){
   if(!os.length || !os.every(o=>o.kind==='op')) return '';
   const cur=(SCN.opc||{})[os[0].id]||os[0].shirt0||'#3fa0ff';
   return `<div class="ed-opc"><span class="ed-lbl">Color de uniforme · ${os.length} operador${os.length>1?'es':''}</span>
-    <div class="ed-opc-g">${Object.entries(OP_AREA).map(([k,[n,c]])=>`<button data-opc="${c}" title="${n}"><span style="background:${c}"></span>${n}</button>`).join('')}</div>
-    <div class="ed-row"><span><input type="color" id="opcIn" value="${cur}" aria-label="Color libre"> color libre</span><button id="opcReset" class="linkbtn">Color original</button></div></div>`;
+    <span class="ed-lbl">Colores rápidos</span><div class="ed-opq">${['#d93030','#f07f1a','#f2c200','#8bc34a','#2fa84f','#14b8a6','#2fd3e0','#2f6fd6','#1d3f78','#8e5bd6','#e05a9a','#ffffff','#9aa3ab','#3d434a','#15171a','#8a6d4b'].map(c=>`<button data-opc="${c}" title="${c}" style="background:${c}"></button>`).join('')}</div><span class="ed-lbl">Por área</span><div class="ed-opc-g">${Object.entries(OP_AREA).map(([k,[n,c]])=>`<button data-opc="${c}" title="${n}"><span style="background:${c}"></span>${n}</button>`).join('')}</div>
+    <div class="ed-row"><span><input type="color" id="opcIn" value="${cur}" aria-label="Color libre"> Pro · color libre</span><button id="opcReset" class="linkbtn">Color original</button></div></div>`;
 }
 function edOpColorWire(os){
   if(!$('#opcIn')) return; const set=c=>{ SCN.opc=SCN.opc||{}; os.forEach(o=>{ if(c) SCN.opc[o.id]=c; else delete SCN.opc[o.id]; }); opColorsApply(); edSave(); edRenderSel(); };
@@ -3568,6 +3590,7 @@ function onClick(e){
   const [x,y]=ndcOf(e);
   if(tool==='edit'){ const g=groundAtNDC(x,y); if(g) addStopAt([g.x,g.z]); return; }
   if(tool==='move'){
+    if(ED.tab==='dis'){ window.__dis?.click(groundAtNDC(x,y),e); return; }
     if(ED.tab==='piso'||ED.tab==='5s'){ mkClick(groundAtNDC(x,y)); return; }
     if(ED.place){ edPlaceAt(groundAtNDC(x,y), e.shiftKey); return; }
     ndc.set(x,y); ray.setFromCamera(ndc,camera);
@@ -3620,7 +3643,7 @@ function specialDown(e){
     return false;
   }
   if(tool==='move'){
-    if(ED.place || ED.tab==='piso' || ED.tab==='5s') return false;
+    if(ED.place || ED.tab==='piso' || ED.tab==='5s' || ED.tab==='dis') return false;
     if(e.shiftKey){ special={kind:'box', x0:e.clientX, y0:e.clientY, x1:e.clientX, y1:e.clientY}; const b=$('#selbox'); b.hidden=false; Object.assign(b.style,{left:e.clientX+'px',top:e.clientY+'px',width:'0px',height:'0px'}); return true; }
     const h=ray.intersectObjects(visiblePick(),false).find(h=>objFromHit(h)); const o=h?objFromHit(h):null;
     if(o && selection.has(o.id)){ const g=groundAtNDC(x,y); if(!g) return false; special={kind:'obj', g0:[g.x,g.z], start:[...selection].map(id=>{ const ob=OBJS.get(id); return [ob,[...ob.off]]; }), moved:false}; return true; }
@@ -5000,6 +5023,7 @@ setTimeout(()=>{ try{ scInit(); }catch(e){ console.warn('escena',e); } },400);
   makeSigns(); setRoof('off');
   buildLayerUI(); syncRunners(); renderScenarioUI(); renderHelp(); try{ mkBuild(); sfBuild(); s5Build(); }catch(e){ console.error(e); } initDB(); invRefresh(); invInit(); opsInit();
   PRESETS.iso(); if(OPS) orbit.T.r*=.82; orbit.target.copy(orbit.T.target); orbit.r=orbit.T.r+120; orbit.th=orbit.T.th+.5; orbit.ph=orbit.T.ph;
+  import('./motor/disenar.js').then(m=>{ window.__dis=m.init({THREE,scene,camera,renderer,ED,SCN:()=>SCN,OBJS,edSave,edToast,edApplyAll,groundAtNDC,ndcOf,tool:()=>tool}); }).catch(e=>console.warn('Diseñar no disponible:',e));
   import('./motor/vida.js').then(m=>{ VIDA=m.init({THREE,scene,camera,renderer,OBJS,RT,D,PICK,G_ops,applyObj,id:NET_ID,orbit,state:()=>({playing,timeScale,tool,mode,target:orbit.T.target})}); window.__vida=VIDA; }).catch(e=>console.warn('Capa de vida no disponible:',e));
   window.__rd={scene,renderer,camera}; import('./motor/graficos.js').then(m=>{ window.__graf=m.init({THREE,scene,renderer,camera,OBJS,PICK,id:NET_ID,state:()=>({tool,mode})}); }).catch(e=>console.warn('Gráficos no disponibles:',e)); import('./motor/lote.js').then(m=>{ window.__lote=m.init({THREE,scene,renderer}); }).catch(e=>console.warn('Fusión de piezas no disponible:',e)); import('./motor/visor.js').then(m=>{ window.__visor=m.init({THREE,scene,D,OBJS,RT,PICK,applyObj,getSCN:()=>SCN,id:NET_ID,orbit,goOrbit,buildPath,posAt,yamaOf,statsOf,totals,yamaTotals,reportBounds,rectPts,stopName,stopKind,ELEMS,TYPES,TILE_IMG,fmtN,fmtMS,changed,NAV,navW,navCell,navCenter,navNearest}); if(window.__visor && !$('#report').hidden) renderReport(); }).catch(e=>console.warn('Visor de reporte no disponible:',e));
   requestAnimationFrame(loop);
