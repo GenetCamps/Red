@@ -39,7 +39,7 @@ const TWIN_HELP = {
     ['Vista ingeniería', 'Layout, Reporte 2D (espagueti, yamazumi, operaciones), análisis de turno y edición.', '#oEng']]],
   eng: ['Gemelo · vista ingeniería', [
     ['Herramientas', 'Info para consultar, Medir distancias, Ruta para trazar recorridos y Editor para mover objetos.', '[data-tool=info]'],
-    ['Reporte 2D', 'Espagueti, yamazumi y Operaciones: yamazumis, cronómetro de piso, estudio de tiempos, animación de hasta 10 personas y análisis de turno.', '#reportBtn'],
+    ['Reporte 2D', 'Espagueti, yamazumi y Operaciones: yamazumis, cronómetro de piso, estudio de tiempos, animación de hasta 30 personas y análisis de turno.', '#reportBtn'],
     ['Techo y piso', 'Muestra u oculta el techo y cambia el piso entre el plano DWG y el piso real.', '#floorMode'],
     ['Gráficos', 'Básica, Media o Alta. En «auto» se elige sola según el equipo.', '#gfxMode'],
     ['Vista limpia', 'Deja solo la planta en 3D para presentar o tomar capturas. También con la tecla H.', '#rdClean']]]

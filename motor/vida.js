@@ -87,11 +87,25 @@ export function init(TW){
   }
 
   /* ------------------------------------------------------------------ Fase 5: operadores dirigidos por el flujo de yamazumis (motor/flujo.js)
-     Solo se animan los que el flujo pide (máximo 10). Si el punto enlazado es una figura del gemelo se usa esa; si no, se crea una figura ahí. */
+     Solo se animan los que el flujo pide (máximo 30). Si el punto enlazado es una figura del gemelo se usa esa; si no, se crea una figura ahí. */
   const DRV=new Map(); let EXT=null;
+  /* Figuras que mueve el flujo, dibujadas por lotes: cada pieza del cuerpo (muslos, piernas, torso, brazos, cabeza) es un solo
+     InstancedMesh para todas las personas, así 30 personas cuestan las mismas ~10 llamadas de dibujo que 1. La figura (grupo con
+     articulaciones) se sigue usando para calcular la pose y para el clic; sus piezas quedan ocultas mientras está dirigida. */
+  let IR=null; const IR_CAP=64, M_shirtI=std('#ffffff');
+  const irParts=R=>{ if(!R.parts){ R.parts=[]; R.g.traverse(m=>{ if(m.isMesh&&m!==R.hit) R.parts.push(m); }); } return R.parts; };
+  function irEnsure(R){ if(IR) return; IR=irParts(R).map(m=>{ const sh=m.material===R.shirt, im=new T.InstancedMesh(m.geometry, sh?M_shirtI:m.material, IR_CAP);
+      im.count=0; im.castShadow=m.castShadow; im.receiveShadow=true; im.frustumCulled=false; im.raycast=()=>{}; im.userData.noLote=true; im.userData.sh=sh; im.name='rd-figuras';
+      if(sh){ im.setColorAt(0,_c.set('#ffffff')); } scene.add(im); return im; }); }
+  function irDraw(){ if(!IR&&!DRV.size) return; let i=0;
+    for(const R of DRV.values()){ if(!R.g.visible||i>=IR_CAP) continue; irEnsure(R); const ps=irParts(R); R.g.updateMatrixWorld(true);
+      for(let k=0;k<ps.length&&k<IR.length;k++){ const m=ps[k]; m.visible=false; IR[k].setMatrixAt(i,m.matrixWorld); if(IR[k].userData.sh) IR[k].setColorAt(i,R.shirt.color); } i++; }
+    const vis=TW.G_ops?TW.G_ops.visible!==false:true;
+    if(IR) IR.forEach(im=>{ im.count=i; im.visible=vis&&i>0; im.instanceMatrix.needsUpdate=true; if(im.instanceColor) im.instanceColor.needsUpdate=true; }); }
+
   function nearestOp(x,z,r){ let best=null, bd=r*r; for(const o of OBJS.values()){ if(o.kind!=='op'||!o.slots.length||o.del) continue; const dx=o.p[0]+o.off[0]-x, dz=o.p[1]+o.off[1]-z; if(dx*dx+dz*dz>bd+9) continue;
       const b=opBase(o); if(!b) continue; const d=(b.x-x)**2+(b.z-z)**2; if(d<bd){ bd=d; best={id:o.id,x:b.x,z:b.z}; } } return best; }
-  function undrive(key){ const R=DRV.get(key); if(!R) return; DRV.delete(key); R.drv=null; if(R.o) releaseRig(R); else R.g.visible=false; }
+  function undrive(key){ const R=DRV.get(key); if(!R) return; DRV.delete(key); R.drv=null; irParts(R).forEach(m=>{ m.visible=true; }); if(!DRV.size) irDraw(); if(R.o) releaseRig(R); else R.g.visible=false; }
   function drive(key,spec){ undrive(key); let R=null, o=spec.oid!=null?OBJS.get(spec.oid):null, base=null;
     if(o&&o.kind==='op'&&!o.del&&o.slots.length){ const B=BUSY.get(o.id); if(B){ if(B.drv) o=null; else releaseRig(B); } if(o) base=opBase(o); }
     if(o&&base){ assignRig(o,base,DRV.size); R=BUSY.get(o.id); }
@@ -193,6 +207,7 @@ export function init(TW){
     if(slow>3 && mode!=='off'){ slow=0; const c=MODES[mode]; if(c.ops>10){ c.ops=Math.round(c.ops*.6); c.mach=Math.max(2,Math.round(c.mach*.6)); c.r*=.8; note('Animación reducida para mantener fluidez'); } }
     for(const R of BUSY.values()) if(!R.drv) pose(R,t);
     for(const R of DRV.values()) poseDrv(R,t);
+    irDraw();
     for(const X of MACH.values()) X.step(t);
     forklifts(dt,st);
   }
