@@ -1246,12 +1246,17 @@ function sewKit(G){
     if(o.tag){ Z.lab.push(TAGS.length); TAGS.push(String(o.tag).toUpperCase().slice(0,20)); const q=P(mx+.2,mz-.088); fb(Z,'label',GEO.plane).add(M(q[0],top+at-.055,q[1],ry,.17,.032,1)); }
   }
   // silla negra de trabajo (asiento, respaldo de malla, pistón y base de 5 patas). q=[x,z], dir hacia la mesa
-  function chair(q,dir){
+  const CHAIRS=new Map();
+  function chair(q,dir,key){
+    const prev=CUR, H={slots:[]}; CUR=H;
     const ry=Math.atan2(dir[0],dir[1]), bk=[q[0]-dir[0]*.21,q[1]-dir[1]*.21];
     BT.seat.add(M(q[0],.42,q[1],ry,.46,.07,.44)); BT.seat.add(M(bk[0],.52,bk[1],ry,.42,.4,.04,-.1));
     BT.chairM.add(M(q[0]-dir[0]*.17,.44,q[1]-dir[1]*.17,ry,.035,.1,.035)); BT.chairM.add(M(q[0],.06,q[1],0,.05,.36,.05));
     for(let k=0;k<5;k++){ const t=ry+k*TAU5, ex=Math.sin(t), ez=Math.cos(t); BT.chairM.add(M(q[0]+ex*.13,.04,q[1]+ez*.13,t,.03,.03,.27)); BT.chairM.add(M(q[0]+ex*.26,0,q[1]+ez*.26,0,.05,.04,.05)); }
+    CUR=prev; H.slots.forEach(sl=>sl.keep=true); if(key!==undefined) CHAIRS.set(key,H); return H;
   }
+  /* la silla pasa a ser parte del operador: el editor la mueve, duplica y borra con él; la animación la deja en su lugar (keep) */
+  function adopt(key,o){ const H=CHAIRS.get(key); if(!H||!o) return false; for(const sl of H.slots){ sl.b.ob[sl.i]=o; o.slots.push(sl); } CHAIRS.delete(key); return true; }
   const TAU5=Math.PI*2/5;
   function build(){
     Object.values(BT).forEach(b=>b.build(G));
@@ -1278,7 +1283,7 @@ function sewKit(G){
     window.__sewKit={ n:N, zonas:ZON.size, etiquetas:TAGS.length, tick, zonasVisibles:()=>[...ZON.values()].filter(z=>z.g.visible).length };
     return N;
   }
-  return { station, chair, build, get n(){ return N; } };
+  return { station, chair, adopt, build, get n(){ return N; } };
 }
 
 /* =================================================================== LÍNEAS DE COSTURA (cada mesa del PDF) */
@@ -1371,7 +1376,7 @@ const SK_SIDE=(()=>{ const C=new Map(), key=(x,z)=>Math.floor(x)+','+Math.floor(
   CUR=null;
   D.bins.forEach(b=>binB.add(M(b[0],0,b[1],0,.32,.48,.32),'#2f3540',infoPDF('Bote de basura',[['Posición','PDF','Rótulo "BASURA" del PDF'],['Modelo','EST','Ø0.32 × 0.48 m']])));
   // bancos para los operadores sentados
-  D.ops.forEach(o=>{ if(!o.s) return; const q=[o.p[0]-Math.cos(o.a)*.12, o.p[1]-Math.sin(o.a)*.12]; SK.chair(q,[Math.cos(o.a),Math.sin(o.a)]); });
+  D.ops.forEach(o=>{ if(!o.s) return; const q=[o.p[0]-Math.cos(o.a)*.12, o.p[1]-Math.sin(o.a)*.12]; SK.chair(q,[Math.cos(o.a),Math.sin(o.a)],o); });
   // luminarias lineales sobre cada línea
   const tube=new Batch(UNIT,new THREE.MeshBasicMaterial({color:'#f6fbff'}),{cast:false,receive:false}), hood=new Batch(UNIT,std('#c9ced3',{metalness:.6,roughness:.35}),{cast:false});
   D.lines.forEach(l=>{ const xc=(l.x0+l.x1)/2; for(const dx of [-(l.x1-l.x0)*.25,(l.x1-l.x0)*.25]) for(let z=l.z0+2; z<l.z1-1; z+=4.6){ hood.add(M(xc+dx,3.25,z+1.6,0,.22,.06,3.2)); tube.add(M(xc+dx,3.23,z+1.6,0,.14,.02,3.1)); } });
@@ -1706,6 +1711,7 @@ const PG = personGeos();
     const m=M(o.p[0],0,o.p[1],-o.a,1,1,1);
     const k=o.s?'S':'';
     B['pants'+k].add(m,undefined,info); B['shirt'+k].add(m,col,info); B['skin'+k].add(m,pick(skins),info); B['hair'+k].add(m,pick(hairs),info);
+    if(o.s && SK.adopt(o,CUR) && o.ln!=='CUT') CUR.name='Operador de costura · sentado con silla';
     CUR=null;
   });
   Object.values(B).forEach(b=>b.build(G_ops));
@@ -2371,7 +2377,7 @@ function rebuildAdds(){
     const o=newObj(ad.id,s.kind,ad.p,s.l,s.d,s.a+a,s.name); o.added=true; o.src=s.id; o.shirtSlot=s.shirtSlot; o.area=s.area;
     _T1.makeTranslation(ad.p[0],0,ad.p[1]); _RY.makeRotationY(-a); _T2.makeTranslation(-s.p[0],0,-s.p[1]); _X.copy(_T1).multiply(_RY).multiply(_T2);
     for(const sl of s.slots){ const b=sl.b; if(!b.im) continue; let P=per.get(b); if(!P){ P={b,ms:[],si:[],inf:[],ob:[],im:null}; per.set(b,P); }
-      P.ms.push(_X.clone().multiply(b.ms[sl.i])); P.si.push(sl.i); P.inf.push(b.inf[sl.i]); P.ob.push(o); o.slots.push({b:P,i:P.ms.length-1}); }
+      P.ms.push(_X.clone().multiply(b.ms[sl.i])); P.si.push(sl.i); P.inf.push(b.inf[sl.i]); P.ob.push(o); o.slots.push({b:P,i:P.ms.length-1,keep:sl.keep}); }
     const c=Math.cos(a), sn=Math.sin(a);
     for(const mm of s.meshes){ const m2=mm.mesh.clone(); const ux=mm.base.x-s.p[0], uz=mm.base.z-s.p[1];
       m2.position.set(ad.p[0]+ux*c-uz*sn, mm.base.y, ad.p[1]+ux*sn+uz*c); m2.rotation.y=mm.mesh.rotation.y-a; m2.userData=Object.assign({},mm.mesh.userData,{obj:o});

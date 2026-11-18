@@ -47,7 +47,7 @@ export function init(TW){
   function opBase(o){                                                         // posición, giro, color y altura del operador estático
     const sl=o.slots[0]; if(!sl||!sl.b.ms[sl.i]) return null; const e=sl.b.ms[sl.i].elements;
     let top=0, col=null;
-    for(const s of o.slots){ const geo=s.b.geo; if(!geo.boundingBox) geo.computeBoundingBox(); const me=s.b.ms[s.i].elements; top=Math.max(top, me[13]+geo.boundingBox.max.y*Math.hypot(me[4],me[5],me[6])); if(col==null && s.b.cs[s.i]!==undefined) col=s.b.cs[s.i]; }
+    for(const s of o.slots){ if(s.keep) continue; const geo=s.b.geo; if(!geo.boundingBox) geo.computeBoundingBox(); const me=s.b.ms[s.i].elements; top=Math.max(top, me[13]+geo.boundingBox.max.y*Math.hypot(me[4],me[5],me[6])); if(col==null && s.b.cs[s.i]!==undefined) col=s.b.cs[s.i]; }
     if(top<.9||top>2.1) return null;                                          // no es una figura humana
     const yaw0=Math.atan2(-e[2],e[0]), dx=o.off[0], dz=o.off[1], da=o.off[2]||0;
     return { x:e[12]+dx, z:e[14]+dz, y:e[13], yaw:yaw0-da, top, col:col||'#3fa0ff', seated: top<1.5 };
@@ -77,7 +77,7 @@ export function init(TW){
     R.arm[0].a.rotation.z=sl; R.arm[1].a.rotation.z=sr; R.arm[0].e.rotation.z=el; R.arm[1].e.rotation.z=er;
   }
   const POOL=[], BUSY=new Map();                                              // o.id → rig
-  const hideOp=o=>{ for(const s of o.slots){ s.b.im.setMatrixAt(s.i,Z0); s.b.im.instanceMatrix.needsUpdate=true; } };
+  const hideOp=o=>{ for(const s of o.slots){ if(s.keep) continue; s.b.im.setMatrixAt(s.i,Z0); s.b.im.instanceMatrix.needsUpdate=true; } };
   function releaseRig(R){ const o=R.o; if(!o) return; R.g.visible=false; const k=TW.PICK.indexOf(R.hit); if(k>=0) TW.PICK.splice(k,1); R.o=null; BUSY.delete(o.id); if(OBJS.get(o.id)===o) TW.applyObj(o); }
   function assignRig(o,base,i){
     let R=POOL.find(r=>!r.o&&!r.drv); if(!R){ R=makeRig(); POOL.push(R); TW.G_ops.add(R.g); }

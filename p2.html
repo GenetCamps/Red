@@ -2047,7 +2047,7 @@ function rebuildAdds(){
     const o=newObj(ad.id,s.kind,ad.p,s.l,s.d,s.a+a,s.name); o.added=true; o.src=s.id; o.shirtSlot=s.shirtSlot; o.area=s.area;
     _T1.makeTranslation(ad.p[0],0,ad.p[1]); _RY.makeRotationY(-a); _T2.makeTranslation(-s.p[0],0,-s.p[1]); _X.copy(_T1).multiply(_RY).multiply(_T2);
     for(const sl of s.slots){ const b=sl.b; if(!b.im) continue; let P=per.get(b); if(!P){ P={b,ms:[],si:[],inf:[],ob:[],im:null}; per.set(b,P); }
-      P.ms.push(_X.clone().multiply(b.ms[sl.i])); P.si.push(sl.i); P.inf.push(b.inf[sl.i]); P.ob.push(o); o.slots.push({b:P,i:P.ms.length-1}); }
+      P.ms.push(_X.clone().multiply(b.ms[sl.i])); P.si.push(sl.i); P.inf.push(b.inf[sl.i]); P.ob.push(o); o.slots.push({b:P,i:P.ms.length-1,keep:sl.keep}); }
     const c=Math.cos(a), sn=Math.sin(a);
     for(const mm of s.meshes){ const m2=mm.mesh.clone(); const ux=mm.base.x-s.p[0], uz=mm.base.z-s.p[1];
       m2.position.set(ad.p[0]+ux*c-uz*sn, mm.base.y, ad.p[1]+ux*sn+uz*c); m2.rotation.y=mm.mesh.rotation.y-a; m2.userData=Object.assign({},mm.mesh.userData,{obj:o});

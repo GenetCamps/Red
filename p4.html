@@ -1479,12 +1479,17 @@ function sewKit(G){
     if(o.tag){ Z.lab.push(TAGS.length); TAGS.push(String(o.tag).toUpperCase().slice(0,20)); const q=P(mx+.2,mz-.088); fb(Z,'label',GEO.plane).add(M(q[0],top+at-.055,q[1],ry,.17,.032,1)); }
   }
   // silla negra de trabajo (asiento, respaldo de malla, pistón y base de 5 patas). q=[x,z], dir hacia la mesa
-  function chair(q,dir){
+  const CHAIRS=new Map();
+  function chair(q,dir,key){
+    const prev=CUR, H={slots:[]}; CUR=H;
     const ry=Math.atan2(dir[0],dir[1]), bk=[q[0]-dir[0]*.21,q[1]-dir[1]*.21];
     BT.seat.add(M(q[0],.42,q[1],ry,.46,.07,.44)); BT.seat.add(M(bk[0],.52,bk[1],ry,.42,.4,.04,-.1));
     BT.chairM.add(M(q[0]-dir[0]*.17,.44,q[1]-dir[1]*.17,ry,.035,.1,.035)); BT.chairM.add(M(q[0],.06,q[1],0,.05,.36,.05));
     for(let k=0;k<5;k++){ const t=ry+k*TAU5, ex=Math.sin(t), ez=Math.cos(t); BT.chairM.add(M(q[0]+ex*.13,.04,q[1]+ez*.13,t,.03,.03,.27)); BT.chairM.add(M(q[0]+ex*.26,0,q[1]+ez*.26,0,.05,.04,.05)); }
+    CUR=prev; H.slots.forEach(sl=>sl.keep=true); if(key!==undefined) CHAIRS.set(key,H); return H;
   }
+  /* la silla pasa a ser parte del operador: el editor la mueve, duplica y borra con él; la animación la deja en su lugar (keep) */
+  function adopt(key,o){ const H=CHAIRS.get(key); if(!H||!o) return false; for(const sl of H.slots){ sl.b.ob[sl.i]=o; o.slots.push(sl); } CHAIRS.delete(key); return true; }
   const TAU5=Math.PI*2/5;
   function build(){
     Object.values(BT).forEach(b=>b.build(G));
@@ -1511,7 +1516,7 @@ function sewKit(G){
     window.__sewKit={ n:N, zonas:ZON.size, etiquetas:TAGS.length, tick, zonasVisibles:()=>[...ZON.values()].filter(z=>z.g.visible).length };
     return N;
   }
-  return { station, chair, build, get n(){ return N; } };
+  return { station, chair, adopt, build, get n(){ return N; } };
 }
 
 /* =================================================================== COSTURA · Rivian door panel (fotos de piso 27-oct-2026)
@@ -1573,7 +1578,7 @@ const COS_N={maq:0,ops:0};
     const cc=[pick(['#15171a','#f1f1ee','#15171a','#8d1f2b']),pick(['#15171a','#f1f1ee','#15171a','#8d1f2b'])]; const w1=rnd()<.85; rnd(); const bx1=rnd()<.5;
     const tag='COSTURA '+label.replace(/^Costura · /,'').replace('módulo ','M').replace(' · máquina ','-').replace('máquina suelta ','S').replace('máquina de poste ','P').toUpperCase();
     SK.station({c:tc, r:[-f[1],f[0]], L:TL, D:.64, H, info, x:.02, post:!!o.post, tag, cones:cc, piece:w1?[.34,.38,'#15171a']:null, box:bx1});
-    if(o.op!==false){ chair(F,-.78,b0-.08,info); const sp=F.P(-.78,b0-.08); sitter(sp,F.yaw,infoPDF('Operador(a) de costura',[['Posición','PDF','Símbolo people2 del DWG'],['Figura','FOTO','Sentado(a) en silla de trabajo · '+FOTO]])); }
+    if(o.op!==false){ const sp=F.P(-.78,b0-.08); sitter(sp,F.yaw,infoPDF('Operador(a) de costura',[['Posición','PDF','Símbolo people2 del DWG'],['Figura','FOTO','Sentado(a) en silla de trabajo · '+FOTO]])); const _o=OBJS.get('op_co'+(COS_N.ops-1)), _s=CUR; CUR=_o; const _n=_o.slots.length; chair(F,-.78,b0-.08,info); _o.slots.slice(_n).forEach(sl=>sl.keep=true); _o.name='Operador de costura · sentado con silla'; CUR=_s; }
     else chair(F,-.78,b0-.08,info);
     CUR=null;
   }
@@ -3561,7 +3566,7 @@ function rebuildAdds(){
     const o=newObj(ad.id,s.kind,ad.p,s.l,s.d,s.a+a,s.name); o.added=true; o.src=s.id; o.shirtSlot=s.shirtSlot; o.area=s.area;
     _T1.makeTranslation(ad.p[0],0,ad.p[1]); _RY.makeRotationY(-a); _T2.makeTranslation(-s.p[0],0,-s.p[1]); _X.copy(_T1).multiply(_RY).multiply(_T2);
     for(const sl of s.slots){ const b=sl.b; if(!b.im) continue; let P=per.get(b); if(!P){ P={b,ms:[],si:[],inf:[],ob:[],im:null}; per.set(b,P); }
-      P.ms.push(_X.clone().multiply(b.ms[sl.i])); P.si.push(sl.i); P.inf.push(b.inf[sl.i]); P.ob.push(o); o.slots.push({b:P,i:P.ms.length-1}); }
+      P.ms.push(_X.clone().multiply(b.ms[sl.i])); P.si.push(sl.i); P.inf.push(b.inf[sl.i]); P.ob.push(o); o.slots.push({b:P,i:P.ms.length-1,keep:sl.keep}); }
     const c=Math.cos(a), sn=Math.sin(a);
     for(const mm of s.meshes){ const m2=mm.mesh.clone(); const ux=mm.base.x-s.p[0], uz=mm.base.z-s.p[1];
       m2.position.set(ad.p[0]+ux*c-uz*sn, mm.base.y, ad.p[1]+ux*sn+uz*c); m2.rotation.y=mm.mesh.rotation.y-a; m2.userData=Object.assign({},mm.mesh.userData,{obj:o});
