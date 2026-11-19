@@ -121,7 +121,7 @@ export function init(ctx) {
   let RK = null; try { if (ctx.RT && ctx.PICK && ctx.applyObj) RK = createRacks({ THREE, scene, OBJS: ctx.OBJS, RT: ctx.RT, PICK: ctx.PICK, applyObj: ctx.applyObj }); } catch (e) { console.warn('Racks móviles no disponibles:', e); }
   let ANA = null, TU = null;
   try { TU = createTurnos({ esc, fmtN: ctx.fmtN, S: () => state.S || ctx.getSCN?.(), save: () => { try { ctx.changed('meta'); } catch (_) {} }, redraw: () => { if (state.S && state.view === 'ops') redraw(); } }); } catch (e) { console.warn('Turnos no disponibles:', e); }
-  const FLU = createFlujo({ ana: () => ANA, THREE, scene, ctx, esc, fmtN: ctx.fmtN, S: () => state.S, save: () => { try { ctx.changed('meta'); } catch (_) {} },
+  const FLU = createFlujo({ yz: () => { try { return OPS.current(); } catch (_) { return null; } }, ana: () => ANA, THREE, scene, ctx, esc, fmtN: ctx.fmtN, S: () => state.S, save: () => { try { ctx.changed('meta'); } catch (_) {} },
     hideReport: () => { document.querySelector('#report').hidden = true; }, showReport: () => { document.querySelector('#report').hidden = false; redraw(); } });
   const OPS = createOps({ turnos: () => TU, ana: () => ANA, flow: FLU, svg, side, esc, fmtN: ctx.fmtN, RO, S: () => state.S, save: () => { try { ctx.changed('meta'); } catch (_) {} }, redraw: refit => { if (refit) state.key = ''; redraw(); } });
   try { ANA = createAnalisis({ turnos: () => TU, esc, fmtN: ctx.fmtN, flow: FLU, yz: () => OPS.current(), S: () => state.S, save: () => { try { ctx.changed('meta'); } catch (_) {} } }); } catch (e) { console.warn('Análisis de turno no disponible:', e); }

@@ -32,7 +32,8 @@ export function create(api) {
   const stl = document.createElement('style'); stl.textContent = CSS; document.head.appendChild(stl);
   const vida = () => window.__vida, rd = () => window.__rd || {};
   const all = () => { const S = api.S(), out = []; (Array.isArray(S?.yz) ? S.yz : []).forEach(Y => Y.ops.forEach(o => out.push({ Y, o }))); return out; };
-  const anim = () => all().filter(x => x.o.anim);
+  const scope = () => { let Y = null; try { Y = api.yz?.(); } catch (_) {} if (!Y) return null; const s = new Set([Y.id]); if (Y.junto && (api.S()?.yz || []).some(q => q.id === Y.junto)) s.add(Y.junto); return s; };
+  const anim = () => { const s = scope(); return all().filter(x => x.o.anim && (!s || s.has(x.Y.id))); };
   const byId = id => all().find(x => x.o.id === id) || null;
   const short = o => o.est ? `${o.est} ${o.pos} ${o.lado}` : o.name;
   const who = o => o.oper ? `${short(o)} · ${o.oper}` : o.name;
@@ -40,7 +41,7 @@ export function create(api) {
 
   /* ---------- elegir quién se anima ---------- */
   function toggle(id, v) { const x = byId(id); if (!x) return ''; const on = v === undefined ? !x.o.anim : !!v;
-    if (on && !x.o.anim && anim().length >= MAX) return `Ya hay ${MAX} personas elegidas para animar. Quita una antes de agregar otra.`;
+    if (on && !x.o.anim && anim().length >= MAX) return `Ya hay ${MAX} personas elegidas para animar en este yamazumi. Quita una antes de agregar otra.`;
     x.o.anim = on; api.save(); return ''; }
 
   /* ---------- dibujo auxiliar en 3D ---------- */
@@ -217,7 +218,7 @@ export function create(api) {
     hud._cur = c; if (!done) hud._next = null; }
   function stop() { if (!SIM) return; S0hover(false); const V = vida(); V?.ext(null); V?.undriveAll(); SIM = null; hudWin?.remove(); hudWin = null; hud?.remove(); hud = null; clearG(); }
 
-  return { MAX, all, anim, byId, short, who, toggle, link, endLink, unlink, start, stop,
+  return { MAX, all, anim, scope, byId, short, who, toggle, link, endLink, unlink, start, stop,
     state: () => SIM ? { running: true, clock: SIM.clock, out: SIM.out, speed: SIM.speed, feed: SIM.feed, neck: SIM.neck ? who(SIM.neck.o) : null, nodes: SIM.N.map(n => ({ name: n.o.name, q: n.q, done: n.done, busy: n.busy, next: n.nx?.o.name || null })) } : { running: false, linking: !!LK, anim: anim().length },
     sim: () => SIM, tick };
 }
