@@ -48,7 +48,7 @@ export function create(api) {
   let G = null;
   const clearG = () => { if (!G) return; scene.remove(G); G.traverse(m => { m.geometry?.dispose(); if (m.material) { m.material.map?.dispose(); m.material.dispose(); } }); G = null; };
   const newG = () => { clearG(); G = new THREE.Group(); scene.add(G); return G; };
-  function ring(x, z, col, r = .85) { const g = new THREE.RingGeometry(r - .16, r, 36); g.rotateX(-Math.PI / 2); const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: .95, depthTest: false, depthWrite: false, side: THREE.DoubleSide })); m.position.set(x, .06, z); m.renderOrder = 61; return m; }
+  function ring(x, z, col, r = .4) { const g = new THREE.RingGeometry(r - .08, r, 32); g.rotateX(-Math.PI / 2); const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: .95, depthTest: false, depthWrite: false, side: THREE.DoubleSide })); m.position.set(x, .06, z); m.renderOrder = 61; return m; }
   function label() { const c = document.createElement('canvas'); c.width = 448; c.height = 128; const tex = new THREE.CanvasTexture(c); if (THREE.SRGBColorSpace) tex.colorSpace = THREE.SRGBColorSpace;
     const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false, depthWrite: false })); sp.scale.set(4.2, 1.2, 1); sp.renderOrder = 70; sp.userData = { c, tex, key: '' }; return sp; }
   function chipLabel() { const c = document.createElement('canvas'); c.width = 128; c.height = 128; const tex = new THREE.CanvasTexture(c); if (THREE.SRGBColorSpace) tex.colorSpace = THREE.SRGBColorSpace;
@@ -62,7 +62,7 @@ export function create(api) {
     g.fillStyle = '#e7ebef'; g.font = '600 34px system-ui, Segoe UI, sans-serif'; g.textBaseline = 'middle'; g.fillText(cut(l1, 24), 30, 42); g.fillStyle = col === '#7c8a97' ? '#a9b3bd' : col; g.font = '600 30px system-ui, Segoe UI, sans-serif'; g.fillText(cut(l2, 28), 30, 90); u.tex.needsUpdate = true; }
   function arrow(a, b, col) { const g = new THREE.Group(), dx = b[0] - a[0], dz = b[1] - a[1], L = Math.hypot(dx, dz); if (L < .3) return g;
     const lg = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(a[0], .1, a[1]), new THREE.Vector3(b[0], .1, b[1])]); const ln = new THREE.Line(lg, new THREE.LineBasicMaterial({ color: col, transparent: true, opacity: .8, depthTest: false })); ln.renderOrder = 60; g.add(ln);
-    const cg = new THREE.ConeGeometry(.22, .6, 12); cg.rotateZ(-Math.PI / 2); const cn = new THREE.Mesh(cg, new THREE.MeshBasicMaterial({ color: col, depthTest: false })); cn.position.set(a[0] + dx * .55, .1, a[1] + dz * .55); cn.rotation.y = -Math.atan2(dz, dx); cn.renderOrder = 60; g.add(cn); return g; }
+    const cn = new THREE.Mesh(CONEG, new THREE.MeshBasicMaterial({ color: col, depthTest: false, side: THREE.DoubleSide })); cn.position.set(a[0] + dx * .55, .045, a[1] + dz * .55); cn.rotation.y = -Math.atan2(dz, dx); cn.renderOrder = 60; g.add(cn); return g; }
 
   /* ---------- enlazar con clic en el gemelo ---------- */
   let LK = null, chip = null, pd = null;
@@ -92,7 +92,8 @@ export function create(api) {
   const COL = { work: '#199e70', idle: '#7c8a97', wip: '#FFB020', neck: '#ff5a4f' };
 
   /* ---------- lotes: un InstancedMesh por tipo de marca para todas las personas ---------- */
-  const RINGG = (() => { const gg = new THREE.RingGeometry(.69, .85, 36); gg.rotateX(-Math.PI / 2); return gg; })(), CONEG = (() => { const cg = new THREE.ConeGeometry(.22, .6, 12); cg.rotateZ(-Math.PI / 2); return cg; })();
+  // aro de estación y punta de flecha pequeños y planos: en costura las estaciones están a ~1.2 m y los grandes se encimaban
+  const RINGG = (() => { const gg = new THREE.RingGeometry(.3, .38, 32); gg.rotateX(-Math.PI / 2); return gg; })(), CONEG = (() => { const sh = new THREE.Shape(); sh.moveTo(.13, 0); sh.lineTo(-.11, .1); sh.lineTo(-.05, 0); sh.lineTo(-.11, -.1); sh.closePath(); const cg = new THREE.ShapeGeometry(sh); cg.rotateX(-Math.PI / 2); return cg; })();
   const IM = (geo, mat, n, o = {}) => { const im = new THREE.InstancedMesh(geo, mat, Math.max(1, n)); im.count = 0; im.frustumCulled = false; im.raycast = () => {}; im.userData.noLote = true; if (o.ro != null) im.renderOrder = o.ro; im.castShadow = !!o.cast; return im; };
   const _o = new THREE.Object3D(), _cc = new THREE.Color();
   function batches(N, g) { const n = N.length;
@@ -109,11 +110,11 @@ export function create(api) {
     B.rings.count = n; B.pals.count = n; B.lvl.count = n;
     Object.values(B).forEach(x => g.add(x)); g.userData.B = B; return B; }
   function arrows(N, g) { const pts = [], cones = [];
-    N.forEach(n => { if (!n.nx) return; const a = [n.x, n.z], b = [n.nx.x, n.nx.z], dx = b[0] - a[0], dz = b[1] - a[1]; if (Math.hypot(dx, dz) < .3) return;
-      pts.push(new THREE.Vector3(a[0], .1, a[1]), new THREE.Vector3(b[0], .1, b[1])); cones.push([a[0] + dx * .55, a[1] + dz * .55, -Math.atan2(dz, dx)]); });
-    if (!pts.length) return; const ln = new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: '#8fb7ff', transparent: true, opacity: .8, depthTest: false })); ln.renderOrder = 60; ln.raycast = () => {}; g.add(ln);
-    const cn = IM(CONEG, new THREE.MeshBasicMaterial({ color: '#8fb7ff', depthTest: false }), cones.length, { ro: 60 });
-    cones.forEach(([x, z, r], i) => { _o.position.set(x, .1, z); _o.rotation.set(0, r, 0); _o.scale.set(1, 1, 1); _o.updateMatrix(); cn.setMatrixAt(i, _o.matrix); }); cn.count = cones.length; g.add(cn); }
+    N.forEach(n => { if (!n.nx) return; const a = [n.x, n.z], b = [n.nx.x, n.nx.z], dx = b[0] - a[0], dz = b[1] - a[1], L = Math.hypot(dx, dz); if (L < .5) return; const ux = dx / L, uz = dz / L, r = Math.min(.42, L * .3);
+      pts.push(new THREE.Vector3(a[0] + ux * r, .04, a[1] + uz * r), new THREE.Vector3(b[0] - ux * r, .04, b[1] - uz * r)); const k = L > 6 ? [.3, .7] : [.55]; k.forEach(f => cones.push([a[0] + dx * f, a[1] + dz * f, -Math.atan2(dz, dx)])); });
+    if (!pts.length) return; const ln = new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: '#5aa0ff', transparent: true, opacity: .7, depthTest: false })); ln.renderOrder = 60; ln.raycast = () => {}; g.add(ln);
+    const cn = IM(CONEG, new THREE.MeshBasicMaterial({ color: '#5aa0ff', depthTest: false, side: THREE.DoubleSide }), cones.length, { ro: 60 });
+    cones.forEach(([x, z, r], i) => { _o.position.set(x, .045, z); _o.rotation.set(0, r, 0); _o.scale.set(1, 1, 1); _o.updateMatrix(); cn.setMatrixAt(i, _o.matrix); }); cn.count = cones.length; g.add(cn); }
   function draw(n) { if (!n.bag.length) { const c = (n.o.cycles || []).map(x => +x.t).filter(t => t > 0); if (!c.length) c.push(60);
       for (let i = c.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [c[i], c[j]] = [c[j], c[i]]; } n.bag = c; } return n.bag.pop(); }
   function start() {

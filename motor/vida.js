@@ -46,11 +46,12 @@ export function init(TW){
   const _m=new T.Matrix4(), _p=new T.Vector3(), _q=new T.Quaternion(), _s=new T.Vector3(), _c=new T.Color();
   function opBase(o){                                                         // posición, giro, color y altura del operador estático
     const sl=o.slots[0]; if(!sl||!sl.b.ms[sl.i]) return null; const e=sl.b.ms[sl.i].elements;
-    let top=0, col=null;
-    for(const s of o.slots){ if(s.keep) continue; const geo=s.b.geo||s.b.b?.geo, ms=s.b.ms?.[s.i]; if(!geo||!ms) continue; if(!geo.boundingBox) geo.computeBoundingBox(); const me=ms.elements; top=Math.max(top, me[13]+geo.boundingBox.max.y*Math.hypot(me[4],me[5],me[6])); const cs=s.b.cs||s.b.b?.cs, ci=s.b.si?s.b.si[s.i]:s.i; if(col==null && cs && cs[ci]!==undefined) col=cs[ci]; }
+    let top=0, col=null, seat=0;
+    for(const s of o.slots){ const geo=s.b.geo||s.b.b?.geo, ms=s.b.ms?.[s.i]; if(!geo||!ms) continue;
+      if(s.keep){ if(!geo.boundingBox) geo.computeBoundingBox(); const mk=ms.elements, tk=mk[13]+geo.boundingBox.max.y*Math.hypot(mk[4],mk[5],mk[6]); if(tk>.3&&tk<.75) seat=Math.max(seat,tk); continue; } if(!geo.boundingBox) geo.computeBoundingBox(); const me=ms.elements; top=Math.max(top, me[13]+geo.boundingBox.max.y*Math.hypot(me[4],me[5],me[6])); const cs=s.b.cs||s.b.b?.cs, ci=s.b.si?s.b.si[s.i]:s.i; if(col==null && cs && cs[ci]!==undefined) col=cs[ci]; }
     if(top<.9||top>2.1) return null;                                          // no es una figura humana
     const yaw0=Math.atan2(-e[2],e[0]), dx=o.off[0], dz=o.off[1], da=o.off[2]||0;
-    return { x:e[12]+dx, z:e[14]+dz, y:e[13], yaw:yaw0-da, top, col:col||'#3fa0ff', seated: top<1.5 };
+    return { x:e[12]+dx, z:e[14]+dz, y:e[13], yaw:yaw0-da, top, col:col||'#3fa0ff', seated: top<1.5, seat };
   }
   function pose(R,t){
     const b=R.base, seed=R.seed, tt=t+seed*40, Tc=9+seed*6, n=Math.floor(tt/Tc), u=(tt/Tc)-n, pick=hash(n*7.13+seed*91);
@@ -71,7 +72,7 @@ export function init(TW){
       const dirx=Math.cos(-(b.yaw+A)), dirz=Math.sin(-(b.yaw+A)); x+=dirx*d*s; z+=dirz*d*s;
       const ph=s*d*TAU/.62, sw=Math.sin(ph)*.5*w; hl=sw; hr=-sw; kl=-Math.max(0,-Math.sin(ph+.6))*.7*w; kr=-Math.max(0,Math.sin(ph+.6))*.7*w;
       const k=w?1:.35; sl=.1-sw*.8; sr=.1+sw*.8; el=er=.25*k+.15; lean=-.04; nod=0; }
-    R.g.position.set(x,b.y+(b.seated?b.top-1.32:0),z); R.g.rotation.y=yaw;
+    R.g.position.set(x,b.y+(b.seated?(b.seat?b.seat+.07-.9:b.top-1.32):0),z); R.g.rotation.y=yaw;
     R.up.rotation.z=lean; R.up.rotation.y=twist; R.head.rotation.z=-nod;
     R.hip[0].h.rotation.z=hl; R.hip[1].h.rotation.z=hr; R.hip[0].k.rotation.z=kl; R.hip[1].k.rotation.z=kr;
     R.arm[0].a.rotation.z=sl; R.arm[1].a.rotation.z=sr; R.arm[0].e.rotation.z=el; R.arm[1].e.rotation.z=er;
@@ -123,7 +124,7 @@ export function init(TW){
     else if(s.mode==='work'){ sl=.95+.26*Math.sin(tt*2.1); sr=.95+.26*Math.sin(tt*2.1+Math.PI); el=.85+.32*Math.sin(tt*2.1+1.1); er=.85+.32*Math.sin(tt*2.1+Math.PI+1.1); nod=.12+.06*Math.sin(tt*.9); }
     else { sl=sr=.08+.03*Math.sin(tt*.7); el=er=.2; lean=-.02; nod=.03; }
     if(seated){ hl=hr=1.5; kl=kr=-1.5; lean-=.05; if(s.mode==='work'){ sl-=.25; sr-=.25; } }
-    R.g.position.set(x,b.y+(seated?b.top-1.32:0),z); R.g.rotation.y=yaw;
+    R.g.position.set(x,b.y+(seated?(b.seat?b.seat+.07-.9:b.top-1.32):0),z); R.g.rotation.y=yaw;
     R.up.rotation.z=lean; R.up.rotation.y=0; R.head.rotation.z=-nod;
     R.hip[0].h.rotation.z=hl; R.hip[1].h.rotation.z=hr; R.hip[0].k.rotation.z=kl; R.hip[1].k.rotation.z=kr;
     R.arm[0].a.rotation.z=sl; R.arm[1].a.rotation.z=sr; R.arm[0].e.rotation.z=el; R.arm[1].e.rotation.z=er; }
@@ -225,5 +226,5 @@ export function init(TW){
       const lab=q.querySelector('.seglabel'); d.innerHTML=(lab?'<span class="'+lab.className+'">Animación</span>':'')+'<button data-v="off" title="Sin animación de operadores ni máquinas">No</button><button data-v="zona" title="Anima lo que está cerca de donde miras">Zona</button><button data-v="alta" title="Más operadores y máquinas animados; pide más equipo">Alta</button>';
       q.insertAdjacentElement('afterend',d); d.addEventListener('click',e=>{ const b=e.target.closest('button'); if(b) setMode(b.dataset.v); }); noteEl=d; d.hidden=true; d.style.display='none'; setMode(mode); } }
   const lookAt=(x,z,r)=>{ const o=TW.orbit; if(!o) return; o.T.target.set(x,0,z); if(r) o.T.r=r; acc=1; };   // para pruebas y para recorridos
-  return { frame, setMode, lookAt, drive, undrive, undriveAll(){ [...DRV.keys()].forEach(undrive); }, nearestOp, rayOp, ext(f){ EXT=f||null; }, driven:()=>DRV.size, where:()=>({ops:[...BUSY.values()].slice(0,5).map(R=>[+R.base.x.toFixed(1),+R.base.z.toFixed(1),R.base.seated]),mach:[...MACH.values()].slice(0,3).map(X=>[+X.g.position.x.toFixed(1),+X.g.position.z.toFixed(1),X.kind])}), get mode(){ return mode; }, stats:()=>({ mode, ops:BUSY.size, mach:MACH.size, pool:POOL.length, total:OPS.length, kinds:[...MACH.values()].map(x=>x.kind) }) };
+  return { frame, setMode, lookAt, drive, undrive, undriveAll(){ [...DRV.keys()].forEach(undrive); }, nearestOp, rayOp, ext(f){ EXT=f||null; }, driven:()=>DRV.size, where:()=>({ops:[...BUSY.values()].slice(0,5).map(R=>[+R.base.x.toFixed(1),+R.base.z.toFixed(1),R.base.seated,+(R.base.seat||0).toFixed(2),+R.g.position.y.toFixed(2)]),mach:[...MACH.values()].slice(0,3).map(X=>[+X.g.position.x.toFixed(1),+X.g.position.z.toFixed(1),X.kind])}), get mode(){ return mode; }, stats:()=>({ mode, ops:BUSY.size, mach:MACH.size, pool:POOL.length, total:OPS.length, kinds:[...MACH.values()].map(x=>x.kind) }) };
 }
