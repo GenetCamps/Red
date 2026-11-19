@@ -55,9 +55,10 @@ details .campo{margin-bottom:12px}details .campo input{background:#fff}
 .vuelta small{font:500 14px var(--txt);color:#ffe3e4}
 .vuelta:active{transform:scale(.97)}
 .vuelta.pausa{background:var(--grafito2);box-shadow:none}
-.cats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.cats button{border:1px solid var(--linea);background:var(--losa);border-radius:10px;padding:8px 2px;font-size:13px;font-weight:600;min-height:50px;cursor:pointer}
+.cats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.cats button{border:1px solid var(--linea);background:var(--losa);border-radius:10px;padding:6px 2px;font-size:12.5px;line-height:1.15;font-weight:600;min-height:50px;cursor:pointer}
 .cats button[aria-pressed="true"]{background:var(--grafito);border-color:var(--grafito);color:#fff}
 .ult{display:flex;gap:6px}.ult span{flex:1;text-align:center;background:var(--losa);border-radius:9px;padding:6px 0;font:600 18px var(--tit)}.ult span small{display:block;font:400 11px var(--txt);color:var(--tenue)}
+.tips{margin:0;padding:10px 12px 10px 30px;background:rgba(242,194,0,.2);border-radius:12px;font-size:14px;line-height:1.4}.tips li+li{margin-top:4px}
 .lnk{background:none;border:0;color:var(--info);text-decoration:underline;cursor:pointer;padding:4px;font-size:14px}
 .res{display:grid;grid-template-columns:1fr 1fr;gap:8px}.res div{background:var(--losa);border-radius:12px;padding:10px 12px}.res b{font:600 32px/1 var(--tit);display:block}.res span{font-size:13px;color:var(--tenue)}
 .estado{display:grid;grid-template-columns:28px 1fr;gap:10px;align-items:center;font-size:15px;background:var(--losa);border-radius:12px;padding:12px}
@@ -76,7 +77,8 @@ details .campo{margin-bottom:12px}details .campo input{background:#fff}
 var P=window.RD_PERM, ME=window.RD_ME; if(!P||!ME) return;            // sin sesión: acceso.js muestra la pantalla de entrada
 var PLN={p1:'Planta 1',p2:'Planta 2',p4:'Plantas 3 y 4',p67:'Plantas 6 y 7',p8:'Planta 8',parras:'Parras'};
 var QK='rd_crono_v1', AK='rd_crono_actual', REPO='GenetCamps/Red', PATH='datos/compartido.json';
-var CATS=[['va','Proceso','El operador está haciendo la operación'],['esp','Espera','Detenido esperando pieza, máquina o instrucción'],['rew','Retrabajo','Corrigiendo una pieza'],['cd','Material','Cargando, descargando o surtiendo material']];
+// las mismas categorías del yamazumi (motor/yamaops.js CATS)
+var CATS=[['va','Proceso (VA)','Agrega valor: coser, ensamblar, transformar la pieza'],['insp','Inspección','Revisar o medir la pieza'],['mov','Movimiento','Caminar o mover la pieza sin transformarla'],['esp','Espera','Detenido esperando pieza, máquina o instrucción'],['rew','Rework','Retrabajo: corregir una pieza'],['aju','Ajuste / Setup','Ajustar la máquina o cambiar de modelo'],['cd','Carga / Descarga','Tomar, cargar, descargar o dejar la pieza']];
 var $=function(id){return document.getElementById(id);}, cont=$('cont'), go=$('go'), tit=$('tit');
 var esc=function(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});};
 var norm=function(s){return String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/\s+/g,' ').trim();};
@@ -87,13 +89,13 @@ var load=function(k,d){try{var v=JSON.parse(localStorage.getItem(k)||'null');ret
 var save=function(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(_){}};
 var plants=P.list(); $('who').textContent=(plants.length===1?PLN[plants[0]]:'Red DAIMAY')+' · '+ME.nombre;
 if(!P.edit){ cont.innerHTML='<p class="aviso">Tu usuario es de <b>solo ver</b>: puedes consultar la Red, pero no tomar tiempos. Si debes tomarlos, pide a tu administrador que te cambie de nivel.</p>'; go.innerHTML='<a class="btn pri" href="index.html">Ir a la Red</a>'; return; }
-var S={pl:load('rd_crono_pl',null), est:'', op:'', quien:'', linea:'', meta:15};
+var S={pl:load('rd_crono_pl',null), est:'', op:'', quien:'', linea:load('rd_crono_linea',''), meta:15};
 if(plants.indexOf(S.pl)<0) S.pl=plants[0];
 
 /* ---------- estaciones conocidas: operaciones de los yamazumis de la planta (oficiales + compartidas + las de este navegador) ---------- */
-var KN={};
+var KN={}, KL={};
 function known(docs){ Object.keys(docs||{}).forEach(function(k){ var m=/^pl\/([^/]+)\/scenarios\//.exec(k); if(!m) return; var sc=docs[k]; if(!sc||!Array.isArray(sc.yz)) return;
-  var L=KN[m[1]]||(KN[m[1]]={}); sc.yz.forEach(function(y){ (y.ops||[]).forEach(function(o){ if(o&&o.name){ var n=norm(o.name); if(!L[n]) L[n]={n:o.name,yz:y.name}; } }); }); }); }
+  var L=KN[m[1]]||(KN[m[1]]={}), LL=KL[m[1]]||(KL[m[1]]={}); sc.yz.forEach(function(y){ var ln=String(y.linea||y.name||'').trim(); if(ln&&!LL[norm(ln)]) LL[norm(ln)]=ln; (y.ops||[]).forEach(function(o){ if(o&&o.name){ var n=norm(o.name); if(!L[n]) L[n]={n:o.name,yz:y.name}; } }); }); }); }
 known(window.RD_BASE); known(load('reddaimay_db_v1',{}));
 fetch(PATH+'?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(j){ if(j&&j.docs){ known(j.docs); if(view==='nueva') sug(); } }).catch(function(){});
 function matches(q){ var L=KN[S.pl]||{}, n=norm(q); if(!n) return []; var all=Object.keys(L), exact=all.filter(function(k){return k===n;}), part=all.filter(function(k){return k!==n&&(k.indexOf(n)>=0||n.indexOf(k)>=0);});
@@ -104,30 +106,35 @@ var view='nueva', A=load(AK,null), tick=null, wake=null;
 function nueva(){ view='nueva'; tit.textContent='Nueva toma de tiempos';
   var Q=load(QK,[]), mias=Q.filter(function(x){return hoy(x.fin)===hoy();}).reverse();
   cont.innerHTML=(plants.length>1?'<div class="campo"><label>Planta</label><div class="chips" id="pls">'+plants.map(function(p){return '<button type="button" data-pl="'+p+'" aria-pressed="'+(p===S.pl)+'">'+PLN[p]+'</button>';}).join('')+'</div></div>':'')
+    +'<div class="campo"><label for="iL">Línea</label><input id="iL" autocomplete="off" value="'+esc(S.linea)+'" placeholder="Por ejemplo Línea 1"><div class="sug" id="sugL"></div></div>'
     +'<div class="campo"><label for="iEst">Estación</label><input id="iEst" autocomplete="off" autocapitalize="characters" placeholder="Por ejemplo L1 Decorado 2" value="'+esc(S.est)+'"><div class="sug" id="sug" aria-live="polite"></div></div>'
     +'<div class="campo"><label for="iOp">Nombre de la operación</label><input id="iOp" autocomplete="off" placeholder="Por ejemplo Costura decorativa respaldo" value="'+esc(S.op)+'"></div>'
     +'<details><summary>Más datos (opcional)</summary><div class="campo"><label for="iQ">Quién la hace</label><input id="iQ" autocomplete="off" value="'+esc(S.quien)+'" placeholder="Nombre del operador"></div>'
-    +'<div class="campo"><label for="iL">Línea</label><input id="iL" autocomplete="off" value="'+esc(S.linea)+'" placeholder="Por ejemplo Línea 1"></div>'
     +'<div class="campo"><label for="iM">Ciclos a tomar</label><input id="iM" type="number" inputmode="numeric" min="2" max="200" value="'+S.meta+'"></div></details>'
+    +'<ul class="tips"><li>Un yamazumi por línea: toma solo estaciones de esta línea.</li><li>No mezcles 2 o 3 líneas ni personas de otra línea en la misma toma.</li><li>Una toma es una estación y una persona; si cambia la persona, empieza otra toma.</li></ul>'
     +'<p class="err" id="err" role="alert"></p>'
     +'<div class="grupo">Tus tomas de hoy</div>'+(mias.length?mias.map(rec).join(''):'<p class="vacio">Todavía no tomas tiempos hoy en este teléfono.</p>');
   go.innerHTML='<button class="btn pri" id="bGo">Empezar a cronometrar</button>';
   var e=$('iEst'); e.addEventListener('input',function(){S.est=e.value;sug();}); $('iOp').addEventListener('input',function(){S.op=this.value;});
-  $('iQ').addEventListener('input',function(){S.quien=this.value;}); $('iL').addEventListener('input',function(){S.linea=this.value;}); $('iM').addEventListener('input',function(){var v=+this.value; if(v>=2) S.meta=Math.min(200,Math.round(v));});
+  $('iQ').addEventListener('input',function(){S.quien=this.value;}); $('iL').addEventListener('input',function(){S.linea=this.value;sugL();}); $('iM').addEventListener('input',function(){var v=+this.value; if(v>=2) S.meta=Math.min(200,Math.round(v));});
   var pls=$('pls'); if(pls) pls.addEventListener('click',function(ev){var b=ev.target.closest('[data-pl]'); if(!b) return; S.pl=b.dataset.pl; save('rd_crono_pl',S.pl); nueva();});
-  $('bGo').addEventListener('click',empezar); cont.querySelectorAll('[data-re]').forEach(function(b){b.addEventListener('click',function(){enviar(true);});}); sug(); }
-function rec(x){ return '<button class="rec"'+(x.env?'':' data-re="1"')+' type="button"><span><b>'+esc(x.est)+'</b><small>'+esc(x.op)+' · '+x.c.length+' ciclos · '+esc(hora(x.fin))+'</small></span>'+(x.env?'<em class="ok">Enviada</em>':'<em class="pe">Por enviar · tocar</em>')+'</button>'; }
+  $('bGo').addEventListener('click',empezar); cont.querySelectorAll('[data-re]').forEach(function(b){b.addEventListener('click',function(){enviar(true);});}); sug(); sugL(); }
+function sugL(){ var s=$('sugL'); if(!s) return; var L=KL[S.pl]||{}, n=norm(S.linea), ks=Object.keys(L).filter(function(k){return !n||k.indexOf(n)>=0;}).slice(0,6);
+  s.innerHTML=ks.map(function(k){return '<button type="button" class="'+(k===n?'si':'')+'" data-l="'+esc(L[k])+'">'+(k===n?'✓ ':'')+esc(L[k])+'</button>';}).join('');
+  s.querySelectorAll('[data-l]').forEach(function(b){b.addEventListener('click',function(){S.linea=b.dataset.l; $('iL').value=S.linea; sugL(); $('iEst').focus();});}); }
+function rec(x){ return '<button class="rec"'+(x.env?'':' data-re="1"')+' type="button"><span><b>'+esc(x.est)+'</b><small>'+esc([x.linea,x.op].filter(Boolean).join(' · '))+' · '+x.c.length+' ciclos · '+esc(hora(x.fin))+'</small></span>'+(x.env?'<em class="ok">Enviada</em>':'<em class="pe">Por enviar · tocar</em>')+'</button>'; }
 function sug(){ var s=$('sug'); if(!s) return; var M=matches(S.est);
   s.innerHTML=M.map(function(m){return '<button type="button" class="'+(m.ex?'si':'')+'" data-s="'+esc(m.o.n)+'">'+(m.ex?'✓ ':'')+esc(m.o.n)+(m.ex?' (ya existe)':'')+'</button>';}).join('')
     +(S.est.trim()&&!M.some(function(m){return m.ex;})?'<span class="nuevo">Estación nueva: se guarda igual y se acomoda en el yamazumi.</span>':'');
   s.querySelectorAll('[data-s]').forEach(function(b){b.addEventListener('click',function(){S.est=b.dataset.s; $('iEst').value=S.est; sug(); $('iOp').focus();});}); }
-function empezar(){ var er=$('err'); S.est=S.est.trim(); S.op=S.op.trim();
+function empezar(){ var er=$('err'); S.est=S.est.trim(); S.op=S.op.trim(); S.linea=S.linea.trim();
+  if(!S.linea){ er.textContent='Escribe la línea: cada yamazumi es de una sola línea.'; $('iL').focus(); return; } save('rd_crono_linea',S.linea);
   if(!S.est){ er.textContent='Escribe la estación.'; $('iEst').focus(); return; } if(!S.op){ er.textContent='Escribe el nombre de la operación.'; $('iOp').focus(); return; }
   A={id:'c'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),pl:S.pl,est:S.est,op:S.op,quien:S.quien.trim(),linea:S.linea.trim(),meta:S.meta,c:[],cat:'va',t0:null,pausa:null,ini:new Date().toISOString()};
   save(AK,A); crono(); }
 function now(){ return performance.timeOrigin?performance.timeOrigin+performance.now():Date.now(); }
 function crono(){ view='crono'; tit.textContent=A.est; try{ if(navigator.wakeLock) navigator.wakeLock.request('screen').then(function(w){wake=w;}).catch(function(){}); }catch(_){}
-  cont.innerHTML='<p style="margin:-6px 0 0;color:var(--tenue);font-size:14px">'+esc(A.op)+(A.quien?' · '+esc(A.quien):'')+'</p>'
+  cont.innerHTML='<p style="margin:-6px 0 0;color:var(--tenue);font-size:14px">'+esc(A.linea)+' · '+esc(A.op)+(A.quien?' · '+esc(A.quien):'')+'</p>'
     +'<div class="reloj"><b class="num" id="num">0.0</b><small id="cic"></small></div>'
     +'<button class="vuelta" id="bV"></button>'
     +'<div class="cats" role="group" aria-label="Qué está pasando">'+CATS.map(function(c){return '<button type="button" data-c="'+c[0]+'" title="'+c[2]+'" aria-pressed="'+(A.cat===c[0])+'">'+c[1]+'</button>';}).join('')+'</div>'
