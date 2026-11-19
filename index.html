@@ -414,6 +414,7 @@
 </style>
 <link rel="stylesheet" href="estilo/fase1.css">
 <link rel="stylesheet" href="estilo/barra.css">
+<link rel="stylesheet" href="estilo/red.css">
 <div id="stage"></div>
 <div id="labels"></div>
 <div id="mapui">
@@ -1716,7 +1717,7 @@ function vxConsoleOpen(kind){ window.__rdKind=kind==='parras'?'vp':kind||'vx'; r
    - La búsqueda de arriba suma acciones de mejora, nodos del Centro OEE y cajas de las consolas VSM.
    - Ayuda: botón «?» en la barra del hub y en el encabezado de cada módulo; la primera vez se muestra sola (localStorage rd_help_<módulo>). */
 window.__rdNav = null; window.__rdKind = null;
-function rdGo(t) { if (!t) return; { const P = window.RD_PERM; if (P && P.solo && (t.to === 'oee' || t.to === 'acc' || (t.to === 'plant' && !P.plant(t.plant)) || (t.to === 'vx' && !P.plant('p4')) || (t.to === 'vp' && !P.plant('parras')))) { toast('Tu usuario no tiene acceso a eso.', 3500); return; } } try { stopTour(); } catch (_) {} try { $('#sres').hidden = true; } catch (_) {} rdHelpClose();
+function rdGo(t) { if (!t) return; try { rhHide(); } catch (_) {} { const P = window.RD_PERM; if (P && P.solo && (t.to === 'oee' || t.to === 'acc' || (t.to === 'plant' && !P.plant(t.plant)) || (t.to === 'vx' && !P.plant('p4')) || (t.to === 'vp' && !P.plant('parras')))) { toast('Tu usuario no tiene acceso a eso.', 3500); return; } } try { stopTour(); } catch (_) {} try { $('#sres').hidden = true; } catch (_) {} rdHelpClose();
   if (t.to === 'plant') { if (!PL[t.plant]) { toast('Esa planta no está en la red.'); return; } vxConsoleClose(); mcClose();
     Promise.resolve(enterPlant(t.plant, t.focus ? [{ cmd: 'focus', x: t.focus.x, z: t.focus.z, r: t.focus.r || 26, label: t.focus.label || '' }] : null)).then(() => { if (t.ops) rdTwinOps(t.plant, t.yz); }); return; }
   window.__rdNav = t; mcClose(); vxConsoleOpen(t.to === 'oee' ? 'oee' : t.to === 'acc' ? 'acc' : t.to === 'vp' ? 'parras' : undefined); }
@@ -1823,7 +1824,7 @@ function rdpSolo() {
   const host = document.querySelector('#bar .acts'); if (host) host.parentNode.insertBefore(bar, host); else { bar.classList.add('fl'); document.body.appendChild(bar); } paint();
   // siempre dentro de su planta: al cargar y si algo regresa a la vista de la red
   let tries = 0; const keep = () => { let m = 'red'; try { m = MODE; } catch (_) {} const vxOpen = document.getElementById('vxc') && !document.getElementById('vxc').hidden;
-    if (m !== 'plant' && !vxOpen && !document.getElementById('rdGate')) { go(first); tries++; } paint();
+    if (m !== 'plant' && !vxOpen && !window.__rdHome && !document.getElementById('rdGate')) { go(first); tries++; } paint();
     const back = document.getElementById('vxcBack'); if (back && back.textContent.indexOf('Mi planta') < 0) back.textContent = '← Mi planta'; };
   setTimeout(keep, 900); setInterval(keep, 1500);
 }
@@ -1856,6 +1857,115 @@ window.rdActividad = function () {
   paint(); };
 setTimeout(rdpSolo, 50);
 
+/* =================================================================== INICIO DE LA RED (build/inicio.js; build.py lo inserta en el módulo del hub)
+   Pantalla de entrada con dos modos (se recuerda en localStorage rd_home_mode):
+   - «Oficina»: una tarjeta por planta con su contorno real, superficie, personas y lo que está pasando (acciones, proyectos, tomas de piso),
+     pendientes de verdad (acciones vencidas, tomas sin agregar, tareas vencidas, yamazumis sin takt), la actividad de hoy y accesos rápidos.
+   - «Piso»: botones grandes para tableta y celular: tomar tiempos (crono.html), ver mi planta en 3D, yamazumi y tomas por agregar.
+   Mientras el Inicio está abierto el mapa 3D no se dibuja (window.__rdHome); en celular el 3D solo se carga si lo piden.
+   Todo número sale de los datos de la Red; si un dato no existe se dice, no se inventa. */
+const RH = { on: false, data: null, busy: false, at: 0 };
+const RH_PH = () => matchMedia('(max-width: 720px)').matches;
+const rhMode = () => { try { const m = localStorage.getItem('rd_home_mode'); if (m === 'piso' || m === 'oficina') return m; } catch (_) {} return (RH_PH() || (matchMedia('(pointer:coarse)').matches && innerWidth < 1100)) ? 'piso' : 'oficina'; };
+const rhPlants = () => { const P = window.RD_PERM; return ORDER.filter(id => !PL[id].ghost && (!P || P.plant(id))); };
+const rhN = v => (+v || 0).toLocaleString('es-MX');
+const rhDay = v => { const d = v ? new Date(v) : new Date(); return isFinite(d) ? d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0') : ''; };
+const rhHora = v => { const d = new Date(v); return isFinite(d) ? d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }) : ''; };
+function rhSvg(id) { const ps = (PL[id].polys || []).filter(p => Array.isArray(p.p) && p.p.length > 2); if (!ps.length) return '';
+  let x0 = 1e9, z0 = 1e9, x1 = -1e9, z1 = -1e9; ps.forEach(p => p.p.forEach(([x, z]) => { x0 = Math.min(x0, x); x1 = Math.max(x1, x); z0 = Math.min(z0, z); z1 = Math.max(z1, z); }));
+  const w = x1 - x0 || 1, h = z1 - z0 || 1, W = 300, H = 120, pad = 12, k = Math.min((W - 2 * pad) / w, (H - 2 * pad) / h), ox = (W - w * k) / 2, oz = (H - h * k) / 2;
+  const d = ps.map(p => 'M' + p.p.map(([x, z]) => ((x - x0) * k + ox).toFixed(1) + ' ' + ((z - z0) * k + oz).toFixed(1)).join('L') + 'Z').join('');
+  return `<svg viewBox="0 0 ${W} ${H}" aria-hidden="true" preserveAspectRatio="xMidYMid meet"><path d="${d}" class="rh-nave"/></svg>`; }
+async function rhLoad(force) { if (RH.busy || (!force && RH.data && Date.now() - RH.at < 20000)) return RH.data; RH.busy = true;
+  const D = { acc: [], crono: {}, yz: {}, noTakt: [], oee: null };
+  try { if (DB) {
+      try { D.acc = (await DB.collection('acc/r1/a').get()).docs.filter(d => d.exists).map(d => ({ id: d.id, ...d.data() })); } catch (_) {}
+      try { const s = await DB.doc('oee/r1/rep/summary').get(); D.oee = s.exists ? s.data() : null; } catch (_) {}
+      await Promise.all(rhPlants().map(async id => {
+        try { D.crono[id] = (await DB.collection('pl/' + id + '/crono').get()).docs.filter(d => d.exists).map(d => ({ id: d.id, ...d.data() })); } catch (_) { D.crono[id] = []; }
+        try { const sc = (await DB.collection('pl/' + id + '/scenarios').get()).docs.filter(d => d.exists).map(d => d.data()); let n = 0;
+          sc.forEach(s => (s.yz || []).forEach(y => { n++; if (!(+y.takt > 0)) D.noTakt.push({ pl: id, n: y.name, sc: s.name }); })); D.yz[id] = n; } catch (_) { D.yz[id] = 0; } })); }
+  } finally { RH.busy = false; } RH.data = D; RH.at = Date.now(); return D; }
+function rhPend(D) { const out = [], td = rhDay(), P = window.RD_PERM, mine = new Set(rhPlants());
+  D.acc.filter(a => (a.est || 'abierta') !== 'cerrada' && a.est !== 'cancelada' && a.fc && a.fc < td && (!a.pl || mine.has(a.pl))).slice(0, 4)
+    .forEach(a => out.push({ c: 'falla', i: '!', t: 'Acción vencida: ' + (a.t || 'sin título'), s: [a.resp, a.pl ? RDP.PL[a.pl] : '', 'venció ' + dFmt(a.fc)].filter(Boolean).join(' · '), go: { to: 'acc', id: a.id } }));
+  Object.entries(D.crono).forEach(([id, L]) => { const n = L.filter(x => !x.usado).length; if (n) out.push({ c: 'info', i: '⏱', t: `${n} toma${n === 1 ? '' : 's'} de tiempos por agregar`, s: RDP.PL[id] + ' · llegaron del celular; se agregan en el yamazumi', go: { to: 'plant', plant: id, ops: true } }); });
+  if (!(P && P.solo)) { const late = (typeof PROJ !== 'undefined' ? PROJ : []).filter(p => mine.has(p.plant)).reduce((t, p) => t + (projStats(p).late || 0), 0); if (late) out.push({ c: 'aviso', i: '◷', t: `${late} tarea${late === 1 ? '' : 's'} del portafolio vencida${late === 1 ? '' : 's'}`, s: 'Fin pasado y avance menor a 100 %', mc: 'gantt' }); }
+  if (D.noTakt.length) out.push({ c: 'aviso', i: 'i', t: `Falta takt en ${D.noTakt.length} yamazumi${D.noTakt.length === 1 ? '' : 's'}`, s: D.noTakt.slice(0, 3).map(x => '«' + x.n + '» · ' + RDP.PL[x.pl]).join(' · ') + ' · sin takt no salen propuestas', go: { to: 'plant', plant: D.noTakt[0].pl, ops: true, yz: D.noTakt[0].n } });
+  return out; }
+function rhLog() { const P = window.RD_PERM, td = rhDay(), L = (typeof RS !== 'undefined' && Array.isArray(RS.log)) ? RS.log : [];
+  return L.filter(e => rhDay(e.at) === td && (!P || P.all || P.plant(e.pl))).slice(-6).reverse(); }
+function rhCard(id, D) { const p = PL[id], m = p.met || {}, acc = D.acc.filter(a => a.pl === id && (a.est || 'abierta') !== 'cerrada' && a.est !== 'cancelada'), cr = (D.crono[id] || []).filter(x => !x.usado).length;
+  const proj = (typeof PROJ !== 'undefined' ? PROJ : []).filter(x => x.plant === id).length, o = D.oee && D.oee.pl && D.oee.pl[id], oee = o && isFinite(+o.o) ? (+o.o <= 1 ? +o.o * 100 : +o.o) : null;
+  const solo = window.RD_PERM && window.RD_PERM.solo, vsm = id === 'p4' ? 'vx' : id === 'parras' ? 'parras' : '';
+  return `<article class="rh-placa${cr ? ' cosido' : ''}"><div class="rh-plano">${rhSvg(id)}<span class="rh-sitio">${esc(p.site || '')}</span>${cr ? `<span class="rh-chip rh-ch-info">⏱ ${cr} por agregar</span>` : ''}</div>
+    <div class="rh-cuerpo"><h3>${esc(p.name)}</h3><p class="rh-foco">${esc(p.focus || '')}</p>
+      <div class="rh-kpis"><div><b>${m.area ? rhN(m.area) : '—'}</b><span>m²</span></div><div><b>${m.ops ? rhN(m.ops) : '—'}</b><span>personas</span></div>
+        ${oee != null ? `<div><b>${oee.toFixed(1)}%</b><span>OEE · 30 días</span></div>` : `<div><b>${acc.length}</b><span>acciones abiertas</span></div>`}</div>
+      <p class="rh-mas">${[oee != null ? `${acc.length} acciones abiertas` : '', solo ? '' : `${proj} proyecto${proj === 1 ? '' : 's'} en el portafolio`, `${D.yz[id] || 0} yamazumi${D.yz[id] === 1 ? '' : 's'}`].filter(Boolean).join(' · ')}</p>
+      <div class="rh-acc"><button class="rh-b pri" data-rh-plant="${id}">Abrir gemelo</button>${vsm ? `<button class="rh-b" data-rh-vsm="${vsm}">VSM</button>` : ''}${solo ? '' : `<button class="rh-b" data-rh-mc="${id}">Mejora continua</button>`}</div></div></article>`; }
+function rhRender() { const el = document.getElementById('rdHome'); if (!el) return; const D = RH.data || { acc: [], crono: {}, yz: {}, noTakt: [] }, mode = rhMode(), me = window.RD_ME || {}, P = window.RD_PERM;
+  const h = new Date().getHours(), hola = (h < 12 ? 'Buenos días' : h < 19 ? 'Buenas tardes' : 'Buenas noches') + (me.nombre ? ', ' + esc(String(me.nombre).split(' ')[0]) : '');
+  const ids = rhPlants(), pend = rhPend(D), edit = !P || P.edit, solo = P && P.solo;
+  const open = D.acc.filter(a => (a.est || 'abierta') !== 'cerrada' && a.est !== 'cancelada' && (!a.pl || ids.includes(a.pl))).length, crT = Object.values(D.crono).reduce((t, L) => t + L.filter(x => !x.usado).length, 0);
+  const modo = `<div class="rh-modo" role="group" aria-label="Modo de la pantalla"><button data-rh-mode="piso" aria-pressed="${mode === 'piso'}">Piso</button><button data-rh-mode="oficina" aria-pressed="${mode === 'oficina'}">Oficina</button></div>`;
+  let body;
+  if (mode === 'piso') {
+    const mis = (() => { try { return (JSON.parse(localStorage.getItem('rd_crono_v1') || '[]') || []).filter(x => rhDay(x.fin) === rhDay()); } catch (_) { return []; } })();
+    body = `<div class="rh-piso"><div class="rh-saludo"><div><h1>${hola}</h1><p>${solo ? esc(ids.map(i => RDP.PL[i]).join(' · ')) : 'Elige qué vas a hacer en piso.'}</p></div>${modo}</div>
+      <div class="rh-losas">
+        ${edit ? `<a class="rh-losa pri cosido" href="crono.html"><span class="ic">⏱</span><span><b>Tomar tiempos</b><span class="d">Escribe la estación y la operación, y cronometra con un dedo</span></span></a>` : ''}
+        <button class="rh-losa" data-rh-plant="${ids[0] || ''}" data-rh-3d="1"><span class="ic" style="--c:var(--rd-info)">◉</span><span><b>Ver mi planta en 3D</b><span class="d">${RH_PH() ? 'Carga el gemelo completo; usa más datos y batería' : 'El gemelo con su yamazumi y análisis'}</span></span></button>
+        <button class="rh-losa" data-rh-go="${esc(JSON.stringify({ to: 'plant', plant: ids[0] || '', ops: true }))}"><span class="ic" style="--c:var(--rd-ok)">▥</span><span><b>Yamazumi</b><span class="d">${crT ? `${crT} toma${crT === 1 ? '' : 's'} del celular por agregar` : 'Operaciones, balanceo y propuestas'}</span></span></button>
+        ${solo ? '' : `<button class="rh-losa" data-rh-go="${esc(JSON.stringify({ to: 'acc' }))}"><span class="ic" style="--c:var(--rd-aviso)">✚</span><span><b>Acciones de mejora</b><span class="d">${open} abierta${open === 1 ? '' : 's'} en ${ids.length === 1 ? 'tu planta' : 'la red'}</span></span></button>`}
+      </div>
+      ${ids.length > 1 ? `<div class="rh-sec"><h2>Plantas</h2></div><div class="rh-chips">${ids.map(i => `<button class="rh-b" data-rh-plant="${i}">${esc(PL[i].name)}</button>`).join('')}</div>` : ''}
+      <div class="rh-sec"><h2>Tus tomas de hoy</h2><span class="tenue">en este teléfono</span></div>
+      ${mis.length ? `<div class="rh-mis">${mis.slice().reverse().map(x => `<div><span><b>${esc(x.est || '')}</b><small>${esc(x.op || '')} · ${(x.c || []).length} ciclos · ${esc(rhHora(x.fin))}</small></span><em class="${x.env ? 'ok' : 'pe'}">${x.env ? 'Enviada' : 'Por enviar'}</em></div>`).join('')}</div>` : '<p class="rh-vacio">Todavía no tomas tiempos hoy en este teléfono.</p>'}
+      ${pend.length ? `<div class="rh-sec"><h2>Pendientes</h2></div><ul class="rh-pend">${pend.map(rhPendLi).join('')}</ul>` : ''}</div>`;
+  } else {
+    const log = rhLog();
+    body = `<div class="rh-wrap"><section><div class="rh-saludo"><div><h1>${hola}</h1><p>${ids.length === 1 ? esc(PL[ids[0]].name) : ids.length + ' plantas en la red'}${pend.length ? ` · ${pend.length} pendiente${pend.length === 1 ? '' : 's'}` : ' · sin pendientes'}.</p></div>
+        <div class="rh-turno"><div><b>${open}</b><span>acciones abiertas</span></div><div><b>${crT}</b><span>tomas del celular por agregar</span></div><div><b>${Object.values(D.yz).reduce((t, n) => t + n, 0)}</b><span>yamazumis</span></div></div>${modo}</div>
+      <div class="rh-puntada"></div>
+      <div class="rh-placas">${ids.map(id => rhCard(id, D)).join('')}</div></section>
+      <aside><div class="rh-caja"><h2>Pendientes ${pend.length ? `<span class="rh-chip">${pend.length}</span>` : ''}</h2>${pend.length ? `<ul class="rh-pend">${pend.map(rhPendLi).join('')}</ul>` : '<p class="rh-vacio">No hay pendientes en tus plantas.</p>'}</div>
+        <div class="rh-caja"><h2>Actividad de hoy</h2>${log.length ? `<ul class="rh-act">${log.map(e => `<li><time>${esc(rhHora(e.at))} · ${esc(RDP.PL[e.pl] || e.pl || '')}</time><b>${esc(e.by || '')}</b> ${esc(e.t || '')}</li>`).join('')}</ul>` : '<p class="rh-vacio">Hoy nadie ha guardado cambios para todos.</p>'}${P && P.log ? '<button class="rh-b" data-rh-log="1">Ver toda la actividad</button>' : ''}</div>
+        <div class="rh-caja"><h2>Accesos rápidos</h2><div class="rh-rap">${[
+          ['map', 'Mapa de la red', !solo], ['mc', 'Mejora Continua', !solo], ['oee', 'Centro OEE', !solo], ['acc', 'Centro de acciones', !solo],
+          ['vx', 'Consola VSM · P4', !P || P.plant('p4')], ['parras', 'Consola VSM · Parras', !P || P.plant('parras')], ['crono', 'Tomar tiempos', edit], ['users', 'Usuarios', P && P.admin]]
+          .filter(x => x[2]).map(([k, l]) => `<button class="rh-b" data-rh-q="${k}">${l}</button>`).join('')}</div></div></aside></div>`;
+  }
+  el.innerHTML = body; el.classList.toggle('rh-m-piso', mode === 'piso'); }
+const rhPendLi = x => `<li><span class="ic" style="--c:var(--rd-${x.c})">${x.i}</span><span><b>${esc(x.t)}</b><small>${esc(x.s)}</small></span>${x.go || x.mc ? `<button class="rh-b sm" data-rh-go="${esc(JSON.stringify(x.go || { mc: x.mc }))}">Ver</button>` : ''}</li>`;
+function rhShow() { let el = document.getElementById('rdHome');
+  if (!el) { el = document.createElement('main'); el.id = 'rdHome'; el.setAttribute('aria-label', 'Inicio de la Red DAIMAY'); document.body.appendChild(el);
+    el.addEventListener('click', e => { const b = e.target.closest('button,a'); if (!b) return; const d = b.dataset;
+      if (d.rhMode) { try { localStorage.setItem('rd_home_mode', d.rhMode); } catch (_) {} rhRender(); return; }
+      if (d.rhPlant) { rhHide(); rdGo({ to: 'plant', plant: d.rhPlant }); return; }
+      if (d.rhVsm) { rhHide(); rdGo({ to: d.rhVsm === 'parras' ? 'vp' : 'vx' }); return; }
+      if (d.rhMc) { rhHide(); try { MC.plant = d.rhMc; } catch (_) {} mcOpen('resumen'); return; }
+      if (d.rhLog) { window.rdActividad && window.rdActividad(); return; }
+      if (d.rhGo) { let t = null; try { t = JSON.parse(d.rhGo); } catch (_) {} if (!t) return; rhHide(); if (t.mc) { mcOpen(t.mc); return; } rdGo(t); return; }
+      if (d.rhQ) { const q = d.rhQ; if (q === 'crono') { location.href = 'crono.html'; return; } if (q === 'users') { window.RD_ACC && window.RD_ACC.admin && window.RD_ACC.admin(); return; }
+        rhHide(); if (q === 'map') { const r = document.querySelector('#jumps [data-j="red"]'); if (r) r.click(); return; } if (q === 'mc') { mcOpen(); return; } rdGo({ to: q === 'parras' ? 'vp' : q }); } }); }
+  RH.on = true; window.__rdHome = true; el.hidden = false; document.body.classList.add('rh-on'); rhRender(); rhLoad(true).then(rhRender);
+  const hb = document.getElementById('rhBtn'); if (hb) hb.setAttribute('aria-pressed', 'true'); setTimeout(() => dispatchEvent(new Event('resize')), 0); }
+function rhHide() { const el = document.getElementById('rdHome'); RH.on = false; window.__rdHome = false; if (el) el.hidden = true; document.body.classList.remove('rh-on'); const hb = document.getElementById('rhBtn'); if (hb) hb.setAttribute('aria-pressed', 'false'); setTimeout(() => dispatchEvent(new Event('resize')), 0); }
+{ // botón «Inicio» en la barra (el logo también lleva al Inicio)
+  const bar = document.getElementById('bar'), jumps = document.getElementById('jumps');
+  if (bar && jumps) { const b = document.createElement('button'); b.id = 'rhBtn'; b.className = 'btn'; b.type = 'button'; b.title = 'Inicio de la Red'; b.setAttribute('aria-pressed', 'false'); b.innerHTML = '⌂ <span class="lab">Inicio</span>';
+    jumps.before(b); b.addEventListener('click', () => { try { vxConsoleClose(); } catch (_) {} try { mcClose(); } catch (_) {} rhShow(); });
+    const br = bar.querySelector('.brand'); if (br) { br.style.cursor = 'pointer'; br.title = 'Inicio de la Red'; br.addEventListener('click', () => b.click()); } }
+  // cualquier salto a la red, a una planta o a un módulo cierra el Inicio
+  document.addEventListener('click', e => { if (RH.on && e.target.closest('#jumps [data-j],[data-enter],#mcBtn,#tourBtn,#rtBtn,#rivBtn,#panelBtn,#rdpBar button')) rhHide(); }, true);
+  // al abrir: Inicio, salvo que la dirección pida otra cosa (#red, #p4…)
+  const hsh = (location.hash || '').slice(1);
+  if (!hsh || hsh === 'inicio') setTimeout(() => { if (!document.getElementById('rdGate')) rhShow(); }, 60);
+  setInterval(() => { if (RH.on && !document.hidden) rhLoad().then(d => { if (d && RH.on) rhRender(); }); }, 30000);
+  addEventListener('resize', () => { if (RH.on) rhRender(); });
+}
+
 function vxConsoleClose(){ rdHelpClose(); const w=$('#vxc'); if(!w) return; const ifr=w.querySelector('iframe'); if(ifr){ const cw=ifr.contentWindow; EMB.delete(cw); for(const [k,s] of [...EMB_SUBS]) if(s.w===cw){ s.un(); EMB_SUBS.delete(k); } ifr.remove(); } w.hidden=true; }
 
 /* =================================================================== YAMAZUMI DE LÍNEAS (Centro MC) */
@@ -1863,10 +1973,16 @@ const MZ_CAT=[['Proceso (VA)','VA','#16a34a'],['Inspeccion','Inspección','#2563
 const MZ_CK=Object.fromEntries(MZ_CAT.map(c=>[c[0],c]));
 let MZ=[], MZ_SEL=null, MZ_EV=false;
 const mzMed=a=>{ const s=[...a].sort((x,y)=>x-y), n=s.length; return n?(n%2?s[(n-1)/2]:(s[n/2-1]+s[n/2])/2):0; };
+function mzFromTwin(id,docs){ const CM={va:'Proceso (VA)',insp:'Inspeccion',cd:'Carga/Descarga',aju:'Ajuste/Setup',mov:'Movimiento',esp:'Espera',rew:'Rework'}, out=[];
+  docs.filter(d=>d.exists).forEach(d=>{ const s=d.data()||{}; (s.yz||[]).forEach(Y=>{ const ops=(Y.ops||[]).filter(o=>o.on!==false&&(o.cycles||[]).length).map(o=>({n:o.name,cycles:o.cycles.filter(c=>+c.t>0).map(c=>({ct:+c.t,cat:CM[c.cat]||'Proceso (VA)',c:c.note||''}))})).filter(o=>o.cycles.length);
+    if(!ops.length) return; const mean=o=>o.cycles.reduce((t,c)=>t+c.ct,0)/o.cycles.length, tk=+Y.takt>0?+Y.takt:Math.max(...ops.map(mean));
+    out.push({key:id+'/g/'+d.id+'/'+Y.id,id:Y.id,plant:id,gem:true,yzName:Y.name,line:Y.name,program:Y.programa||'',shift:[Y.turno,Y.trip?'trip. '+Y.trip:''].filter(Boolean).join(' · '),analyst:Y.analista||'',date:/^\d{4}-\d\d-\d\d/.test(Y.fecha||'')?Y.fecha.slice(0,10):'',takt:tk,noTakt:!(+Y.takt>0),ops,source:'Gemelo · escenario «'+(s.name||d.id)+'»'+(+Y.takt>0?'':' · sin takt: la línea roja es el cuello')}); }); });
+  return out; }
 function mzSubscribe(){
   if(!DB) return;
+  ORDER.forEach(id=>{ DB.collection('pl/'+id+'/scenarios').onSnapshot(s=>{ MZ=MZ.filter(x=>!(x.plant===id&&x.gem)).concat(mzFromTwin(id,s.docs)); MZ.sort((a,b)=>(b.date||'').localeCompare(a.date||'')||(a.line||'').localeCompare(b.line||'','es',{numeric:true})); if(!$('#mc').hidden && (MC.tab==='yz'||MC.tab==='resumen')) mcRender(); }, ()=>{}); });
   ORDER.forEach(id=>{ DB.collection('pl/'+id+'/yz').onSnapshot(s=>{
-    MZ=MZ.filter(x=>x.plant!==id).concat(s.docs.filter(d=>d.exists).map(d=>({key:id+'/'+d.id,id:d.id,plant:id,...d.data()})));
+    MZ=MZ.filter(x=>x.plant!==id||x.gem).concat(s.docs.filter(d=>d.exists).map(d=>({key:id+'/'+d.id,id:d.id,plant:id,...d.data()})));
     MZ.sort((a,b)=>(b.date||'').localeCompare(a.date||'')||(a.line||'').localeCompare(b.line||'','es',{numeric:true}));
     if(!$('#mc').hidden && (MC.tab==='yz'||MC.tab==='resumen')) mcRender(); }, ()=>{}); });
 }
@@ -1885,7 +2001,7 @@ function mzCalc(st){
 }
 function mcYz(body){
   const L=MZ.filter(s=>!MC.plant||s.plant===MC.plant);
-  if(!L.length){ body.innerHTML=`<p class="mc-empty">No hay estudios de Yamazumi${MC.plant?' en '+esc(plName(MC.plant)):''} todavía. Se cargan desde la plantilla de Excel (CONFIG · CICLOS · YAMAZUMI v5).</p>`; return; }
+  if(!L.length){ body.innerHTML=`<p class="mc-empty">No hay estudios de Yamazumi${MC.plant?' en '+esc(plName(MC.plant)):''} todavía. Aquí aparecen los yamazumis que se arman en cada gemelo (Reporte 2D → Operaciones) y los estudios cargados con la plantilla de Excel (CONFIG · CICLOS · YAMAZUMI v5).</p>`; return; }
   if(!L.some(s=>s.key===MZ_SEL)) MZ_SEL=L[0].key;
   const st=L.find(s=>s.key===MZ_SEL), C=mzCalc(st), T=C.T, use=C.use, bn=C.ops[C.bn];
   const vmax=Math.max(T*1.3,...C.ops.map(o=>Math.max(o.max,Math.min(use(o),T*2.2))))*1.05, pct=v=>(Math.min(v,vmax)/vmax*100).toFixed(2)+'%';
@@ -1897,15 +2013,15 @@ function mcYz(body){
       ${isBn||over?`<span class="mz-hl" style="height:${pct(u)}"></span>`:''}<div class="mz-segs">${segs}</div></div><span class="mz-n" title="${esc(o.n)}">${esc(o.n)}</span><span class="mz-p ${u/T>=.85?'hot':''}">${Math.round(u/T*100)}%</span></div>`; }).join('');
   const evs=C.ops.flatMap(o=>o.ev.map(c=>({op:o.n,...c}))).concat(C.ops.flatMap(o=>o.notes.filter(n=>!o.ev.some(e=>+e.ct===n.ct)).map(n=>({op:o.n,...n,minor:true}))));
   const minOp=C.ops.reduce((a,o)=>use(o)<use(a)?o:a,C.ops[0]);
-  const K=[['Takt',T.toFixed(1)+' s',`${C.N} estaciones`],['Cuello de botella',bn?bn.n:'—',bn?`${C.bv.toFixed(1)} s · ${Math.round(C.bv/T*100)}% del takt`:'','bad'],
+  const K=[[st.noTakt?'Referencia (sin takt)':'Takt',T.toFixed(1)+' s',st.noTakt?'= cuello; captura el takt en el gemelo':`${C.N} estaciones`],['Cuello de botella',bn?bn.n:'—',bn?`${C.bv.toFixed(1)} s · ${Math.round(C.bv/T*100)}% del takt`:'','bad'],
     ['Arriba del takt en pico',`${C.overPeak}`,`${C.overMean} arriba en promedio`,C.overPeak?'warn':''],['Eficiencia de balance',C.eff!=null?Math.round(C.eff*100)+'%':'—','trabajo ÷ (estaciones × cuello)',C.eff<.7?'warn':'good'],
     ['Operadores teóricos',C.theo!=null?C.theo.toFixed(1):'—',`vs ${C.N} estaciones · ${C.work.toFixed(0)} s de trabajo`],['Eventos fuera de ciclo',`${C.evN} · ${C.evSec.toFixed(0)} s`,'ciclos > 2× la mediana',C.evN?'warn':''],
     ['Ciclos por estación',String(C.minCyc),C.minCyc<10?'protocolo pide 10–15':'muestra suficiente',C.minCyc<10?'warn':'good']];
-  body.innerHTML=`<div class="mc-bar"><div class="mc-seg">${L.map(s=>`<button data-mz="${esc(s.key)}" class="${s.key===MZ_SEL?'on':''}">${esc(plShort(s.plant))} · ${esc(s.line||'Línea')} · ${dFmt(s.date)}</button>`).join('')}</div><span class="mc-sp"></span>
+  body.innerHTML=`<div class="mc-bar"><div class="mc-seg">${L.map(s=>`<button data-mz="${esc(s.key)}" class="${s.key===MZ_SEL?'on':''}">${esc(plShort(s.plant))} · ${esc(s.line||'Línea')} · ${s.date?dFmt(s.date):(s.gem?'gemelo':'—')}</button>`).join('')}</div><span class="mc-sp"></span>
       <div class="mc-seg"><button data-mev="0" class="${MZ_EV?'':'on'}">Sin eventos</button><button data-mev="1" class="${MZ_EV?'on':''}">Con eventos (como el Excel)</button></div><button class="mc-b" id="mzCsv">Descargar CSV</button></div>
-    <section class="mc-card mz-hd"><div><span class="mc-pl" style="--c:${PLC[st.plant]}">${esc(plShort(st.plant))}</span><b>Yamazumi · ${esc(st.line||'')}</b><small>${esc([st.program,st.shift,st.analyst,dFmt(st.date),st.source].filter(Boolean).join(' · '))}</small></div></section>
+    <section class="mc-card mz-hd"><div><span class="mc-pl" style="--c:${PLC[st.plant]}">${esc(plShort(st.plant))}</span><b>Yamazumi · ${esc(st.line||'')}</b><small>${esc([st.program,st.shift,st.analyst,st.date?dFmt(st.date):'',st.source].filter(Boolean).join(' · '))}</small></div>${st.gem?'<button class="mc-b prim" id="mzTwin" style="margin-left:auto">Abrir en el gemelo</button>':''}</section>
     <div class="mc-kpis">${K.map(([k,v,s,c])=>`<div class="mc-kpi ${c||''}"><small>${k}</small><b>${esc(v)}</b><em>${esc(s)}</em></div>`).join('')}</div>
-    <section class="mc-card"><div class="mz-plot">${grid}<div class="mz-band" style="bottom:${pct(T*.85)};height:calc(${pct(T)} - ${pct(T*.85)})"></div><div class="mz-ref" style="bottom:${pct(T)}"><span>Takt ${T.toFixed(1)} s</span></div><div class="mz-bars">${bars}</div></div>
+    <section class="mc-card"><div class="mz-plot">${grid}<div class="mz-band" style="bottom:${pct(T*.85)};height:calc(${pct(T)} - ${pct(T*.85)})"></div><div class="mz-ref" style="bottom:${pct(T)}"><span>${st.noTakt?'Cuello':'Takt'} ${T.toFixed(1)} s</span></div><div class="mz-bars">${bars}</div></div>
       <div class="mz-leg">${MZ_CAT.map(([,l,c])=>`<span><i style="background:${c}"></i>${l}</span>`).join('')}<span><i class="ev"></i>Evento fuera de ciclo</span><span><i style="background:#334155;height:3px"></i>Máximo normal</span><span><i style="background:rgba(245,158,11,.3)"></i>85–100% del takt</span></div></section>
     <div class="mz-two"><section class="mc-card"><h3>Lectura rápida</h3><ul class="mz-ul">
       ${bn?`<li><b>Cuello: ${esc(bn.n)}</b> con ${C.bv.toFixed(1)} s (${Math.round(C.bv/T*100)}% del takt).${C.overPeak?` En pico pasan del takt: ${C.ops.filter(o=>o.max>T).map(o=>esc(o.n)+' '+o.max.toFixed(0)+' s').join(', ')}.`:''}</li>`:''}
@@ -1915,7 +2031,7 @@ function mcYz(body){
       <section class="mc-card"><h3>Eventos y observaciones</h3>${evs.length?`<ul class="mz-ev">${evs.map(e=>`<li class="${e.minor?'m':''}"><b>${esc(e.op)}</b><span>${(+e.ct).toFixed(1)} s · ${esc(MZ_CK[e.cat]?.[1]||e.cat||'')}</span><em>${esc(e.c||'Sin comentario: ciclo fuera de patrón')}</em></li>`).join('')}</ul>`:'<p class="mc-empty">Sin eventos.</p>'}</section></div>`;
   body.querySelectorAll('[data-mz]').forEach(b=>b.addEventListener('click',()=>{ MZ_SEL=b.dataset.mz; mcRender(); }));
   body.querySelectorAll('[data-mev]').forEach(b=>b.addEventListener('click',()=>{ MZ_EV=b.dataset.mev==='1'; mcRender(); }));
-  $('#mzCsv').addEventListener('click',()=>downloadCSV(`yamazumi_${st.plant}_${(st.line||'').replace(/\W+/g,'_')}.csv`,[['Estación','Ciclo','Tiempo (s)','Categoría','Comentario'],...(st.ops||[]).flatMap(o=>(o.cycles||[]).map((c,i)=>[o.n,i+1,c.ct,c.cat||'',c.c||'']))]));
+  $('#mzTwin')?.addEventListener('click',()=>{ mcClose(); rdGo({to:'plant',plant:st.plant,ops:true,yz:st.yzName}); }); $('#mzCsv').addEventListener('click',()=>downloadCSV(`yamazumi_${st.plant}_${(st.line||'').replace(/\W+/g,'_')}.csv`,[['Estación','Ciclo','Tiempo (s)','Categoría','Comentario'],...(st.ops||[]).flatMap(o=>(o.cycles||[]).map((c,i)=>[o.n,i+1,c.ct,c.cat||'',c.c||'']))]));
 }
 
 /* =================================================================== PANEL */
@@ -2207,7 +2323,7 @@ function updateScale(){ const d=camera.position.distanceTo(controls.target); con
 function loop(now){
   requestAnimationFrame(loop);
   const dt=Math.min(.05,(now-last)/1000); last=now;
-  if(MODE!=='red') return;
+  if(MODE!=='red'||window.__rdHome) return;
   if(tween){ tween.t+=dt/tween.dur; const k=tween.t>=1?1:(tween.t<.5?4*tween.t**3:1-Math.pow(-2*tween.t+2,3)/2); camera.position.lerpVectors(tween.P0,tween.P1,k); controls.target.lerpVectors(tween.T0,tween.T1,k); camera.lookAt(controls.target); if(tween.t>=1){ const r=tween.res; tween=null; r(); } }
   else controls.update();
   FLOW_OBJS.forEach(o=>{ const a=o.pts.geometry.attributes.position; for(let i=0;i<o.n;i++){ const t=((now/1000)*(o.km>20?.05:.18)+i/o.n+o.ph)%1; const p=o.curve.getPoint(t); a.setXYZ(i,p.x,p.y,p.z); } a.needsUpdate=true; });

@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#23282E">
+<title>Tomar tiempos · Red DAIMAY</title>
+<script src="usuarios.js"></script><script src="acceso.js"></script>
+<script src="datos/base.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Red DAIMAY · toma de tiempos en piso desde el celular (20-nov-2026). Página ligera: sin 3D. Ver build/crono.html */
+:root{--concreto:#E2E5E7;--losa:#F3F4F5;--grafito:#23282E;--grafito2:#323941;--texto:#1C2126;--tenue:#5E6873;--linea:#C9CED3;
+  --rojo:#E1262D;--rojo-osc:#B71D23;--seg:#F2C200;--ok:#2FA84F;--aviso:#E8930C;--info:#2F6FD6;
+  --tit:'Barlow Condensed','Arial Narrow',Arial,sans-serif;--txt:'IBM Plex Sans',system-ui,'Segoe UI',sans-serif;color-scheme:light}
+*{box-sizing:border-box}html,body{margin:0;height:100%}
+body{background:var(--concreto);color:var(--texto);font:16px/1.45 var(--txt);-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--info);outline-offset:2px}
+[hidden]{display:none!important}
+.app{min-height:100%;display:grid;grid-template-rows:auto 1fr auto;max-width:560px;margin:0 auto;background:var(--concreto)}
+.top{background:var(--grafito);color:#fff;padding:calc(14px + env(safe-area-inset-top,0px)) 18px 14px;display:grid;gap:2px;position:relative}
+.top::after{content:"";position:absolute;left:0;right:0;bottom:-3px;height:2px;background:repeating-linear-gradient(90deg,var(--rojo) 0 9px,transparent 9px 15px)}
+.top small{color:#AEB6BF;font-size:13px;display:flex;gap:8px;align-items:center}
+.top small a{color:#AEB6BF;margin-left:auto;text-decoration:none;border:1px solid #4a535e;border-radius:999px;padding:2px 10px}
+.top h1{font:600 30px/1.05 var(--tit);margin:0;letter-spacing:.01em}
+.cont{padding:18px 16px;display:grid;gap:14px;align-content:start}
+.campo{display:grid;gap:6px;position:relative}.campo label{font-weight:600;font-size:15px}
+.campo input,.campo select{background:var(--losa);border:2px solid var(--linea);border-radius:12px;padding:12px 14px;font-size:18px;min-height:54px;width:100%}
+.campo input:focus{outline:none;border-color:var(--grafito)}
+.sug{display:flex;gap:6px;flex-wrap:wrap}.sug button{background:var(--losa);border:1px solid var(--linea);border-radius:999px;padding:6px 12px;font-size:14px;cursor:pointer;min-height:36px}
+.sug button.si{background:rgba(47,168,79,.14);border-color:transparent;color:#1d7a37;font-weight:600}
+.sug .nuevo{font-size:13.5px;color:var(--tenue);padding:6px 2px}
+details{background:var(--losa);border-radius:12px;padding:0 14px}details summary{cursor:pointer;padding:13px 0;font-weight:600;font-size:15px;list-style:none}
+details summary::-webkit-details-marker{display:none}details summary::after{content:' ▾';color:var(--tenue)}details[open] summary::after{content:' ▴'}
+details .campo{margin-bottom:12px}details .campo input{background:#fff}
+.chips{display:flex;gap:6px;flex-wrap:wrap}.chips button{border:1px solid var(--linea);background:var(--losa);border-radius:999px;padding:8px 14px;min-height:42px;cursor:pointer;font-weight:500}
+.chips button[aria-pressed="true"]{background:var(--grafito);border-color:var(--grafito);color:#fff}
+.grupo{font-size:13.5px;color:var(--tenue);font-weight:600;margin-top:6px}
+.rec{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;background:var(--losa);border-radius:12px;padding:10px 14px;width:100%;border:0;text-align:left}
+.rec b{font:600 19px var(--tit);display:block}.rec small{color:var(--tenue);font-size:13px}
+.rec em{font-style:normal;font-size:12.5px;font-weight:600;border-radius:999px;padding:3px 10px;white-space:nowrap}
+.rec em.ok{background:rgba(47,168,79,.16);color:#1d7a37}.rec em.pe{background:rgba(232,147,12,.18);color:#8a5200}
+.vacio{color:var(--tenue);font-size:14px;margin:0}
+.go{padding:12px 16px calc(16px + env(safe-area-inset-bottom,0px));background:var(--losa);border-top:1px solid var(--linea);display:grid;gap:8px;position:sticky;bottom:0}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:1px solid var(--linea);background:#fff;border-radius:12px;padding:10px 16px;cursor:pointer;font-weight:600;min-height:54px;font-size:17px;text-decoration:none}
+.btn.pri{background:var(--rojo);border-color:var(--rojo);color:#fff}.btn.pri:active{background:var(--rojo-osc)}
+.btn:disabled{opacity:.45}
+.fila{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.aviso{background:rgba(242,194,0,.2);border-radius:12px;padding:10px 12px;font-size:14px}
+.err{color:#b42318;font-size:14px;margin:0}.err:empty{display:none}
+/* cronómetro */
+.reloj{text-align:center}.reloj .num{font:700 92px/.9 var(--tit);display:block;font-variant-numeric:tabular-nums}.reloj small{color:var(--tenue);font-size:15px}
+.vuelta{margin:4px auto 0;width:min(240px,64vw);height:min(240px,64vw);border-radius:50%;border:0;background:var(--rojo);color:#fff;display:grid;place-items:center;align-content:center;gap:6px;font:600 34px/1 var(--tit);box-shadow:0 10px 26px rgba(225,38,45,.35);position:relative;cursor:pointer;touch-action:manipulation;user-select:none}
+.vuelta::after{content:'';position:absolute;inset:9px;border-radius:50%;border:2px dashed rgba(255,255,255,.85);pointer-events:none}
+.vuelta small{font:500 14px var(--txt);color:#ffe3e4}
+.vuelta:active{transform:scale(.97)}
+.vuelta.pausa{background:var(--grafito2);box-shadow:none}
+.cats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.cats button{border:1px solid var(--linea);background:var(--losa);border-radius:10px;padding:8px 2px;font-size:13px;font-weight:600;min-height:50px;cursor:pointer}
+.cats button[aria-pressed="true"]{background:var(--grafito);border-color:var(--grafito);color:#fff}
+.ult{display:flex;gap:6px}.ult span{flex:1;text-align:center;background:var(--losa);border-radius:9px;padding:6px 0;font:600 18px var(--tit)}.ult span small{display:block;font:400 11px var(--txt);color:var(--tenue)}
+.lnk{background:none;border:0;color:var(--info);text-decoration:underline;cursor:pointer;padding:4px;font-size:14px}
+.res{display:grid;grid-template-columns:1fr 1fr;gap:8px}.res div{background:var(--losa);border-radius:12px;padding:10px 12px}.res b{font:600 32px/1 var(--tit);display:block}.res span{font-size:13px;color:var(--tenue)}
+.estado{display:grid;grid-template-columns:28px 1fr;gap:10px;align-items:center;font-size:15px;background:var(--losa);border-radius:12px;padding:12px}
+.estado i{font-style:normal;font-size:22px;text-align:center}
+@media (prefers-reduced-motion:reduce){.vuelta:active{transform:none}}
+</style></head>
+<body>
+<div class="app" id="app">
+  <header class="top"><small><span id="who">Red DAIMAY</span><a href="index.html" id="aRed">Ir a la Red</a></small><h1 id="tit">Nueva toma de tiempos</h1></header>
+  <main class="cont" id="cont"></main>
+  <footer class="go" id="go"></footer>
+</div>
+<script>
+(function(){
+'use strict';
+var P=window.RD_PERM, ME=window.RD_ME; if(!P||!ME) return;            // sin sesión: acceso.js muestra la pantalla de entrada
+var PLN={p1:'Planta 1',p2:'Planta 2',p4:'Plantas 3 y 4',p67:'Plantas 6 y 7',p8:'Planta 8',parras:'Parras'};
+var QK='rd_crono_v1', AK='rd_crono_actual', REPO='GenetCamps/Red', PATH='datos/compartido.json';
+var CATS=[['va','Proceso','El operador está haciendo la operación'],['esp','Espera','Detenido esperando pieza, máquina o instrucción'],['rew','Retrabajo','Corrigiendo una pieza'],['cd','Material','Cargando, descargando o surtiendo material']];
+var $=function(id){return document.getElementById(id);}, cont=$('cont'), go=$('go'), tit=$('tit');
+var esc=function(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});};
+var norm=function(s){return String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/\s+/g,' ').trim();};
+var hoy=function(v){var d=v?new Date(v):new Date();return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2);};
+var hora=function(v){var d=new Date(v);return isFinite(d)?d.toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}):'';};
+var f1=function(v){return (Math.round(v*10)/10).toFixed(1);};
+var load=function(k,d){try{var v=JSON.parse(localStorage.getItem(k)||'null');return v==null?d:v;}catch(_){return d;}};
+var save=function(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(_){}};
+var plants=P.list(); $('who').textContent=(plants.length===1?PLN[plants[0]]:'Red DAIMAY')+' · '+ME.nombre;
+if(!P.edit){ cont.innerHTML='<p class="aviso">Tu usuario es de <b>solo ver</b>: puedes consultar la Red, pero no tomar tiempos. Si debes tomarlos, pide a tu administrador que te cambie de nivel.</p>'; go.innerHTML='<a class="btn pri" href="index.html">Ir a la Red</a>'; return; }
+var S={pl:load('rd_crono_pl',null), est:'', op:'', quien:'', linea:'', meta:15};
+if(plants.indexOf(S.pl)<0) S.pl=plants[0];
+
+/* ---------- estaciones conocidas: operaciones de los yamazumis de la planta (oficiales + compartidas + las de este navegador) ---------- */
+var KN={};
+function known(docs){ Object.keys(docs||{}).forEach(function(k){ var m=/^pl\/([^/]+)\/scenarios\//.exec(k); if(!m) return; var sc=docs[k]; if(!sc||!Array.isArray(sc.yz)) return;
+  var L=KN[m[1]]||(KN[m[1]]={}); sc.yz.forEach(function(y){ (y.ops||[]).forEach(function(o){ if(o&&o.name){ var n=norm(o.name); if(!L[n]) L[n]={n:o.name,yz:y.name}; } }); }); }); }
+known(window.RD_BASE); known(load('reddaimay_db_v1',{}));
+fetch(PATH+'?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(j){ if(j&&j.docs){ known(j.docs); if(view==='nueva') sug(); } }).catch(function(){});
+function matches(q){ var L=KN[S.pl]||{}, n=norm(q); if(!n) return []; var all=Object.keys(L), exact=all.filter(function(k){return k===n;}), part=all.filter(function(k){return k!==n&&(k.indexOf(n)>=0||n.indexOf(k)>=0);});
+  return exact.concat(part).slice(0,4).map(function(k){return {k:k,o:L[k],ex:k===n};}); }
+
+/* ---------- vistas ---------- */
+var view='nueva', A=load(AK,null), tick=null, wake=null;
+function nueva(){ view='nueva'; tit.textContent='Nueva toma de tiempos';
+  var Q=load(QK,[]), mias=Q.filter(function(x){return hoy(x.fin)===hoy();}).reverse();
+  cont.innerHTML=(plants.length>1?'<div class="campo"><label>Planta</label><div class="chips" id="pls">'+plants.map(function(p){return '<button type="button" data-pl="'+p+'" aria-pressed="'+(p===S.pl)+'">'+PLN[p]+'</button>';}).join('')+'</div></div>':'')
+    +'<div class="campo"><label for="iEst">Estación</label><input id="iEst" autocomplete="off" autocapitalize="characters" placeholder="Por ejemplo L1 Decorado 2" value="'+esc(S.est)+'"><div class="sug" id="sug" aria-live="polite"></div></div>'
+    +'<div class="campo"><label for="iOp">Nombre de la operación</label><input id="iOp" autocomplete="off" placeholder="Por ejemplo Costura decorativa respaldo" value="'+esc(S.op)+'"></div>'
+    +'<details><summary>Más datos (opcional)</summary><div class="campo"><label for="iQ">Quién la hace</label><input id="iQ" autocomplete="off" value="'+esc(S.quien)+'" placeholder="Nombre del operador"></div>'
+    +'<div class="campo"><label for="iL">Línea</label><input id="iL" autocomplete="off" value="'+esc(S.linea)+'" placeholder="Por ejemplo Línea 1"></div>'
+    +'<div class="campo"><label for="iM">Ciclos a tomar</label><input id="iM" type="number" inputmode="numeric" min="2" max="200" value="'+S.meta+'"></div></details>'
+    +'<p class="err" id="err" role="alert"></p>'
+    +'<div class="grupo">Tus tomas de hoy</div>'+(mias.length?mias.map(rec).join(''):'<p class="vacio">Todavía no tomas tiempos hoy en este teléfono.</p>');
+  go.innerHTML='<button class="btn pri" id="bGo">Empezar a cronometrar</button>';
+  var e=$('iEst'); e.addEventListener('input',function(){S.est=e.value;sug();}); $('iOp').addEventListener('input',function(){S.op=this.value;});
+  $('iQ').addEventListener('input',function(){S.quien=this.value;}); $('iL').addEventListener('input',function(){S.linea=this.value;}); $('iM').addEventListener('input',function(){var v=+this.value; if(v>=2) S.meta=Math.min(200,Math.round(v));});
+  var pls=$('pls'); if(pls) pls.addEventListener('click',function(ev){var b=ev.target.closest('[data-pl]'); if(!b) return; S.pl=b.dataset.pl; save('rd_crono_pl',S.pl); nueva();});
+  $('bGo').addEventListener('click',empezar); cont.querySelectorAll('[data-re]').forEach(function(b){b.addEventListener('click',function(){enviar(true);});}); sug(); }
+function rec(x){ return '<button class="rec"'+(x.env?'':' data-re="1"')+' type="button"><span><b>'+esc(x.est)+'</b><small>'+esc(x.op)+' · '+x.c.length+' ciclos · '+esc(hora(x.fin))+'</small></span>'+(x.env?'<em class="ok">Enviada</em>':'<em class="pe">Por enviar · tocar</em>')+'</button>'; }
+function sug(){ var s=$('sug'); if(!s) return; var M=matches(S.est);
+  s.innerHTML=M.map(function(m){return '<button type="button" class="'+(m.ex?'si':'')+'" data-s="'+esc(m.o.n)+'">'+(m.ex?'✓ ':'')+esc(m.o.n)+(m.ex?' (ya existe)':'')+'</button>';}).join('')
+    +(S.est.trim()&&!M.some(function(m){return m.ex;})?'<span class="nuevo">Estación nueva: se guarda igual y se acomoda en el yamazumi.</span>':'');
+  s.querySelectorAll('[data-s]').forEach(function(b){b.addEventListener('click',function(){S.est=b.dataset.s; $('iEst').value=S.est; sug(); $('iOp').focus();});}); }
+function empezar(){ var er=$('err'); S.est=S.est.trim(); S.op=S.op.trim();
+  if(!S.est){ er.textContent='Escribe la estación.'; $('iEst').focus(); return; } if(!S.op){ er.textContent='Escribe el nombre de la operación.'; $('iOp').focus(); return; }
+  A={id:'c'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),pl:S.pl,est:S.est,op:S.op,quien:S.quien.trim(),linea:S.linea.trim(),meta:S.meta,c:[],cat:'va',t0:null,pausa:null,ini:new Date().toISOString()};
+  save(AK,A); crono(); }
+function now(){ return performance.timeOrigin?performance.timeOrigin+performance.now():Date.now(); }
+function crono(){ view='crono'; tit.textContent=A.est; try{ if(navigator.wakeLock) navigator.wakeLock.request('screen').then(function(w){wake=w;}).catch(function(){}); }catch(_){}
+  cont.innerHTML='<p style="margin:-6px 0 0;color:var(--tenue);font-size:14px">'+esc(A.op)+(A.quien?' · '+esc(A.quien):'')+'</p>'
+    +'<div class="reloj"><b class="num" id="num">0.0</b><small id="cic"></small></div>'
+    +'<button class="vuelta" id="bV"></button>'
+    +'<div class="cats" role="group" aria-label="Qué está pasando">'+CATS.map(function(c){return '<button type="button" data-c="'+c[0]+'" title="'+c[2]+'" aria-pressed="'+(A.cat===c[0])+'">'+c[1]+'</button>';}).join('')+'</div>'
+    +'<div class="ult" id="ult"></div><div style="text-align:center"><button class="lnk" id="bU" type="button">Deshacer la última vuelta</button></div>';
+  go.innerHTML='<div class="fila"><button class="btn" id="bP">Pausa</button><button class="btn pri" id="bF">Terminar y enviar</button></div><button class="lnk" id="bX" type="button">Cancelar esta toma</button>';
+  $('bV').addEventListener('click',vuelta); $('bU').addEventListener('click',deshacer); $('bP').addEventListener('click',pausa); $('bF').addEventListener('click',terminar);
+  $('bX').addEventListener('click',function(){ if(A.c.length&&!confirm('¿Cancelar esta toma? Se pierden '+A.c.length+' ciclos.')) return; A=null; save(AK,null); stop(); nueva(); });
+  cont.querySelector('.cats').addEventListener('click',function(e){var b=e.target.closest('[data-c]'); if(!b) return; A.cat=b.dataset.c; save(AK,A); cont.querySelectorAll('.cats button').forEach(function(x){x.setAttribute('aria-pressed',String(x===b));});});
+  pinta(); stop(); tick=setInterval(reloj,100); reloj(); }
+function stop(){ if(tick) clearInterval(tick); tick=null; if(wake){ try{wake.release();}catch(_){} wake=null; } }
+function corre(){ return A.t0==null?0:((A.pausa||now())-A.t0)/1000; }
+function reloj(){ var n=$('num'); if(n) n.textContent=f1(corre()); }
+function pinta(){ var n=A.c.length, b=$('bV'), u=$('ult'), sum=A.c.reduce(function(t,c){return t+c.t;},0);
+  b.className='vuelta'+(A.pausa?' pausa':''); b.innerHTML=A.t0==null?'Empezar<small>toca cuando arranque la pieza</small>':A.pausa?'Seguir<small>la toma está en pausa</small>':'Vuelta<small>toca al terminar cada pieza</small>';
+  $('cic').textContent=A.t0==null?'listo para el ciclo 1 de '+A.meta:'ciclo '+(n+1)+' de '+A.meta+(n>=A.meta?' · ya tienes la muestra':'');
+  u.innerHTML=A.c.slice(-3).map(function(c,i,a){return '<span>'+f1(c.t)+'<small>ciclo '+(n-a.length+i+1)+'</small></span>';}).join('')+(n?'<span>'+f1(sum/n)+'<small>promedio</small></span>':'');
+  $('bU').hidden=!n; $('bF').disabled=!n; $('bP').hidden=A.t0==null; go.querySelector('.fila').style.gridTemplateColumns=A.t0==null?'1fr':''; $('bP').textContent=A.pausa?'Seguir':'Pausa'; }
+function vuelta(){ var t=now();
+  if(A.t0==null){ A.t0=t; }
+  else if(A.pausa){ A.t0+=t-A.pausa; A.pausa=null; }
+  else { var s=(t-A.t0)/1000; if(s<0.3) return; A.c.push({t:Math.round(s*10)/10,cat:A.cat}); A.t0=t; try{navigator.vibrate&&navigator.vibrate(25);}catch(_){} }
+  save(AK,A); pinta(); reloj(); }
+function deshacer(){ if(!A.c.length) return; A.c.pop(); save(AK,A); pinta(); }
+function pausa(){ if(A.t0==null) return; var t=now(); if(A.pausa){ A.t0+=t-A.pausa; A.pausa=null; } else A.pausa=t; save(AK,A); pinta(); reloj(); }
+function terminar(){ if(!A.c.length) return; stop(); var x={id:A.id,pl:A.pl,est:A.est,op:A.op,quien:A.quien,linea:A.linea,c:A.c,ini:A.ini,fin:new Date().toISOString(),by:ME.nombre,n:ME.n,env:false};
+  var Q=load(QK,[]); Q.push(x); save(QK,Q.slice(-200)); A=null; save(AK,null); listo(x); enviar(false); }
+function listo(x){ view='listo'; tit.textContent=x.est; var T=x.c.map(function(c){return c.t;}), n=T.length, m=T.reduce(function(a,b){return a+b;},0)/n, sd=Math.sqrt(T.reduce(function(a,b){return a+(b-m)*(b-m);},0)/Math.max(1,n-1));
+  cont.innerHTML='<p style="margin:-6px 0 0;color:var(--tenue);font-size:14px">'+esc(x.op)+' · '+n+' ciclos</p>'
+    +'<div class="res"><div><b>'+f1(m)+' s</b><span>promedio</span></div><div><b>'+f1(Math.min.apply(null,T))+' – '+f1(Math.max.apply(null,T))+'</b><span>mínimo y máximo (s)</span></div><div><b>'+(m?Math.round(sd/m*100):0)+'%</b><span>variación entre ciclos</span></div><div><b>'+n+'</b><span>ciclos tomados</span></div></div>'
+    +'<div class="estado" id="est"><i>…</i><span>Enviando al yamazumi…</span></div>';
+  go.innerHTML='<button class="btn pri" id="bN">Tomar otra estación</button><a class="btn" href="index.html">Ir a la Red</a>';
+  $('bN').addEventListener('click',function(){ S.est=''; S.op=''; nueva(); }); }
+function estado(ic,txt){ var e=$('est'); if(e) e.innerHTML='<i>'+ic+'</i><span>'+txt+'</span>'; }
+
+/* ---------- envío: al repositorio con la llave del equipo, y a la base local de la Red de este navegador ---------- */
+var tok=function(){ try{ return localStorage.getItem('rd_gh_token')||sessionStorage.getItem('rd_tok')||''; }catch(_){ return ''; } };
+var b64=function(s){ var b=new TextEncoder().encode(s), o=''; for(var i=0;i<b.length;i+=0x8000) o+=String.fromCharCode.apply(null,b.subarray(i,i+0x8000)); return btoa(o); };
+var unb64=function(s){ return new TextDecoder().decode(Uint8Array.from(atob(String(s).replace(/\s/g,'')),function(c){return c.charCodeAt(0);})); };
+var docOf=function(x){ return {est:x.est,op:x.op,quien:x.quien||'',linea:x.linea||'',c:x.c,ini:x.ini,fin:x.fin,by:x.by,n:x.n,v:1}; };
+function local(Q){ try{ var raw=localStorage.getItem('reddaimay_db_v1'); if(!raw) return; var db=JSON.parse(raw); Q.forEach(function(x){ var k='pl/'+x.pl+'/crono/'+x.id; if(!db[k]) db[k]=docOf(x); }); localStorage.setItem('reddaimay_db_v1',JSON.stringify(db)); }catch(_){} }
+var sending=false;
+async function enviar(manual){ if(sending) return; var Q=load(QK,[]), pend=Q.filter(function(x){return !x.env;}); if(!pend.length){ if(view==='listo') estado('✓','Enviada al yamazumi.'); return; }
+  local(pend);
+  var t=tok(), mine=pend.filter(function(x){return P.key('pl/'+x.pl+'/crono/'+x.id);});
+  if(!t){ estado('●','Se guardó en este teléfono. Tu usuario aún no tiene la llave del equipo: pide a tu administrador «Nueva contraseña» en Usuarios y vuelve a entrar; se enviará sola.'); if(manual) nueva(); return; }
+  if(!navigator.onLine){ estado('●','Sin señal: se guardó en este teléfono y se envía sola cuando vuelva la señal.'); return; }
+  sending=true; estado('…','Enviando al yamazumi…');
+  try{ for(var a=0;a<3;a++){
+      var u='https://api.github.com/repos/'+REPO+'/contents/'+PATH+'?ref=main', H={Authorization:'Bearer '+t,Accept:'application/vnd.github+json'};
+      var r=await fetch(u,{headers:H,cache:'no-store'}), sha=null, data={app:'red-daimay',kind:'compartido',v:1,docs:{},del:[],log:[]};
+      if(r.ok){ var j=await r.json(); sha=j.sha; var txt=j.content&&j.encoding==='base64'?unb64(j.content):null;
+        if(!txt){ var r2=await fetch(u,{headers:{Authorization:'Bearer '+t,Accept:'application/vnd.github.raw+json'},cache:'no-store'}); txt=r2.ok?await r2.text():''; } if(txt) data=JSON.parse(txt); }
+      else if(r.status!==404) throw new Error(r.status===401?'la llave ya no es válida; vuelve a entrar':'GitHub respondió '+r.status);
+      data.docs=data.docs||{}; data.log=Array.isArray(data.log)?data.log:[]; var at=new Date().toISOString();
+      mine.forEach(function(x){ data.docs['pl/'+x.pl+'/crono/'+x.id]=docOf(x); data.log.push({at:at,by:ME.nombre,n:ME.n,pl:x.pl,t:'tomó tiempos en piso de «'+x.est+'» ('+x.c.length+' ciclos)'}); });
+      data.log=data.log.slice(-2000); data.at=at; data.by=ME.nombre;
+      var w=await fetch('https://api.github.com/repos/'+REPO+'/contents/'+PATH,{method:'PUT',headers:H,body:JSON.stringify({message:'Tomas de tiempos · '+ME.nombre+' · '+at.slice(0,16).replace('T',' '),content:b64(JSON.stringify(data)),branch:'main',sha:sha||undefined})});
+      if(w.status===409||w.status===422) continue;
+      if(!w.ok) throw new Error(w.status===401?'la llave ya no es válida; vuelve a entrar':w.status===403||w.status===404?'la llave no tiene permiso de escritura':'GitHub respondió '+w.status);
+      var ids={}; mine.forEach(function(x){ids[x.id]=1;}); Q=load(QK,[]); Q.forEach(function(x){ if(ids[x.id]) x.env=true; }); save(QK,Q);
+      var no=pend.length-mine.length;
+      estado('✓',mine.length===1?'Enviada al yamazumi. En la computadora aparece en «Tomas desde piso» para agregarla con un clic.':mine.length+' tomas enviadas al yamazumi.'+(no?' '+no+' son de una planta que no es tuya y se quedan en este teléfono.':''));
+      if(view==='nueva') nueva(); return; }
+    throw new Error('otra persona guardó al mismo tiempo; se reintenta sola');
+  }catch(e){ estado('●','No se pudo enviar ('+(e.message||e)+'). Se guardó en este teléfono y se reintenta sola.'); }
+  finally{ sending=false; } }
+addEventListener('online',function(){enviar(false);});
+setInterval(function(){ if(!document.hidden) enviar(false); },60000);
+document.addEventListener('visibilitychange',function(){ if(!document.hidden&&view==='crono') reloj(); });
+if(A&&A.c){ S.pl=A.pl; crono(); } else nueva();
+setTimeout(function(){enviar(false);},1500);
+})();
+</script>
+</body></html>

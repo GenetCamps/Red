@@ -1,0 +1,17 @@
+/* =====================================================================
+   Gemelos de planta · sistema visual de la Red (20-nov-2026)
+   Mismo acomodo de siempre; solo cambia la paleta a grafito neutro con rojo DAIMAY y amarillo de seguridad,
+   igual que la barra de la Red, Mejora Continua y las consolas VSM. Para regresar, quita su <link>.
+   ===================================================================== */
+:root{
+  --bg:#171B20; --panel:rgba(30,35,40,.92); --panel-solid:#1E2328; --raise:#272D34; --line:#363E47;
+  --line-soft:rgba(255,255,255,.07); --text:#ECEFF1; --dim:#A9B1B9; --faint:#76808A;
+  --accent:#E1262D; --amber:#F2C200;
+}
+:focus-visible{outline:3px solid #F2C200;outline-offset:2px}
+.brand::before{background:#E1262D;box-shadow:none}
+.brand b{letter-spacing:.02em}
+.seg button.on{background:#323941;box-shadow:inset 0 -2px 0 #E1262D,0 1px 2px rgba(0,0,0,.3)}
+.seg.tools button.on{box-shadow:inset 0 -2px 0 #F2C200,0 1px 2px rgba(0,0,0,.3)}
+#side{background:rgba(30,35,40,.96)}
+.side-tabs button.on{color:#fff;box-shadow:inset 0 -2px 0 #E1262D}
