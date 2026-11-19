@@ -1,6 +1,6 @@
-/* Red DAIMAY · usuarios con acceso. Guardado desde el panel «Usuarios» el 2026-11-19 22:30.
+/* Red DAIMAY · usuarios con acceso. Guardado desde el panel «Usuarios» el 2026-11-19 22:35.
    Contraseñas y llave del equipo van cifradas; no edites este archivo a mano. */
-window.RD_USERS_AT = 1795127427681;
+window.RD_USERS_AT = 1795127707399;
 window.RD_USERS = [
  {
   "n": "3064938",
@@ -26,33 +26,33 @@ window.RD_USERS = [
  {
   "n": "3068671",
   "nombre": "Issac Israel Olvera Treviño",
-  "nivel": 3,
+  "nivel": 4,
   "plantas": [
    "parras"
   ],
-  "rol": "usuario",
+  "rol": "lector",
   "salt": "e8a2001485887fa95bdbd0fa857fb6c1",
   "hash": "43770b57240863eec49eed38d5453903e3de9ebc91f18b8c8d915f5088563dc7"
  },
  {
   "n": "3067874",
   "nombre": "Héctor Gerardo Carrillo García",
-  "nivel": 2,
+  "nivel": 4,
   "plantas": [
    "parras"
   ],
-  "rol": "usuario",
+  "rol": "lector",
   "salt": "c247c06475db86091a5d93056f0dcb6c",
   "hash": "80205d1b75288671999186720ad9d6e758396d13bd75b71a12e1bbcada8a8941"
  },
  {
   "n": "175611",
   "nombre": "Erik Ovalle",
-  "nivel": 2,
+  "nivel": 4,
   "plantas": [
    "p4"
   ],
-  "rol": "usuario",
+  "rol": "lector",
   "salt": "7dc96192c2672730fbc419d856d9c3c6",
   "hash": "53aa355cc0d83f0fa905949bba3ae37ac6a807180ab9ac77d7e3dd464cdcff41"
  }
