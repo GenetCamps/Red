@@ -71,7 +71,7 @@ export function create(api) {
   function ground(e) { const c = cv(), cam = rd().camera; if (!c || !cam) return null; const r = c.getBoundingClientRect();
     RC.setFromCamera(new THREE.Vector2((e.clientX - r.left) / r.width * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1), cam); return RC.ray.intersectPlane(PL, V3) ? [V3.x, V3.z] : null; }
   const onDown = e => { pd = [e.clientX, e.clientY]; };
-  const onUp = e => { if (!LK || !pd) return; const d = Math.hypot(e.clientX - pd[0], e.clientY - pd[1]); pd = null; if (d > 6 || e.button > 0) return; const p = ground(e); if (p) place(p); };
+  const onUp = e => { if (!LK || !pd) return; const d = Math.hypot(e.clientX - pd[0], e.clientY - pd[1]); pd = null; if (d > 6 || e.button > 0) return; const p = ground(e); if (p) place(p, vida()?.rayOp?.(RC.ray, .55)); };
   const listen = on => { const c = cv(); if (!c) return; c[on ? 'addEventListener' : 'removeEventListener']('pointerdown', onDown, true); c[on ? 'addEventListener' : 'removeEventListener']('pointerup', onUp, true); };
   function linkMarks() { const g = newG(); anim().concat(LK ? LK.q.filter(x => !x.o.anim) : []).forEach(x => { if (!x.o.link) return; const cur = LK && LK.q[LK.i] === x; g.add(ring(x.o.link.x, x.o.link.z, cur ? '#FFB020' : '#199e70'));
       const sp = label(); paint(sp, short(x.o), x.o.oper || (x.o.link.oid != null ? 'figura del gemelo' : 'punto libre'), '#199e70'); sp.position.set(x.o.link.x, 2.7, x.o.link.z); g.add(sp); }); }
@@ -79,7 +79,7 @@ export function create(api) {
     chip.innerHTML = `<span>Haz clic en la estación de <b>${esc(who(x.o))}</b> (${LK.i + 1} de ${LK.q.length})</span><button data-k="skip">Saltar</button><button data-k="end">Terminar</button>`;
     chip.addEventListener('click', e => { const k = e.target.closest('button')?.dataset.k; if (k === 'skip') next(); else if (k === 'end') endLink(); }); document.body.appendChild(chip); }
   function next() { LK.i++; if (LK.i >= LK.q.length) endLink(); else { chipLink(); linkMarks(); } }
-  function place(p) { const x = LK.q[LK.i], n = vida()?.nearestOp?.(p[0], p[1], 1.5);
+  function place(p, hit) { const x = LK.q[LK.i], n = hit || vida()?.nearestOp?.(p[0], p[1], 1.5);
     x.o.link = n ? { x: +n.x.toFixed(2), z: +n.z.toFixed(2), oid: n.id } : { x: +p[0].toFixed(2), z: +p[1].toFixed(2) }; api.save(); next(); }
   function link(ids) { stop(); const q = (ids || []).map(byId).filter(Boolean); if (!q.length) return; LK = { q, i: 0 }; api.hideReport(); listen(true); chipLink(); linkMarks(); }
   function endLink() { if (!LK) return; LK = null; listen(false); chip?.remove(); chip = null; clearG(); api.showReport(); }

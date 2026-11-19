@@ -47,7 +47,7 @@ export function init(TW){
   function opBase(o){                                                         // posición, giro, color y altura del operador estático
     const sl=o.slots[0]; if(!sl||!sl.b.ms[sl.i]) return null; const e=sl.b.ms[sl.i].elements;
     let top=0, col=null;
-    for(const s of o.slots){ if(s.keep) continue; const geo=s.b.geo; if(!geo.boundingBox) geo.computeBoundingBox(); const me=s.b.ms[s.i].elements; top=Math.max(top, me[13]+geo.boundingBox.max.y*Math.hypot(me[4],me[5],me[6])); if(col==null && s.b.cs[s.i]!==undefined) col=s.b.cs[s.i]; }
+    for(const s of o.slots){ if(s.keep) continue; const geo=s.b.geo||s.b.b?.geo, ms=s.b.ms?.[s.i]; if(!geo||!ms) continue; if(!geo.boundingBox) geo.computeBoundingBox(); const me=ms.elements; top=Math.max(top, me[13]+geo.boundingBox.max.y*Math.hypot(me[4],me[5],me[6])); const cs=s.b.cs||s.b.b?.cs, ci=s.b.si?s.b.si[s.i]:s.i; if(col==null && cs && cs[ci]!==undefined) col=cs[ci]; }
     if(top<.9||top>2.1) return null;                                          // no es una figura humana
     const yaw0=Math.atan2(-e[2],e[0]), dx=o.off[0], dz=o.off[1], da=o.off[2]||0;
     return { x:e[12]+dx, z:e[14]+dz, y:e[13], yaw:yaw0-da, top, col:col||'#3fa0ff', seated: top<1.5 };
@@ -104,7 +104,11 @@ export function init(TW){
     if(IR) IR.forEach(im=>{ im.count=i; im.visible=vis&&i>0; im.instanceMatrix.needsUpdate=true; if(im.instanceColor) im.instanceColor.needsUpdate=true; }); }
 
   function nearestOp(x,z,r){ let best=null, bd=r*r; for(const o of OBJS.values()){ if(o.kind!=='op'||!o.slots.length||o.del) continue; const dx=o.p[0]+o.off[0]-x, dz=o.p[1]+o.off[1]-z; if(dx*dx+dz*dz>bd+9) continue;
-      const b=opBase(o); if(!b) continue; const d=(b.x-x)**2+(b.z-z)**2; if(d<bd){ bd=d; best={id:o.id,x:b.x,z:b.z}; } } return best; }
+      let b=null; try{ b=opBase(o); }catch(_){} if(!b) continue; const d=(b.x-x)**2+(b.z-z)**2; if(d<bd){ bd=d; best={id:o.id,x:b.x,z:b.z}; } } return best; }
+  // operador bajo el cursor: distancia del rayo al cuerpo (no al piso), así un clic en la persona o en su mesa no cae en el vecino de atrás
+  const _rc=new TW.THREE.Vector3();
+  function rayOp(ray,maxD){ let best=null, bs=1e9; for(const o of OBJS.values()){ if(o.kind!=='op'||!o.slots.length||o.del) continue; _rc.set(o.p[0]+o.off[0],1,o.p[1]+o.off[1]); if(ray.distanceToPoint(_rc)>maxD+2.5) continue; let b=null; try{ b=opBase(o); }catch(_){} if(!b) continue;
+      _rc.set(b.x,b.seated?.75:1.0,b.z); const d=ray.distanceToPoint(_rc); if(d>maxD) continue; const t=ray.origin.distanceTo(_rc), sc=d+t*.004; if(sc<bs){ bs=sc; best={id:o.id,x:b.x,z:b.z,d}; } } return best; }
   function undrive(key){ const R=DRV.get(key); if(!R) return; DRV.delete(key); R.drv=null; irParts(R).forEach(m=>{ m.visible=true; }); if(!DRV.size) irDraw(); if(R.o) releaseRig(R); else R.g.visible=false; }
   function drive(key,spec){ undrive(key); let R=null, o=spec.oid!=null?OBJS.get(spec.oid):null, base=null;
     if(o&&o.kind==='op'&&!o.del&&o.slots.length){ const B=BUSY.get(o.id); if(B){ if(B.drv) o=null; else releaseRig(B); } if(o) base=opBase(o); }
@@ -221,5 +225,5 @@ export function init(TW){
       const lab=q.querySelector('.seglabel'); d.innerHTML=(lab?'<span class="'+lab.className+'">Animación</span>':'')+'<button data-v="off" title="Sin animación de operadores ni máquinas">No</button><button data-v="zona" title="Anima lo que está cerca de donde miras">Zona</button><button data-v="alta" title="Más operadores y máquinas animados; pide más equipo">Alta</button>';
       q.insertAdjacentElement('afterend',d); d.addEventListener('click',e=>{ const b=e.target.closest('button'); if(b) setMode(b.dataset.v); }); noteEl=d; d.hidden=true; d.style.display='none'; setMode(mode); } }
   const lookAt=(x,z,r)=>{ const o=TW.orbit; if(!o) return; o.T.target.set(x,0,z); if(r) o.T.r=r; acc=1; };   // para pruebas y para recorridos
-  return { frame, setMode, lookAt, drive, undrive, undriveAll(){ [...DRV.keys()].forEach(undrive); }, nearestOp, ext(f){ EXT=f||null; }, driven:()=>DRV.size, where:()=>({ops:[...BUSY.values()].slice(0,5).map(R=>[+R.base.x.toFixed(1),+R.base.z.toFixed(1),R.base.seated]),mach:[...MACH.values()].slice(0,3).map(X=>[+X.g.position.x.toFixed(1),+X.g.position.z.toFixed(1),X.kind])}), get mode(){ return mode; }, stats:()=>({ mode, ops:BUSY.size, mach:MACH.size, pool:POOL.length, total:OPS.length, kinds:[...MACH.values()].map(x=>x.kind) }) };
+  return { frame, setMode, lookAt, drive, undrive, undriveAll(){ [...DRV.keys()].forEach(undrive); }, nearestOp, rayOp, ext(f){ EXT=f||null; }, driven:()=>DRV.size, where:()=>({ops:[...BUSY.values()].slice(0,5).map(R=>[+R.base.x.toFixed(1),+R.base.z.toFixed(1),R.base.seated]),mach:[...MACH.values()].slice(0,3).map(X=>[+X.g.position.x.toFixed(1),+X.g.position.z.toFixed(1),X.kind])}), get mode(){ return mode; }, stats:()=>({ mode, ops:BUSY.size, mach:MACH.size, pool:POOL.length, total:OPS.length, kinds:[...MACH.values()].map(x=>x.kind) }) };
 }
