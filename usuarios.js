@@ -1,6 +1,6 @@
-/* Red DAIMAY · usuarios con acceso. Guardado desde el panel «Usuarios» el 2026-11-19 21:53.
+/* Red DAIMAY · usuarios con acceso. Guardado desde el panel «Usuarios» el 2026-11-19 22:30.
    Contraseñas y llave del equipo van cifradas; no edites este archivo a mano. */
-window.RD_USERS_AT = 1795125209696;
+window.RD_USERS_AT = 1795127427681;
 window.RD_USERS = [
  {
   "n": "3064938",
@@ -44,6 +44,17 @@ window.RD_USERS = [
   "rol": "usuario",
   "salt": "c247c06475db86091a5d93056f0dcb6c",
   "hash": "80205d1b75288671999186720ad9d6e758396d13bd75b71a12e1bbcada8a8941"
+ },
+ {
+  "n": "175611",
+  "nombre": "Erik Ovalle",
+  "nivel": 2,
+  "plantas": [
+   "p4"
+  ],
+  "rol": "usuario",
+  "salt": "7dc96192c2672730fbc419d856d9c3c6",
+  "hash": "53aa355cc0d83f0fa905949bba3ae37ac6a807180ab9ac77d7e3dd464cdcff41"
  }
 ];
 window.RD_TEAM = null;
