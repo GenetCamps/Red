@@ -1391,6 +1391,7 @@ function mcVsm(body){
   $('#vxOpenC')?.addEventListener('click',()=>{ mcClose(); vxConsoleOpen(); }); $('#vxOpenP')?.addEventListener('click',()=>{ mcClose(); vxConsoleOpen('parras'); }); $('#vxOpenO')?.addEventListener('click',()=>{ mcClose(); vxConsoleOpen('oee'); }); $('#vxOpenA')?.addEventListener('click',()=>{ mcClose(); vxConsoleOpen('acc'); }); $('#vxOpen3')?.addEventListener('click',()=>vxEnter());
   $('#vsNew').addEventListener('click',()=>{ MC.vsmEdit={name:'Nuevo value stream',client:'',supplier:'',dem:400,avail:2*8*3600*.85,fgInv:1,steps:[{plant:MC.plant||'p1',n:'Proceso 1',ct:60,co:30,up:90,ops:1,fpy:98,inv:1,tr:0}]}; mcRender(); });
   $('#vsEd')?.addEventListener('click',()=>{ MC.vsmEdit=JSON.parse(JSON.stringify(v)); mcRender(); });
+  body.querySelectorAll('[data-vx]').forEach(b=>b.addEventListener('click',()=>{ const sv=body.querySelector('svg.vs'); if(!sv||!v) return; const C=vsmCalc(v); RD_VSMX[b.dataset.vx](sv,{title:v.name,sub:(v.client?'Cliente: '+v.client+' · ':'')+'takt '+fmt(C.takt,1)+' s · lead time '+fmt(C.inv,1)+' d · RTY '+fmt(C.rty,1)+'%'+(v.demo?' · EJEMPLO / datos pendientes':''),name:'VSM '+v.name}); }));
   body.querySelectorAll('[data-vgo]').forEach(b=>b.addEventListener('click',()=>{ const id=b.dataset.vgo; if(PL[id]&&!PL[id].ghost){ mcClose(); enterPlant(id); } }));
 }
 function vsmView(v){
@@ -1429,7 +1430,7 @@ function vsmView(v){
   const plantsIn=[...new Set(st.map(s=>s.plant))];
   return `${v.note?`<p class="mc-note">${esc(v.note)}</p>`:''}
     <div class="mc-kpis sm">${[['Takt',fmt(C.takt,1)+' s'],['Lead time',fmt(C.inv,1)+' días'],['Valor agregado',fmt(C.va,0)+' s'],['PCE',C.pce!=null?fmt(C.pce,3)+'%':'—'],['RTY',fmt(C.rty,1)+'%'],['Capacidad cuello',C.cap?fmt(C.cap,0)+' pz/día':'—',C.cap&&C.cap<(+v.dem||0)?'bad':''],['Plantas',plantsIn.map(plShort).join(' → ')]].map(([k,val,c])=>`<div class="mc-kpi ${c||''}"><small>${k}</small><b>${val}</b></div>`).join('')}</div>
-    <section class="mc-card"><div class="vs-scroll"><svg class="vs" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">${svg}</svg></div><p class="mc-note">Toca un proceso para abrir el gemelo de su planta. Color del encabezado = planta. Cuello = mayor C/T efectivo (C/T ÷ uptime).</p></section>
+    <section class="mc-card"><div class="mc-bar" style="margin:0 0 8px"><span class="mc-sp"></span><button class="mc-b" data-vx="png" title="Descarga el VSM completo como imagen">⬇ Imagen</button><button class="mc-b" data-vx="pdf" title="Descarga el VSM completo como PDF">⬇ PDF</button></div><div class="vs-scroll"><svg class="vs" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">${svg}</svg></div><p class="mc-note">Toca un proceso para abrir el gemelo de su planta. Color del encabezado = planta. Cuello = mayor C/T efectivo (C/T ÷ uptime).</p></section>
     <section class="mc-card"><h3>Balance contra takt</h3><div class="vb"><div class="vb-takt" style="bottom:${((C.takt||0)/maxE*100).toFixed(1)}%"><span>Takt ${fmt(C.takt,1)} s</span></div>${bal}</div></section>`;
 }
 function mcVsmEditor(body){
@@ -1965,6 +1966,127 @@ function rhHide() { const el = document.getElementById('rdHome'); RH.on = false;
   setInterval(() => { if (RH.on && !document.hidden) rhLoad().then(d => { if (d && RH.on) rhRender(); }); }, 30000);
   addEventListener('resize', () => { if (RH.on) rhRender(); });
 }
+
+/* Descarga de VSM completo en imagen (PNG) y PDF.
+   window.RD_VSMX.png(svg, opt) / .pdf(svg, opt)
+   - Usa el viewBox completo del SVG (no lo que se ve en pantalla), así el mapa sale entero aunque haya scroll.
+   - Copia los estilos calculados dentro del SVG para que la imagen se vea igual que en pantalla.
+   - opt: {title, sub, name, bg, scale}
+   - PDF: una página del tamaño exacto del mapa (sin recortes), con la imagen JPEG incrustada. */
+(function () {
+  if (window.RD_VSMX) return;
+  var PROPS = ['fill', 'fill-opacity', 'stroke', 'stroke-width', 'stroke-dasharray', 'stroke-linecap', 'stroke-linejoin', 'stroke-opacity', 'opacity',
+    'font-family', 'font-size', 'font-weight', 'font-style', 'text-anchor', 'dominant-baseline', 'letter-spacing', 'marker-end', 'marker-start', 'display', 'visibility', 'paint-order'];
+
+  function bgOf(el) {
+    for (var e = el; e && e.nodeType === 1; e = e.parentElement) {
+      var c = getComputedStyle(e).backgroundColor;
+      if (c && c !== 'transparent' && !/rgba\(\s*0,\s*0,\s*0,\s*0\s*\)/.test(c)) return c;
+    }
+    return '#ffffff';
+  }
+  function isDark(c) {
+    var m = /rgba?\(\s*(\d+),\s*(\d+),\s*(\d+)/.exec(c); if (!m) return false;
+    return (0.299 * m[1] + 0.587 * m[2] + 0.114 * m[3]) < 110;
+  }
+  function clean(s) { return String(s == null ? '' : s).replace(/[\\\/:*?"<>|]+/g, '-').replace(/\s+/g, ' ').trim().slice(0, 80) || 'VSM'; }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]; }); }
+
+  function vbOf(svg) {
+    var vb = svg.viewBox && svg.viewBox.baseVal;
+    if (vb && vb.width > 0) return { x: vb.x, y: vb.y, w: vb.width, h: vb.height };
+    var b = svg.getBBox(); return { x: b.x - 10, y: b.y - 10, w: b.width + 20, h: b.height + 20 };
+  }
+
+  // Devuelve {canvas, w, h} con el mapa completo.
+  function render(svg, opt) {
+    opt = opt || {};
+    var vb = vbOf(svg), bg = opt.bg || bgOf(svg), dark = isDark(bg);
+    var clone = svg.cloneNode(true);
+    var src = [svg].concat([].slice.call(svg.querySelectorAll('*'))), dst = [clone].concat([].slice.call(clone.querySelectorAll('*')));
+    for (var i = 0; i < src.length; i++) {
+      var cs = getComputedStyle(src[i]), st = '';
+      for (var j = 0; j < PROPS.length; j++) { var v = cs.getPropertyValue(PROPS[j]); if (v) st += PROPS[j] + ':' + v + ';'; }
+      dst[i].setAttribute('style', st);
+      dst[i].removeAttribute('class');
+    }
+    // texto con transform CSS o elementos ocultos
+    [].slice.call(clone.querySelectorAll('[style*="display:none"]')).forEach(function (n) { n.remove(); });
+    var headH = (opt.title || opt.sub) ? 74 : 0, pad = 16;
+    var W = Math.ceil(vb.w) + pad * 2, H = Math.ceil(vb.h) + headH + pad * 2;
+    clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+    clone.setAttribute('viewBox', vb.x + ' ' + vb.y + ' ' + vb.w + ' ' + vb.h);
+    clone.setAttribute('width', vb.w); clone.setAttribute('height', vb.h);
+    clone.removeAttribute('style'); clone.removeAttribute('class');
+    var xml = new XMLSerializer().serializeToString(clone);
+    var url = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(xml);
+    var scale = opt.scale || Math.min(3, Math.max(1.5, 4200 / W));
+    return new Promise(function (res, rej) {
+      var img = new Image();
+      img.onload = function () {
+        var c = document.createElement('canvas'); c.width = Math.round(W * scale); c.height = Math.round(H * scale);
+        var g = c.getContext('2d'); g.scale(scale, scale);
+        g.fillStyle = bg; g.fillRect(0, 0, W, H);
+        var ink = dark ? '#e8edf3' : '#17202c', mute = dark ? '#9aa7b6' : '#667085';
+        if (headH) {
+          g.fillStyle = ink; g.font = 'bold 22px Arial, Helvetica, sans-serif'; g.textBaseline = 'alphabetic';
+          g.fillText(opt.title || '', pad, pad + 26);
+          g.fillStyle = mute; g.font = '13px Arial, Helvetica, sans-serif';
+          g.fillText(opt.sub || '', pad, pad + 48);
+          var d = new Date().toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' });
+          g.textAlign = 'right'; g.fillText('Red DAIMAY · ' + d, W - pad, pad + 26); g.textAlign = 'left';
+          g.strokeStyle = dark ? '#33414f' : '#c9d1da'; g.lineWidth = 1; g.beginPath(); g.moveTo(pad, headH + 4); g.lineTo(W - pad, headH + 4); g.stroke();
+        }
+        g.drawImage(img, pad, pad + headH, vb.w, vb.h);
+        res({ canvas: c, w: W, h: H });
+      };
+      img.onerror = function () { rej(new Error('No se pudo dibujar el SVG')); };
+      img.src = url;
+    });
+  }
+
+  function save(blob, name) {
+    var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
+    document.body.appendChild(a); a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+  }
+
+  // PDF mínimo: una página con la imagen JPEG a todo el ancho; tamaño de página = tamaño del mapa (pt).
+  function pdfFrom(canvas, wPt, hPt) {
+    var data = atob(canvas.toDataURL('image/jpeg', 0.92).split(',')[1]), n = data.length, jpg = new Uint8Array(n);
+    for (var i = 0; i < n; i++) jpg[i] = data.charCodeAt(i);
+    var enc = new TextEncoder(), parts = [], off = [], len = 0;
+    function put(x) { var b = typeof x === 'string' ? enc.encode(x) : x; parts.push(b); len += b.length; }
+    function obj(k, body) { off[k] = len; put(k + ' 0 obj\n'); put(body); put('\nendobj\n'); }
+    var w = wPt.toFixed(2), h = hPt.toFixed(2), content = 'q ' + w + ' 0 0 ' + h + ' 0 0 cm /Im0 Do Q';
+    put('%PDF-1.4\n');
+    obj(1, '<< /Type /Catalog /Pages 2 0 R >>');
+    obj(2, '<< /Type /Pages /Kids [3 0 R] /Count 1 >>');
+    obj(3, '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ' + w + ' ' + h + '] /Resources << /XObject << /Im0 5 0 R >> >> /Contents 4 0 R >>');
+    obj(4, '<< /Length ' + content.length + ' >>\nstream\n' + content + '\nendstream');
+    off[5] = len; put('5 0 obj\n<< /Type /XObject /Subtype /Image /Width ' + canvas.width + ' /Height ' + canvas.height + ' /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ' + n + ' >>\nstream\n');
+    put(jpg); put('\nendstream\nendobj\n');
+    var xref = len; put('xref\n0 6\n0000000000 65535 f \n');
+    for (var k = 1; k <= 5; k++) put(('0000000000' + off[k]).slice(-10) + ' 00000 n \n');
+    put('trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n' + xref + '\n%%EOF');
+    return new Blob(parts, { type: 'application/pdf' });
+  }
+
+  function toast(m) { try { if (typeof window.toast === 'function') return window.toast(m); } catch (_) { } }
+
+  window.RD_VSMX = {
+    png: function (svg, opt) {
+      opt = opt || {}; toast('Preparando imagen…');
+      return render(svg, opt).then(function (r) { r.canvas.toBlob(function (b) { save(b, clean(opt.name || opt.title) + '.png'); }, 'image/png'); })
+        .catch(function (e) { alert('No se pudo generar la imagen: ' + e.message); });
+    },
+    pdf: function (svg, opt) {
+      opt = opt || {}; toast('Preparando PDF…');
+      return render(svg, opt).then(function (r) { save(pdfFrom(r.canvas, r.w * 0.75, r.h * 0.75), clean(opt.name || opt.title) + '.pdf'); })
+        .catch(function (e) { alert('No se pudo generar el PDF: ' + e.message); });
+    }
+  };
+})();
 
 function vxConsoleClose(){ rdHelpClose(); const w=$('#vxc'); if(!w) return; const ifr=w.querySelector('iframe'); if(ifr){ const cw=ifr.contentWindow; EMB.delete(cw); for(const [k,s] of [...EMB_SUBS]) if(s.w===cw){ s.un(); EMB_SUBS.delete(k); } ifr.remove(); } w.hidden=true; }
 
