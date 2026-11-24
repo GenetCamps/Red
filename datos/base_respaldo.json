@@ -1,7 +1,7 @@
 {
  "app": "red-daimay",
  "v": 1,
- "ts": "2026-11-24.1101",
+ "ts": "2026-11-24.1113",
  "docs": {
   "config/seed_mc_v1": {
    "at": "2026-10-14"
@@ -5569,94 +5569,6 @@
     }
    ],
    "supplier": "Resina / tela"
-  },
-  "vsm/vs_p67_parras_pre": {
-   "name": "PRE-VSM · Parras → P7 → P6 (esqueleto)",
-   "client": "Cliente (por confirmar)",
-   "supplier": "Tela y espuma",
-   "dem": 6000,
-   "avail": 55080,
-   "fgInv": 0,
-   "demo": true,
-   "note": "ESQUELETO, no es dato medido. Cadena: Parras (costura) → almacén y espumado P7 → puente de canastillas → Línea 11 → Línea 18 (hornos y EPC) → almacén central y embarque P6. Datos reales hasta hoy: QR faltante 17.2 % en material de Parras, 32.9 % NOK en la contención de P7 (feb–sep 2026, FPY ≈ 67.1 %). Todo lo demás está en 0 / 100 % como marcador: C/T, C/O, uptime, operadores, inventarios y traslados se llenan con gemba. La demanda (6,000 pz/día) es la del ejemplo de fundas, solo para que el takt no salga vacío. Pendientes: tableros por hora de P6 y P7, demanda por cliente, C/T de 10–15 ciclos por estación, conteo de racks y canastillas, routing NP → línea, frecuencia real del puente, paro por faltante de material, piezas y días en cuarentena.",
-   "pending": [
-    "Tableros por hora de P6 y P7 (3 días)",
-    "Demanda o programa por cliente",
-    "C/T de 10–15 ciclos por estación",
-    "Conteo de inventario en racks (730–751, A/B/C) y canastillas",
-    "Routing NP → línea en Parras, P6 y P7",
-    "Frecuencia real del puente y de las canastillas",
-    "Cuantificar paro por faltante de material",
-    "Piezas y días en cuarentena"
-   ],
-   "steps": [
-    {
-     "plant": "parras",
-     "n": "Costura (Parras)",
-     "ct": 0,
-     "co": 0,
-     "up": 100,
-     "ops": 0,
-     "fpy": 100,
-     "inv": 0,
-     "tr": 0
-    },
-    {
-     "plant": "p67",
-     "n": "Contención / recibo P7",
-     "ct": 0,
-     "co": 0,
-     "up": 100,
-     "ops": 0,
-     "fpy": 67.1,
-     "inv": 0,
-     "tr": 0
-    },
-    {
-     "plant": "p67",
-     "n": "Espumado P7",
-     "ct": 0,
-     "co": 0,
-     "up": 100,
-     "ops": 0,
-     "fpy": 100,
-     "inv": 0,
-     "tr": 0
-    },
-    {
-     "plant": "p67",
-     "n": "Línea 11",
-     "ct": 0,
-     "co": 0,
-     "up": 100,
-     "ops": 0,
-     "fpy": 100,
-     "inv": 0,
-     "tr": 0
-    },
-    {
-     "plant": "p67",
-     "n": "Línea 18 (hornos y EPC)",
-     "ct": 0,
-     "co": 0,
-     "up": 100,
-     "ops": 0,
-     "fpy": 100,
-     "inv": 0,
-     "tr": 0
-    },
-    {
-     "plant": "p67",
-     "n": "Embarque P6",
-     "ct": 0,
-     "co": 0,
-     "up": 100,
-     "ops": 0,
-     "fpy": 100,
-     "inv": 0,
-     "tr": 0
-    }
-   ]
   },
   "vx/r2/cfg/params": {
    "dem": 2400,

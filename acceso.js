@@ -21,7 +21,7 @@
       // qué registros de la base puede guardar para todos
       key:function(k){ if(nv>3) return false; if(nv===1) return true; if(/^config\//.test(k)) return false; if(all) return true;
         var m=/^pl\/([^/]+)\//.exec(k); if(m) return has(m[1]); m=/^rep\/r1\/ana\/([^/]+)/.exec(k); if(m) return has(m[1]);
-        if(/^vx\//.test(k)) return has('p4'); if(/^vp\//.test(k)) return has('parras'); return false; } };
+        if(/^vx\//.test(k)) return has('p4'); if(/^vp\//.test(k)) return has('parras'); if(/^vq\//.test(k)) return has('p67'); return false; } };
   }
   // ---------- se aplica en la red, en cada gemelo y en las consolas (aunque estén dentro del hub)
   var _s=null; try{ _s=JSON.parse(sessionStorage.getItem(SKEY)||'null'); }catch(_){}
